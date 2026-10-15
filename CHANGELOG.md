@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Compatibility-preserving refresh
+- Isolate platform pytest collection with a real temporary configuration and resolved root directory, avoiding Windows null-device and short-path discovery failures without changing test assertions or expected counts.
 - Preserve LF checkout bytes for the 13 checksum-bound original implementation, Python wrapper, tests and benchmark files, including when Git uses `core.autocrlf=true`; keep the raw-byte checks and numerical code unchanged.
 - Preserve modern centroid information when the K2Norm normalizer is nonpositive; add weighted, merge, wire and Python/Polars regressions without changing the original compatibility engine.
 - Reuse the actual GNU x86_64 platform wheel in the seven-cell installed-artifact gate; create and check its source archive separately without recompiling the extension. Keep other platform artifact-installation limits explicit.

@@ -25,7 +25,9 @@ def main() -> None:
     env.pop("PYTEST_ADDOPTS", None)
     env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
     with tempfile.TemporaryDirectory(prefix="tdigest-platform-tests-") as directory:
-        work = Path(directory)
+        work = Path(directory).resolve()
+        config = work / "pytest.ini"
+        config.write_text("[pytest]\n", encoding="utf-8")
         tests, parity = stage_compatibility_tests(root, work)
         modern = work / "modern"
         modern.mkdir()
@@ -54,7 +56,9 @@ def main() -> None:
                     "pytest",
                     "-q",
                     "-c",
-                    os.devnull,
+                    str(config),
+                    "--rootdir",
+                    str(work),
                     "-p",
                     "no:cacheprovider",
                     "-o",
