@@ -1,0 +1,6 @@
+Using Python 3.12.12 environment at: /var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-numerical-audits-daad315/venv
+Resolved 2 packages in 8ms
+Prepared 1 package in 50ms
+Installed 2 packages in 41ms
+ + numpy==2.3.4
+ + tdigest-rs==2.0.0 (from file:///var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-release-wheel-daad315/tdigest_rs-2.0.0-cp310-abi3-linux_x86_64.whl)

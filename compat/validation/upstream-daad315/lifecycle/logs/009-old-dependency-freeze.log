@@ -1,0 +1,8 @@
+iniconfig==2.3.1
+numpy==1.26.4
+packaging==26.3
+pip==25.0.1
+pluggy==1.6.0
+Pygments==2.21.0
+pytest==8.4.2
+tdigest-rs @ file:///var/tmp/codex-tdigest-pr3-20261014/overnight/compatibility/published-pickle/tdigest_rs-0.1.0-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=62ee8d5a01226d020a2ab11a956292c38beab3f34d2d9fa7a8fca22c3e5d4bbf

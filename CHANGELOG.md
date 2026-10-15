@@ -12,7 +12,7 @@
 - Declare CPython 3.10–3.12 / NumPy 1.26.4–2.x support bounds and an optional exact Polars 1.34.0 extra; add real-wheel and source-archive gates, genuine published 0.1.0 pickle fixtures, and version-identity regressions.
 - Preserve current upstream action SHA pins, required-check graph, release environment, Python/platform matrix and GNU-only allocator rules. Scope Linux packaging tools to Linux, retain platform path handling, and replace obsolete Hatch/release-manifest commands for the new layout.
 - Remove the test-only compatibility shadow module and private multi-registry publishing commands. Document same-distribution upgrade, shared-namespace co-installation, original Rust path and platform validation limits.
-- This adapted candidate requires fresh validation; historical private results do not certify the changed distribution or unrun platform artifacts.
+- Record fresh canonical Linux validation, direct/source-rebuilt 2,036-instance runtime gates, actual same-distribution upgrade/removal/reinstall and numerical audits for upstream daad315; retain historical-private and unrun-platform limits.
 
 ## Historical replacement-project development notes
 

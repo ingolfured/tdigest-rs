@@ -1,0 +1,137 @@
+{
+  "status": "PREPARED_ONLY",
+  "original_snapshot": {
+    "source_commit": "8d9cf1fe82c5c9254e5dc9593f01717e317f4333",
+    "snapshot_sha256": {
+      "bindings/python/tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bindings/python/tests/conftest.py": "61a4ea1a12b6ec3f835a2e5086fc7aa70c5dc02cb100befe5db7fb9abd47a074",
+      "bindings/python/tests/constants.py": "3ca8e570306c33a08076193f59e6255e2e9cc51dd5914b324ea1277dcee86365",
+      "bindings/python/tests/test_distributions.py": "1ec4ef38fbf1a650aa36ed5ca459aa1cb2c63339e5f47bd9a685dbb9d0e3b3e3",
+      "bindings/python/tests/test_tdigest.py": "aa2b939ce5c5f90f10acb4080475cf939d7d3b0dc0dea004dbf345fda930af9a",
+      "bindings/python/tests/utils.py": "94d05a31fe66c9712770f88ecb09adfb484ba179c3c01f69de90bc55f8538d64",
+      "bindings/python/benchmarks/run.py": "2161ce8d9c5be6b0cfd9ef7f08a389838681ce2989aa8c87c9018ec12f506662"
+    },
+    "test_support_files": [
+      "compat/tdigest-rs-upstream/bindings/python/tests/__init__.py",
+      "compat/tdigest-rs-upstream/bindings/python/tests/conftest.py",
+      "compat/tdigest-rs-upstream/bindings/python/tests/constants.py",
+      "compat/tdigest-rs-upstream/bindings/python/tests/test_distributions.py",
+      "compat/tdigest-rs-upstream/bindings/python/tests/test_tdigest.py",
+      "compat/tdigest-rs-upstream/bindings/python/tests/utils.py"
+    ],
+    "benchmark_role": "separately checksum-verified original snapshot file; not part of pytest collection"
+  },
+  "runner_sha256": "5da4311e91f8f824f7954c27d49e1f09603834863628427047170fea2237f045",
+  "scope": "Actual upstream same-distribution wheel lifecycle; no source rename, native build or artifact repack",
+  "source_commit": "daad31585d8d88cbffeeeba206ccfeebd733e9a1",
+  "source_tree": "208499198489d63775c073cbd9cadc8d46cd0bfd",
+  "source_root": "/var/tmp/codex-tdigest-pr3-20261014/work/tdigest-rs-upstream38",
+  "source_cargo_version": "2.0.0",
+  "interpreter": "/home/ingo/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/bin/python3.12",
+  "new_wheel": {
+    "path": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-release-wheel-daad315/tdigest_rs-2.0.0-cp310-abi3-linux_x86_64.whl",
+    "sha256": "e12e812f8964809b98fc90a1e272c7e73949ea05fa14a52a4189c4a019701256",
+    "name": "tdigest-rs",
+    "version": "2.0.0",
+    "requires_python": ">=3.10, <3.13",
+    "requires_dist": [
+      "numpy>=1.26.4,<3",
+      "polars==1.34.0 ; extra == 'polars'"
+    ],
+    "tags": [
+      "cp310-abi3-linux_x86_64"
+    ],
+    "native_path": "gr_tdigest/_gr_tdigest.abi3.so",
+    "native_sha256": "c5b776c813ba5352b4f7386c4709dc129b98977edb8a4bd87c0dfe3a1220b498",
+    "members": [
+      "tdigest_rs-2.0.0.dist-info/METADATA",
+      "tdigest_rs-2.0.0.dist-info/WHEEL",
+      "gr_tdigest/__init__.py",
+      "tdigest_rs/tdigest_rs.py",
+      "tdigest_rs/lib.py",
+      "tdigest_rs/__init__.py",
+      "gr_tdigest/_gr_tdigest.abi3.so",
+      "tdigest_rs-2.0.0.dist-info/RECORD"
+    ]
+  },
+  "old_wheel": {
+    "path": "/var/tmp/codex-tdigest-pr3-20261014/overnight/compatibility/published-pickle/tdigest_rs-0.1.0-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+    "sha256": "62ee8d5a01226d020a2ab11a956292c38beab3f34d2d9fa7a8fca22c3e5d4bbf",
+    "name": "tdigest-rs",
+    "version": "0.1.0",
+    "requires_python": ">=3.10",
+    "requires_dist": [
+      "hypothesis ; extra == 'dev'",
+      "joblib ; extra == 'dev'",
+      "maturin ; extra == 'dev'",
+      "pytest ; extra == 'dev'",
+      "pytest-runner ; extra == 'dev'",
+      "pytest-xdist ; extra == 'dev'",
+      "scipy ; extra == 'dev'",
+      "ruff ; extra == 'dev'"
+    ],
+    "tags": [
+      "cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64"
+    ],
+    "native_path": "tdigest_rs/tdigest_rs.abi3.so",
+    "native_sha256": "e54bc0b860bbab8baff415e85796cbcdced013941bb763ed59958ccee6828866",
+    "members": [
+      "tdigest_rs-0.1.0.dist-info/METADATA",
+      "tdigest_rs-0.1.0.dist-info/WHEEL",
+      "tdigest_rs-0.1.0.dist-info/license_files/LICENSE",
+      "tdigest_rs/__init__.py",
+      "tdigest_rs/lib.py",
+      "tdigest_rs/tdigest_rs.abi3.so",
+      "tdigest_rs-0.1.0.dist-info/RECORD"
+    ]
+  },
+  "supplied_build_provenance_sha256": "e1cb154bbed711a30f0931163631490f3f962c513b383f3283d70961e3c725d4",
+  "association_limit": "Caller supplies the build commit and artifact hash; Python payloads are checked against that commit. Native/source association additionally relies on the recorded build provenance.",
+  "staged_source_sha256": {
+    "compat/tdigest-rs-upstream/bindings/python/tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "compat/tdigest-rs-upstream/bindings/python/tests/conftest.py": "61a4ea1a12b6ec3f835a2e5086fc7aa70c5dc02cb100befe5db7fb9abd47a074",
+    "compat/tdigest-rs-upstream/bindings/python/tests/constants.py": "3ca8e570306c33a08076193f59e6255e2e9cc51dd5914b324ea1277dcee86365",
+    "compat/tdigest-rs-upstream/bindings/python/tests/test_distributions.py": "1ec4ef38fbf1a650aa36ed5ca459aa1cb2c63339e5f47bd9a685dbb9d0e3b3e3",
+    "compat/tdigest-rs-upstream/bindings/python/tests/test_tdigest.py": "aa2b939ce5c5f90f10acb4080475cf939d7d3b0dc0dea004dbf345fda930af9a",
+    "compat/tdigest-rs-upstream/bindings/python/tests/utils.py": "94d05a31fe66c9712770f88ecb09adfb484ba179c3c01f69de90bc55f8538d64",
+    "bindings/python/tests/test_original_numerics.py": "ec1fa7b34c5ca67967dc4dfb8bb99d42b937638a98c0ed6e44fd964bb82ac73a",
+    "bindings/python/tests/test_legacy_compatibility.py": "1df35237771aa92ba0d3a1e9e3436334573911accf108c3bb56729c7fa96edd6",
+    "bindings/python/tests/test_optional_polars_import.py": "4e3a4ed8ebe904fcf76b01f5c08cc9b38cbb60854749a462c367b1fd6daa2f92",
+    "bindings/python/tests/test_published_pickle_migration.py": "98830c359812fd109782cf0187915fe0c212e5234f1f794b24a709eeaca26e42",
+    "bindings/python/tests/data/upstream_numerical_golden.json": "517ec82ec124e55920c7049a95f0eb0c9f3e96cf60b4ee7d4457bf31b7a98560",
+    "bindings/python/tests/data/published_0_1_0_pickle_golden.json": "974d99fd73af007fd229c323c60ace1edc661c4c95bc42eb1eca42269bed57d4"
+  },
+  "staged_file_sha256": {
+    "checks/probe_installed.py": "e932eaa9d8b88dc686223a93867843c39d3e4f2873225669efc9088dc250b2b5",
+    "checks/tests/test_tdigest.py": "aa2b939ce5c5f90f10acb4080475cf939d7d3b0dc0dea004dbf345fda930af9a",
+    "checks/tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "checks/tests/test_distributions.py": "1ec4ef38fbf1a650aa36ed5ca459aa1cb2c63339e5f47bd9a685dbb9d0e3b3e3",
+    "checks/tests/constants.py": "3ca8e570306c33a08076193f59e6255e2e9cc51dd5914b324ea1277dcee86365",
+    "checks/tests/conftest.py": "61a4ea1a12b6ec3f835a2e5086fc7aa70c5dc02cb100befe5db7fb9abd47a074",
+    "checks/tests/utils.py": "94d05a31fe66c9712770f88ecb09adfb484ba179c3c01f69de90bc55f8538d64",
+    "checks/parity/test_original_numerics.py": "ec1fa7b34c5ca67967dc4dfb8bb99d42b937638a98c0ed6e44fd964bb82ac73a",
+    "checks/parity/test_optional_polars_import.py": "4e3a4ed8ebe904fcf76b01f5c08cc9b38cbb60854749a462c367b1fd6daa2f92",
+    "checks/parity/test_published_pickle_migration.py": "98830c359812fd109782cf0187915fe0c212e5234f1f794b24a709eeaca26e42",
+    "checks/parity/test_legacy_compatibility.py": "1df35237771aa92ba0d3a1e9e3436334573911accf108c3bb56729c7fa96edd6",
+    "checks/parity/data/upstream_numerical_golden.json": "517ec82ec124e55920c7049a95f0eb0c9f3e96cf60b4ee7d4457bf31b7a98560",
+    "checks/parity/data/published_0_1_0_pickle_golden.json": "974d99fd73af007fd229c323c60ace1edc661c4c95bc42eb1eca42269bed57d4"
+  },
+  "dependency_transition": {
+    "old": [
+      "numpy==1.26.4",
+      "pytest==8.4.2"
+    ],
+    "new": [
+      "numpy==2.3.4",
+      "polars==1.34.0",
+      "scipy==1.17.1",
+      "pytest==8.4.2"
+    ]
+  },
+  "pip_policy": "Actual pip install/upgrade/uninstall/reinstall; --no-index uses staged dependencies with normal dependency checking, never --no-deps.",
+  "expected": {
+    "old_restored_states": 32,
+    "compatibility_after_upgrade": 208,
+    "compatibility_after_reinstall": 208
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "wheel": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/wheels/tdigest_rs-2.0.0-cp310-abi3-linux_x86_64.whl",
+  "wheel_sha256": "e12e812f8964809b98fc90a1e272c7e73949ea05fa14a52a4189c4a019701256",
+  "native_sha256": "c5b776c813ba5352b4f7386c4709dc129b98977edb8a4bd87c0dfe3a1220b498",
+  "distribution": "tdigest-rs",
+  "version": "2.0.0",
+  "requires_python": ">=3.10, <3.13",
+  "requires_dist": [
+    "numpy>=1.26.4,<3",
+    "polars==1.34.0 ; extra == 'polars'"
+  ],
+  "tags": [
+    "cp310-abi3-linux_x86_64"
+  ],
+  "sdist": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/sdist/tdigest_rs-2.0.0.tar.gz",
+  "sdist_sha256": "3efffead0a74c138043cdbf8acec26c31868f4c3fc0e9cf9b78e8f95468d1cf9"
+}

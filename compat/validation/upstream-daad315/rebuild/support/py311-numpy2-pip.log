@@ -1,0 +1,5 @@
+Looking in links: /tmp/tmpd4pu22ip
+Processing /tmp/tmpd4pu22ip/setuptools-79.0.1-py3-none-any.whl
+Processing /tmp/tmpd4pu22ip/pip-24.0-py3-none-any.whl
+Installing collected packages: setuptools, pip
+Successfully installed pip-24.0 setuptools-79.0.1

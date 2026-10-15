@@ -1,0 +1,5 @@
+Looking in links: /tmp/tmpdp5clke8
+Processing /tmp/tmpdp5clke8/setuptools-79.0.1-py3-none-any.whl
+Processing /tmp/tmpdp5clke8/pip-23.0.1-py3-none-any.whl
+Installing collected packages: setuptools, pip
+Successfully installed pip-23.0.1 setuptools-79.0.1

@@ -1,0 +1,37 @@
+[
+  {
+    "document": "compat/published-pickle/README.md",
+    "target": "PROVENANCE.json",
+    "resolved": "compat/published-pickle/PROVENANCE.json"
+  },
+  {
+    "document": "README.md",
+    "target": "docs/review-refresh.md",
+    "resolved": "docs/review-refresh.md"
+  },
+  {
+    "document": "README.md",
+    "target": "api_design.md",
+    "resolved": "api_design.md"
+  },
+  {
+    "document": "README.md",
+    "target": "tdigest_design.md",
+    "resolved": "tdigest_design.md"
+  },
+  {
+    "document": "README.md",
+    "target": "compat/tdigest-rs-upstream/PROVENANCE.md",
+    "resolved": "compat/tdigest-rs-upstream/PROVENANCE.md"
+  },
+  {
+    "document": "README.md",
+    "target": "PUBLISH.md",
+    "resolved": "PUBLISH.md"
+  },
+  {
+    "document": "docs/review-refresh.md",
+    "target": "../compat/validation/upstream-daad315/README.md",
+    "resolved": "compat/validation/upstream-daad315/README.md"
+  }
+]

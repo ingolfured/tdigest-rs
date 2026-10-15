@@ -1,0 +1,10 @@
+{
+  "phase": "uninstalled",
+  "python": "3.12.12 (main, Oct 14 2025, 21:25:31) [Clang 20.1.4 ]",
+  "prefix": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/venv",
+  "isolated": 1,
+  "packages_unavailable": true,
+  "distributions_absent": true,
+  "recorded_owned_files_removed": 15,
+  "status": "PASS"
+}

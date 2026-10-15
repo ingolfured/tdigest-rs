@@ -52,14 +52,14 @@ The transplant source is private commit
 `32a49203d6fdbc80e3ea4a381265e83762f87faa` changes only workflows relative to that
 pin. Its numerical/API files are identical. Historical private validation and
 benchmarks remain evidence for their named sources/artifacts, not this new
-distribution/version/platform adaptation. Fresh results belong here only after
-the adapted candidate is built and checked.
+distribution/version/platform adaptation. Actual adapted-source results at `daad315` are now recorded in
+[the artifact evidence](../compat/validation/upstream-daad315/README.md). Private results remain historical.
 
 The declared support range is CPython 3.10–3.12 and NumPy `>=1.26.4,<3`; the
 modern Polars extra is optional and pinned to tested version 1.34.0. The seven-cell
 gate expects 208 compatibility cases in each cell, plus 92 modern cases in each
-full cell or 28 NumPy-only cases without Polars. These are test selections, not
-results for an unbuilt candidate. The upstream matrix retains Linux GNU/musl,
+full cell or 28 NumPy-only cases without Polars. The actual direct and source-rebuilt Linux wheels each pass these
+2,036 installed case instances. The actual same-distribution lifecycle also passes. The upstream matrix retains Linux GNU/musl,
 macOS Intel/ARM and Windows configurations. Our local execution remains Linux.
 
 The upstream distribution name is `tdigest-rs`. Both namespaces are bundled in
@@ -68,3 +68,15 @@ the new shim. Private `gr-tdigest` must not be co-installed: it shares those fil
 paths, and uninstalling one owner can remove the other's files. Root version
 `2.0.0`, any crates.io publication, a unique modern namespace, Linux compatibility
 tags and the final release decision remain explicit rollout matters.
+
+Private historical evidence is retained in its own repository at a pinned commit:
+[validation history](https://github.com/ingolfured/gr-tdigest/blob/4bb78de91f7214cb811a35b3ed4bdcb7b2fe4685/compat/validation/README.md),
+[timing evidence](https://github.com/ingolfured/gr-tdigest/blob/4bb78de91f7214cb811a35b3ed4bdcb7b2fe4685/compat/performance/README.md), and
+[held-out accuracy](https://github.com/ingolfured/gr-tdigest/blob/4bb78de91f7214cb811a35b3ed4bdcb7b2fe4685/compat/accuracy/held-out-20261015/README.md).
+Those reports retain their original source labels; none is a fresh timing or
+accuracy measurement of upstream `daad315`.
+
+The actual upstream package retains `com.gresearch.tdigest` for Java, including
+the JNI symbols and native-library override property. Private namespace examples
+are not the upstream Java contract. See the source-labelled artifact record for
+Linux Java, Python, Rust and installed migration checks.

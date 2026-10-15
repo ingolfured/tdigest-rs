@@ -1,0 +1,22 @@
+{
+  "status": "VERIFIED_SCRATCH_BUNDLE_ONLY",
+  "source_commit": "daad31585d8d88cbffeeeba206ccfeebd733e9a1",
+  "source_tree": "208499198489d63775c073cbd9cadc8d46cd0bfd",
+  "documents": {
+    "docs/review-refresh.md": {
+      "before_sha256": "79e6a3243622c25630dd364e424052bdc996e102381bc9b450be861e564bfc69",
+      "after_sha256": "d8497dacaf5585f8a9d626d187be7f25bd7f9bf81f0932ab842f8956464178ae"
+    },
+    "CHANGELOG.md": {
+      "before_sha256": "e9fc01ea2e21007bafb6b8fc2be73d9b976d292d51a6c8e05240de880f96d7da",
+      "after_sha256": "23347e134a5e737c6b5f72db08445d888bcb9ad7be4eb7b892cb552fc72b674f"
+    },
+    ".gitattributes": {
+      "before_sha256": "698604c3e3997b550cf256edd3c08001c190a16070b0a079c937153491e2ed32",
+      "after_sha256": "f9bdb9a40d2132507ce0e7397b9ba9d3f6946ec59c491e582b28e5e44d3b2d1e"
+    }
+  },
+  "files": 219,
+  "helper_sha256": "0ec830a73589f9c59b5e4f1e3732c98b6504f68af03954c9adc589cb4572ae6d",
+  "repository_mutated": false
+}

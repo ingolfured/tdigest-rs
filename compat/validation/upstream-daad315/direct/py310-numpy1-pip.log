@@ -1,0 +1,5 @@
+Looking in links: /tmp/tmp2p06wfpu
+Processing /tmp/tmp2p06wfpu/setuptools-79.0.1-py3-none-any.whl
+Processing /tmp/tmp2p06wfpu/pip-23.0.1-py3-none-any.whl
+Installing collected packages: setuptools, pip
+Successfully installed pip-23.0.1 setuptools-79.0.1

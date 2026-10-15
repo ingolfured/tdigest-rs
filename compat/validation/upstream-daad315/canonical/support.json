@@ -1,0 +1,18 @@
+{
+  "source_commit": "daad31585d8d88cbffeeeba206ccfeebd733e9a1",
+  "phase": "support",
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "bindings/python",
+    "--no-sync",
+    "python",
+    "scripts/test_python_support.py",
+    "--output-dir",
+    "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 350.49543499946594,
+  "completed_utc": "2026-10-15T01:14:12Z"
+}

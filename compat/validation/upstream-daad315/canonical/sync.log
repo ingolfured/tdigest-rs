@@ -1,0 +1,34 @@
+Using CPython 3.12.12
+Creating virtual environment at: .venv
+Resolved 32 packages in 1ms
+   Building tdigest-rs @ file:///var/tmp/codex-tdigest-pr3-20261014/work/tdigest-rs-upstream38/bindings/python
+      Built tdigest-rs @ file:///var/tmp/codex-tdigest-pr3-20261014/work/tdigest-rs-upstream38/bindings/python
+Prepared 1 package in 5m 14s
+Installed 27 packages in 396ms
+ + cfgv==3.4.0
+ + distlib==0.4.0
+ + filelock==3.20.0
+ + identify==2.6.15
+ + iniconfig==2.3.0
+ + maturin==1.9.6
+ + mypy==1.18.2
+ + mypy-extensions==1.1.0
+ + nodeenv==1.9.1
+ + numpy==2.3.4
+ + packaging==25.0
+ + patchelf==0.17.2.4
+ + pathspec==0.12.1
+ + platformdirs==4.5.0
+ + pluggy==1.6.0
+ + polars==1.34.0
+ + polars-runtime-32==1.34.0
+ + pre-commit==4.3.0
+ + pygments==2.19.2
+ + pytest==8.4.2
+ + pyyaml==6.0.3
+ + ruff==0.14.2
+ + scipy==1.17.1
+ + tdigest-rs==2.0.0 (from file:///var/tmp/codex-tdigest-pr3-20261014/work/tdigest-rs-upstream38/bindings/python)
+ + typing-extensions==4.15.0
+ + virtualenv==20.35.4
+ + ziglang==0.12.1

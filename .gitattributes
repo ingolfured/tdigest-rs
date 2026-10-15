@@ -11,3 +11,6 @@ compat/package-ownership/recorded-52f6212/*.json linguist-generated=true
 compat/package-ownership/recorded-52f6212/temporary-project-name.patch linguist-generated=true whitespace=-blank-at-eol
 compat/package-ownership/recorded-52f6212/** linguist-generated=true
 compat/performance/interleaved/PROVENANCE.json linguist-generated=true
+
+compat/validation/upstream-daad315/** linguist-generated=true
+compat/validation/upstream-daad315/**/*.log whitespace=-blank-at-eof,-blank-at-eol,-space-before-tab

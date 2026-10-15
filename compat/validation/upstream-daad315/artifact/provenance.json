@@ -1,0 +1,21 @@
+{
+  "source_commit": "daad31585d8d88cbffeeeba206ccfeebd733e9a1",
+  "source_tree": "208499198489d63775c073cbd9cadc8d46cd0bfd",
+  "wheel": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-release-wheel-daad315/tdigest_rs-2.0.0-cp310-abi3-linux_x86_64.whl",
+  "sha256": "e12e812f8964809b98fc90a1e272c7e73949ea05fa14a52a4189c4a019701256",
+  "native_sha256": {
+    "gr_tdigest/_gr_tdigest.abi3.so": "c5b776c813ba5352b4f7386c4709dc129b98977edb8a4bd87c0dfe3a1220b498"
+  },
+  "archive_members": [
+    "tdigest_rs-2.0.0.dist-info/METADATA",
+    "tdigest_rs-2.0.0.dist-info/WHEEL",
+    "gr_tdigest/__init__.py",
+    "tdigest_rs/tdigest_rs.py",
+    "tdigest_rs/lib.py",
+    "tdigest_rs/__init__.py",
+    "gr_tdigest/_gr_tdigest.abi3.so",
+    "tdigest_rs-2.0.0.dist-info/RECORD"
+  ],
+  "support_evidence": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315",
+  "note": "One optimized cp310 ABI3 Linux wheel passed all seven installed runtime cells."
+}

@@ -1,0 +1,6 @@
+Processing /var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/wheels/tdigest_rs-2.0.0-cp310-abi3-linux_x86_64.whl (from tdigest-rs==2.0.0)
+Requirement already satisfied: numpy<3,>=1.26.4 in ./py312-numpy1/lib/python3.12/site-packages (from tdigest-rs==2.0.0->tdigest-rs==2.0.0) (1.26.4)
+Requirement already satisfied: polars==1.34.0 in ./py312-numpy1/lib/python3.12/site-packages (from tdigest-rs==2.0.0->tdigest-rs==2.0.0) (1.34.0)
+Requirement already satisfied: polars-runtime-32==1.34.0 in ./py312-numpy1/lib/python3.12/site-packages (from polars==1.34.0->tdigest-rs==2.0.0->tdigest-rs==2.0.0) (1.34.0)
+Installing collected packages: tdigest-rs
+Successfully installed tdigest-rs-2.0.0

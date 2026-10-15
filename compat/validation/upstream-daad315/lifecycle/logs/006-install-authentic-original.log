@@ -1,0 +1,3 @@
+Processing /var/tmp/codex-tdigest-pr3-20261014/overnight/compatibility/published-pickle/tdigest_rs-0.1.0-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+Installing collected packages: tdigest-rs
+Successfully installed tdigest-rs-0.1.0

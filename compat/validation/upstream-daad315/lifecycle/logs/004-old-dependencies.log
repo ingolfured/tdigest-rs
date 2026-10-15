@@ -1,0 +1,9 @@
+Using Python 3.12.12 environment at: venv
+Resolved 6 packages in 6ms
+Installed 6 packages in 22ms
+ + iniconfig==2.3.1
+ + numpy==1.26.4
+ + packaging==26.3
+ + pluggy==1.6.0
+ + pygments==2.21.0
+ + pytest==8.4.2

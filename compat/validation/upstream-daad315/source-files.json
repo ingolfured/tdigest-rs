@@ -1,0 +1,854 @@
+{
+  "canonical/test.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/logs/upstream-candidate-daad315/test.log",
+    "sha256": "cbaced93a1c6cb55ef485af87bff81d2fa57d10fa69d873b80e6ddab7c8fc88f"
+  },
+  "canonical/support.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/logs/upstream-candidate-daad315/support.log",
+    "sha256": "e48e9c2d994af1901cc8949d05d4a7f8cc3f581eb7b1a29de542d9018d88ca94"
+  },
+  "canonical/support.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/logs/upstream-candidate-daad315/support.json",
+    "sha256": "089a12973b192901cc10be1c5c47b23a7c9748379da768db7472c82fdd6c3efb"
+  },
+  "canonical/sync.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/logs/upstream-candidate-daad315/sync.log",
+    "sha256": "7dea0512481ce04bfd3fe62f76ebd72544722346321cd210c74827a56638bae8"
+  },
+  "canonical/test.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/logs/upstream-candidate-daad315/test.json",
+    "sha256": "3c216330d51602a81d6e32cda47c600590db6a3e9c69f983c58d0669cdfe3e51"
+  },
+  "canonical/lint.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/logs/upstream-candidate-daad315/lint.json",
+    "sha256": "f7b37e7559d99b748e0a9bce4321c785ef930a1d7771806ccf2f4cb93626ad70"
+  },
+  "canonical/build.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/logs/upstream-candidate-daad315/build.log",
+    "sha256": "442d2f8158785a57b1c23a30a80a41f83316a07d94ba2fa59916c151bc3b48ae"
+  },
+  "canonical/build.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/logs/upstream-candidate-daad315/build.json",
+    "sha256": "96599d65286bfe2fda9aaed87dea69bf937ff4d8b7a1f08d73ed7ed062fd0107"
+  },
+  "canonical/lint.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/logs/upstream-candidate-daad315/lint.log",
+    "sha256": "b3861c8b66f06d62a214bc6e03d982268b870a9bcd073eb98c0cd5333f5b14f2"
+  },
+  "canonical/sync.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/logs/upstream-candidate-daad315/sync.json",
+    "sha256": "b79179410459037b77c2649e1d2a53cc692fe436854577f829fbaab9b04d006b"
+  },
+  "direct/py311-numpy2-pip.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy2-pip.log",
+    "sha256": "b37ebdd31d1ef29de03ecc79b16eef6e65079fb0671aa3b373a79ef123899e4a"
+  },
+  "direct/py312-numpy1-modern.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy1-modern.xml",
+    "sha256": "7668f5182b7ff6fb1efca81224e03101b5c561c81663d4ece6c2d6511d80c509"
+  },
+  "direct/py312-numpy1-install.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy1-install.log",
+    "sha256": "bc15e42cad5baaa30af39ff99a0f0ac2403c2727c7940becaa9a1c3c88392eca"
+  },
+  "direct/py311-numpy1-modern.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy1-modern.log",
+    "sha256": "9ba0d1bc496d7d2accb74232d738c560a91ed028a172457af324f2062d72e8bb"
+  },
+  "direct/py311-numpy2-modern.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy2-modern.xml",
+    "sha256": "f7f25155a3d2bab940a688cf4af1d79d00e807ccfba184723f6677908c8b00d4"
+  },
+  "direct/python-runtimes.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/python-runtimes.log",
+    "sha256": "f15c335234de02c2dd37e6c3e5f6608922683be5ecd0349d8a0c16a8b0cc4297"
+  },
+  "direct/commands.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/commands.json",
+    "sha256": "2743511c6fa35203cb818dc0d27e49ca933387f522a944c0829375f8d137a752"
+  },
+  "direct/py310-numpy1-no-polars-venv.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-no-polars-venv.log",
+    "sha256": "ec19d4602dc4ec28ca8ffb37215500681455ef7756ed4bcf23db3cb1032bfaa9"
+  },
+  "direct/artifact.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/artifact.json",
+    "sha256": "ea7e775b39ead2bcbdca2aa49786511bfa76fc7779e0c54d02a72ffe438058c2"
+  },
+  "direct/source-archive.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/source-archive.log",
+    "sha256": "244ab63d1688cd462242b3f5acb9c8badb7971ef771dafdbc5bcb738b7c5728e"
+  },
+  "direct/py310-numpy2-venv.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy2-venv.log",
+    "sha256": "b195208e94143525fadb46daa3c0e2270f0a8f4dde94a9e694138e5517f1daa4"
+  },
+  "direct/py310-numpy1-modern.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-modern.log",
+    "sha256": "1b49a08724c513694dd1be32c340c85c734ec1b2dcf515f274dd2e8be5c612d5"
+  },
+  "direct/py310-numpy2-pip.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy2-pip.log",
+    "sha256": "9745da5c67709808524a0792bba0bb826af0a45cad940d342b266251ab5c2f4f"
+  },
+  "direct/py310-numpy2-compatibility.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy2-compatibility.xml",
+    "sha256": "2301482d12d175210328f31d2dba67e025521fa936ee43f90d7338a188491bcf"
+  },
+  "direct/py311-numpy2-compatibility.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy2-compatibility.log",
+    "sha256": "cb5acd414986313689fd094a44576465f35f1842e29ae18f754158d34cc77579"
+  },
+  "direct/py311-numpy1-pip.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy1-pip.log",
+    "sha256": "aa6251c587541868b9c0918b0e44ee77df73ea64ff76dacf69abd9b66621e07f"
+  },
+  "direct/py311-numpy1-venv.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy1-venv.log",
+    "sha256": "9450027f43958e877f2e57328205bae3bb96d3733d95795e0403ef359ca8d6e0"
+  },
+  "direct/py311-numpy2-deps.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy2-deps.log",
+    "sha256": "06ee980045a40d3ea16d122f8fc11f077e5624e1e9339895df6fab8905add811"
+  },
+  "direct/py310-numpy1-no-polars-install.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-no-polars-install.log",
+    "sha256": "0ba41ecbfa30a42b198d128435cabc469aefdbd2ebb5c8a2751e97ad17498c8e"
+  },
+  "direct/py310-numpy1-pip-check.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-pip-check.log",
+    "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+  },
+  "direct/py310-numpy1-no-polars-compatibility.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-no-polars-compatibility.xml",
+    "sha256": "72d06bfd4fe338665d6772acaf0677bbd09c9c19c121cf5e0329fd2ebb34c0f8"
+  },
+  "direct/py310-numpy1-pip.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-pip.log",
+    "sha256": "600aed44c1ae6961d46b138454eca1b2a0bea42a69602272485567b495fe7e0f"
+  },
+  "direct/py312-numpy2-pip.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy2-pip.log",
+    "sha256": "a0a19f3a3285039bb956f655876ed2058f1a5b6ceb518f31d48360828639bcb1"
+  },
+  "direct/py310-numpy2-modern.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy2-modern.log",
+    "sha256": "e3afc68c0acd345a8b1b2144b59eb1e776621ffb96d1cfa4347317c0963f45ed"
+  },
+  "direct/py311-numpy2-compatibility.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy2-compatibility.xml",
+    "sha256": "91dbecac4f976958771a161fca242d969fdcaea87a739ab65e68d67e4b7728cf"
+  },
+  "direct/py310-numpy1-modern.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-modern.xml",
+    "sha256": "88d61a771223a5df4dba4550532f4935d009fd6eb83d3376173e2d8b5f15672b"
+  },
+  "direct/py310-numpy2-modern.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy2-modern.xml",
+    "sha256": "a08566c68ae44f797af482d31511dc8321686e247ff4f1f69a94a5d491398f38"
+  },
+  "direct/py312-numpy1-compatibility.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy1-compatibility.xml",
+    "sha256": "0716e3f228a12eee39f7f00df94c9e3e2a1adc69611fc7eff4e64630f8827890"
+  },
+  "direct/py312-numpy2-imports.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy2-imports.log",
+    "sha256": "98c3c33b312068a4c57b0aff82b0c71962755e2094965c16cb0a622c60d6ba0a"
+  },
+  "direct/py310-numpy2-deps.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy2-deps.log",
+    "sha256": "3e8f3bb61ecc8579da199cf91a17cc12f310b8000207e41802d182860c05612f"
+  },
+  "direct/py311-numpy1-compatibility.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy1-compatibility.log",
+    "sha256": "91a76973b536ff04d16ee94570a0787e056fa391ea60bab10d66f6fa0f09526d"
+  },
+  "direct/py312-numpy2-install.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy2-install.log",
+    "sha256": "3e7a4e9e2a4ff2774a4f41f3c6943cc0abf5dddbef24f488d0603aed6e6cfea5"
+  },
+  "direct/py310-numpy2-install.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy2-install.log",
+    "sha256": "283fbb6b2a6c26a6dc11844670bd5378881041d003595722bb6cbc87c107d479"
+  },
+  "direct/py311-numpy1-deps.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy1-deps.log",
+    "sha256": "2a34f5d96f2798daf844330354c2586a7ead5ab0842231da8226029dc387eb91"
+  },
+  "direct/py310-numpy1-install.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-install.log",
+    "sha256": "2e667b9d0e0d8f394ca413a85a94a1acca66a493a13e9f41c5a864e44d243d2d"
+  },
+  "direct/py312-numpy2-deps.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy2-deps.log",
+    "sha256": "09a26b1d1ecf274a0bcd2f3f258e9a7effa3556978a85efc554f95a1ccada38a"
+  },
+  "direct/py310-numpy2-imports.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy2-imports.log",
+    "sha256": "cb1f6e0391f4de524d5da083d79d7100fba272c3a9c02c339203a2ac193fe8a0"
+  },
+  "direct/py311-numpy1-pip-check.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy1-pip-check.log",
+    "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+  },
+  "direct/py312-numpy2-modern.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy2-modern.log",
+    "sha256": "3c276002f527527d4ad268a5af050cdbaea0c7931d8b0dd95d640f76cdc9fcf9"
+  },
+  "direct/matrix.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/matrix.json",
+    "sha256": "aa6e0303065a111c0d4b44ee09b41c17e36020060eac1e98b5fd5958417881ba"
+  },
+  "direct/py312-numpy1-modern.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy1-modern.log",
+    "sha256": "cdbe215fd94e43e1cf94fbc15229ca4eea3edb28d50450136dd5804d576e659c"
+  },
+  "direct/py310-numpy2-compatibility.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy2-compatibility.log",
+    "sha256": "e3567092c6a4aa0e5b2d8c50fd91eef56418d2c96006badb71e9c1c836c900d4"
+  },
+  "direct/py312-numpy1-pip.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy1-pip.log",
+    "sha256": "1574d4d65748b37cee283e6aff951b6bff23cf73818f9eeb4a50eb22ab2d38e3"
+  },
+  "direct/py312-numpy1-imports.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy1-imports.log",
+    "sha256": "3664c5be79d72fcc58c92486f5f8eade68e9911bcf0fb210af457819252ac610"
+  },
+  "direct/py310-numpy1-no-polars-modern_python.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-no-polars-modern_python.xml",
+    "sha256": "bd0fb3c3b7e4104c3c0770c2e7296060825f1f4cf825ed0dc3b1af8d0887634e"
+  },
+  "direct/py312-numpy1-pip-check.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy1-pip-check.log",
+    "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+  },
+  "direct/py312-numpy2-modern.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy2-modern.xml",
+    "sha256": "336fcb0817a5897aad76db9b3d462294520f3e408d12c1adf6d88dacdca53881"
+  },
+  "direct/py311-numpy2-pip-check.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy2-pip-check.log",
+    "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+  },
+  "direct/py311-numpy1-compatibility.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy1-compatibility.xml",
+    "sha256": "cd7936e8de780f6dbf108f3aae3c12773038b5b701d40bea918ea8257477c18d"
+  },
+  "direct/py311-numpy2-venv.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy2-venv.log",
+    "sha256": "5fcafea301887af2fd484dac30d3d55894ee2827e08815324bedf8b28c5efef7"
+  },
+  "direct/py310-numpy1-no-polars-pip-check.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-no-polars-pip-check.log",
+    "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+  },
+  "direct/py312-numpy2-pip-check.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy2-pip-check.log",
+    "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+  },
+  "direct/py310-numpy1-deps.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-deps.log",
+    "sha256": "3d4e7b556a59e48d4477c9b7b33e065451003397ec1c04f57fd5c0be0b64991d"
+  },
+  "direct/py310-numpy1-compatibility.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-compatibility.log",
+    "sha256": "46e03b6e26358e2b8299931c43c499f39b8b26931c89b724fc8b8e0a702feed4"
+  },
+  "direct/py311-numpy2-modern.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy2-modern.log",
+    "sha256": "a1efd375972ea331e5821e70913a634767cc3ee6244812651a6090113325dcc8"
+  },
+  "direct/py311-numpy2-install.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy2-install.log",
+    "sha256": "b1c00138325527a070dbeaa6e861271a74814bc8a257629e58b8a3f8e3f60b6a"
+  },
+  "direct/py312-numpy2-compatibility.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy2-compatibility.xml",
+    "sha256": "dfd4ab29dc694f4c3ad8070ba510601db03da973d3253b7b9be32f2599d7daa2"
+  },
+  "direct/release-wheel.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/release-wheel.log",
+    "sha256": "7412e59f893e96f738e0d2d9aa70124764521cb51ac58e9d8033642e55a73bc5"
+  },
+  "direct/py310-numpy1-no-polars-pip.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-no-polars-pip.log",
+    "sha256": "2d8436808a11f8e1a6c9185adec7dd0de203719d109848b2ff49f8e52eaa7e32"
+  },
+  "direct/py312-numpy2-compatibility.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy2-compatibility.log",
+    "sha256": "44be2a04fb22f54790236ab749b25887f584d204560dbcb557cfe4261461b928"
+  },
+  "direct/py310-numpy2-pip-check.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy2-pip-check.log",
+    "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+  },
+  "direct/py310-numpy1-no-polars-compatibility.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-no-polars-compatibility.log",
+    "sha256": "ec41f277801ccdb992a249529b284bb9bca6ee77e364c4f8dcc938aeda037365"
+  },
+  "direct/py310-numpy1-no-polars-modern_python.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-no-polars-modern_python.log",
+    "sha256": "53d5083cc769a6640804ead4f92536aaf3683471e9a682456adfb5da9aa7bae0"
+  },
+  "direct/py311-numpy1-modern.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy1-modern.xml",
+    "sha256": "0a1e0623bc3447ea19d7b96fcd320a89abd762204386882758b5be7fb9696dcf"
+  },
+  "direct/py310-numpy1-no-polars-imports.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-no-polars-imports.log",
+    "sha256": "37396871609b880a6eacdc0a17d48bd8d098276112cffe5ed387d192af68d14e"
+  },
+  "direct/py312-numpy1-deps.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy1-deps.log",
+    "sha256": "b60fb77cf26074759d2ef26191cb7ab53c4413fcc53e9492efa0756dfffacb37"
+  },
+  "direct/py311-numpy1-install.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy1-install.log",
+    "sha256": "5e30d2276d9c9a694de29f3233995295bebdaedaab714721ad5915c8256dee25"
+  },
+  "direct/py312-numpy1-compatibility.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy1-compatibility.log",
+    "sha256": "00e8b80911f596156efcee04000fb78c5a75392473022b80a6700acc4f1109d9"
+  },
+  "direct/py310-numpy1-imports.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-imports.log",
+    "sha256": "a3afa92a6109b5e259e698655ffd8d6131b2bba6abc5c8afbb05938f3985a189"
+  },
+  "direct/py312-numpy1-venv.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy1-venv.log",
+    "sha256": "8419e95f60f13199d134c775ea7cc1157a9d0a24dea9c80eaccc68b314c093da"
+  },
+  "direct/py311-numpy1-imports.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy1-imports.log",
+    "sha256": "cb484df1a1973100839cfdf156a31dcc7c6caec654f89dbba6965585c333c31e"
+  },
+  "direct/py312-numpy2-venv.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py312-numpy2-venv.log",
+    "sha256": "e9883d3047e50207a0ac7da493f779dd2774b5674989fcc284a14894871996fd"
+  },
+  "direct/py311-numpy2-imports.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py311-numpy2-imports.log",
+    "sha256": "0a3ff7b398336db859df555a0489ac4d81c23f0453da9d4844dadb9b36c5624b"
+  },
+  "direct/py310-numpy1-compatibility.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-compatibility.xml",
+    "sha256": "4e1158fda8ef669d44aa8aff2dcc38b0f4efa453494160e93c178e4c75c980d2"
+  },
+  "direct/py310-numpy1-no-polars-deps.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-no-polars-deps.log",
+    "sha256": "803f72a4fb1273abea23ab1607cf98db2035c75f29a23786d6756e66ae253cca"
+  },
+  "direct/py310-numpy1-venv.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/py310-numpy1-venv.log",
+    "sha256": "b25804676be0b626b502f3fb3fe5ac18cd4a1ff69cc052c211b118d4851eaffc"
+  },
+  "artifact/provenance.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-release-wheel-daad315/provenance.json",
+    "sha256": "e1cb154bbed711a30f0931163631490f3f962c513b383f3283d70961e3c725d4"
+  },
+  "rebuild/plan.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/plan.json",
+    "sha256": "20bcec61e50385bc152e4db0c6e3e99dfa97d9340a964a6617b8ae4d5a5c5fba"
+  },
+  "rebuild/execution.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/execution.json",
+    "sha256": "8115f9fc908354b00b98720d65d05ded4e15bca9ecf15ccef84c58b71010d1bb"
+  },
+  "rebuild/logs/maturin-version.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/logs/maturin-version.log",
+    "sha256": "787cb487318bb4be21596ee0dc7ba11f4ba3255927452a9b84ea5fab640afadb"
+  },
+  "rebuild/logs/normalized-sdist-build.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/logs/normalized-sdist-build.log",
+    "sha256": "c9f72090ae58cbc4e6016f38553638faf6172736dc95c3154b88fa2249fec74a"
+  },
+  "rebuild/logs/interpreter-version.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/logs/interpreter-version.log",
+    "sha256": "f3252d079713853a68825330dbbac628843abacbcc23b5481253fba87afde0aa"
+  },
+  "rebuild/logs/rust-version.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/logs/rust-version.log",
+    "sha256": "938db28b83089ab88301ca425f99fa1d8b61ee66e0371babe1db6373ae9810a3"
+  },
+  "rebuild/logs/rebuilt-wheel-seven-cells.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/logs/rebuilt-wheel-seven-cells.log",
+    "sha256": "bbe35f0523d0d23452b2667b7ea45005e0b2807e2833b411e9e4443c38351772"
+  },
+  "rebuild/support/py311-numpy2-pip.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy2-pip.log",
+    "sha256": "72ae9fcdcfd521c779f21c6c64730e53c90bc70f600f2e0d6758ed93a67621ca"
+  },
+  "rebuild/support/py312-numpy1-modern.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy1-modern.xml",
+    "sha256": "a0a84ba15cf96e9d14267fea4137749a031ed36b0325bcbffe6da01920b8de57"
+  },
+  "rebuild/support/py312-numpy1-install.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy1-install.log",
+    "sha256": "2e18c99c4915b47e947b56fa5fc357d1952cc7e75449fded9844a5a06c1541e4"
+  },
+  "rebuild/support/py311-numpy1-modern.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy1-modern.log",
+    "sha256": "b780191c2b1c8d9301be32fb0bd19b40f8a7adc37f8f73fb36f41bb3bb3b8538"
+  },
+  "rebuild/support/py311-numpy2-modern.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy2-modern.xml",
+    "sha256": "c16ecea6e786f6c263a1319188256da42cbfc417909fdd1bbff3656415c164b5"
+  },
+  "rebuild/support/python-runtimes.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/python-runtimes.log",
+    "sha256": "f15c335234de02c2dd37e6c3e5f6608922683be5ecd0349d8a0c16a8b0cc4297"
+  },
+  "rebuild/support/commands.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/commands.json",
+    "sha256": "9c683fd7b5a2761857089ff8cdfd638d2a77b2050ebc10a3d7aa67df7027afaa"
+  },
+  "rebuild/support/py310-numpy1-no-polars-venv.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-no-polars-venv.log",
+    "sha256": "ec19d4602dc4ec28ca8ffb37215500681455ef7756ed4bcf23db3cb1032bfaa9"
+  },
+  "rebuild/support/artifact.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/artifact.json",
+    "sha256": "17330d48bb64525fe39232aa30dde8af35902a6c85c9d71b6606f53e5208b518"
+  },
+  "rebuild/support/py310-numpy2-venv.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy2-venv.log",
+    "sha256": "b195208e94143525fadb46daa3c0e2270f0a8f4dde94a9e694138e5517f1daa4"
+  },
+  "rebuild/support/py310-numpy1-modern.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-modern.log",
+    "sha256": "b8e08e121ffa6c98b9652ff5bdf38b5fa6808c934b2f189ebd881ff881be588a"
+  },
+  "rebuild/support/py310-numpy2-pip.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy2-pip.log",
+    "sha256": "a278486dd60a59cfd47bfe4e115369a9ee29ff5547f20d69ba6dd49db6050347"
+  },
+  "rebuild/support/py310-numpy2-compatibility.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy2-compatibility.xml",
+    "sha256": "efda526edbaee60e335079f54698d445ad910124be52da54534eea3ba54b34a9"
+  },
+  "rebuild/support/py311-numpy2-compatibility.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy2-compatibility.log",
+    "sha256": "fd4f6b4fc0ee37db8c1ca06d96fc27973a8a51841fcab18195de190eb6f47bde"
+  },
+  "rebuild/support/py311-numpy1-pip.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy1-pip.log",
+    "sha256": "f3641c1ad36a98e747947c59c835a3ae7ef8ea74884dfd52d9d788ec58b71dfa"
+  },
+  "rebuild/support/py311-numpy1-venv.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy1-venv.log",
+    "sha256": "9450027f43958e877f2e57328205bae3bb96d3733d95795e0403ef359ca8d6e0"
+  },
+  "rebuild/support/py311-numpy2-deps.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy2-deps.log",
+    "sha256": "06ee980045a40d3ea16d122f8fc11f077e5624e1e9339895df6fab8905add811"
+  },
+  "rebuild/support/py310-numpy1-no-polars-install.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-no-polars-install.log",
+    "sha256": "6a7d48ac9146901dcd1f94376b3e0d47af7e855a54b864209981b7252846b6d4"
+  },
+  "rebuild/support/py310-numpy1-pip-check.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-pip-check.log",
+    "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+  },
+  "rebuild/support/py310-numpy1-no-polars-compatibility.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-no-polars-compatibility.xml",
+    "sha256": "db71e6bd201c66cd1761bf6779f43119345afb18310139861b1b04ec3a951706"
+  },
+  "rebuild/support/py310-numpy1-pip.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-pip.log",
+    "sha256": "359941234b715ab46968327f96c03d86a4aff6d85013559a182afadadad9804d"
+  },
+  "rebuild/support/py312-numpy2-pip.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy2-pip.log",
+    "sha256": "e36a8b26a5a7f57b0ed721e02c061141f98ef65e77e1c55ac02091e4e148fb85"
+  },
+  "rebuild/support/py310-numpy2-modern.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy2-modern.log",
+    "sha256": "8ad6b472d302e935228e70352aa31b00a9730891e235d705409a2a1ca4c21a9c"
+  },
+  "rebuild/support/py311-numpy2-compatibility.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy2-compatibility.xml",
+    "sha256": "b2ca71427e0363463a3c2174740f98b63447c796b9a24a249c87ccd443d2550b"
+  },
+  "rebuild/support/py310-numpy1-modern.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-modern.xml",
+    "sha256": "9d8bf8d91d79491a1e3ea763e5442eba26a9d4f2485c87613cf7c3e3c26267d8"
+  },
+  "rebuild/support/py310-numpy2-modern.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy2-modern.xml",
+    "sha256": "a3e54959c9a17703ea0f439c16c2235f9a84b31c0b5ee33e407fafd16dfa6ff4"
+  },
+  "rebuild/support/py312-numpy1-compatibility.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy1-compatibility.xml",
+    "sha256": "e86f7fd3fc960f9a074ccc28befc72405640fadacf8690812bb41b92d5503c86"
+  },
+  "rebuild/support/py312-numpy2-imports.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy2-imports.log",
+    "sha256": "8325ec7c00ff008aff8511543ce600a6bec8b898cf9b111d4f4e0d19ed527bcd"
+  },
+  "rebuild/support/py310-numpy2-deps.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy2-deps.log",
+    "sha256": "2da685f76236d285add510e7f1a012f50135a78a004464532ec7370d1566c8a3"
+  },
+  "rebuild/support/py311-numpy1-compatibility.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy1-compatibility.log",
+    "sha256": "3a41ee77c7f21eef98df1d521cae99dbfecdd1850924283b09301a7669d12ce7"
+  },
+  "rebuild/support/py312-numpy2-install.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy2-install.log",
+    "sha256": "b3a7e4b2499d8e84e2403c445567d3b47bf785e768ff9eed84f05e30d84cb8a5"
+  },
+  "rebuild/support/py310-numpy2-install.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy2-install.log",
+    "sha256": "380ac9b5059c8d5589c7e309eda13ea2a023613fe759f19efc96d6a8a68a472a"
+  },
+  "rebuild/support/py311-numpy1-deps.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy1-deps.log",
+    "sha256": "b8395182cecfdf0071bdfc70e1fd6841f9297eebbd91d3cd7ef76b14295d2a10"
+  },
+  "rebuild/support/py310-numpy1-install.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-install.log",
+    "sha256": "ac62758b2323df880f1e35babd34f7d8db28eef9f315aafc2498c0df6e8320c7"
+  },
+  "rebuild/support/py312-numpy2-deps.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy2-deps.log",
+    "sha256": "819ae13901dac53862850e90fa4de6819c64144d1f9abd7e415ccafb11c2a346"
+  },
+  "rebuild/support/py310-numpy2-imports.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy2-imports.log",
+    "sha256": "bacc81b64a2aae34303f1b5db6747770298ee507245c729fc06728570a7c7f00"
+  },
+  "rebuild/support/py311-numpy1-pip-check.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy1-pip-check.log",
+    "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+  },
+  "rebuild/support/py312-numpy2-modern.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy2-modern.log",
+    "sha256": "36a76e8caba67835514c48c25186af2a4cb8c60c45df019cfb0d385f3927dece"
+  },
+  "rebuild/support/matrix.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/matrix.json",
+    "sha256": "ca5d9e8040d65dafba4bffec497f7193dce922a3437cc1564961d562bd3ba9c1"
+  },
+  "rebuild/support/py312-numpy1-modern.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy1-modern.log",
+    "sha256": "634b6ab3c9dd4fe3c5a72cb181dac7e9f12dee36b2dd2752fa1ea644dea2a6a2"
+  },
+  "rebuild/support/py310-numpy2-compatibility.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy2-compatibility.log",
+    "sha256": "5359e6c995d4496bb5b0ec910f5b246707a641787828ee82b8d07dfbf2efc665"
+  },
+  "rebuild/support/py312-numpy1-pip.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy1-pip.log",
+    "sha256": "7784a2c6bffb60153e3761ed6d5232beeff3a83ed2bc36d87d5ba1e8474834a4"
+  },
+  "rebuild/support/py312-numpy1-imports.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy1-imports.log",
+    "sha256": "d9ebff122789ccac62392d33e9df2bde49e57c55e04f686524ccdc21b39a4d26"
+  },
+  "rebuild/support/py310-numpy1-no-polars-modern_python.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-no-polars-modern_python.xml",
+    "sha256": "860843572cedd74f45d99cea7b30c4102e87602ef4bf07ead66397b7b70d2856"
+  },
+  "rebuild/support/py312-numpy1-pip-check.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy1-pip-check.log",
+    "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+  },
+  "rebuild/support/py312-numpy2-modern.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy2-modern.xml",
+    "sha256": "fa169f5710d35e72a472587f28d065c61f942915f89a01c86a83178c3130ccec"
+  },
+  "rebuild/support/py311-numpy2-pip-check.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy2-pip-check.log",
+    "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+  },
+  "rebuild/support/py311-numpy1-compatibility.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy1-compatibility.xml",
+    "sha256": "e10d07f248aff3299d6cbc0a3d547b3d64097fa8510a2e9e02dd30e4d3f15a1a"
+  },
+  "rebuild/support/py311-numpy2-venv.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy2-venv.log",
+    "sha256": "5fcafea301887af2fd484dac30d3d55894ee2827e08815324bedf8b28c5efef7"
+  },
+  "rebuild/support/py310-numpy1-no-polars-pip-check.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-no-polars-pip-check.log",
+    "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+  },
+  "rebuild/support/py312-numpy2-pip-check.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy2-pip-check.log",
+    "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+  },
+  "rebuild/support/py310-numpy1-deps.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-deps.log",
+    "sha256": "bf0bc0044bcbd7f0fae4df0de1b369cba7539a1f37cec487043b8f1842330434"
+  },
+  "rebuild/support/py310-numpy1-compatibility.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-compatibility.log",
+    "sha256": "356f9a0d61314ff57269dd333a0c9a266a7afe4c4118dcfb63ff9fa6561aaa33"
+  },
+  "rebuild/support/py311-numpy2-modern.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy2-modern.log",
+    "sha256": "b2b9b7a087d332c87ce59169e98c2f00791bfb075bbdb14ad9ba32051f0fd26b"
+  },
+  "rebuild/support/py311-numpy2-install.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy2-install.log",
+    "sha256": "c68b6e1c8f45d5fc03988fd6d1e8e5bee3116dec1a9128448fc01d318aa7c8a5"
+  },
+  "rebuild/support/py312-numpy2-compatibility.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy2-compatibility.xml",
+    "sha256": "2908174d5042361802c2c697ffc5d8b0858c3f446f33650363cd15eba0412ec5"
+  },
+  "rebuild/support/py310-numpy1-no-polars-pip.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-no-polars-pip.log",
+    "sha256": "2aeda8a9c7cf85163c7944077a93489bf68573fc34b856fc27cf8c6575f16b23"
+  },
+  "rebuild/support/py312-numpy2-compatibility.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy2-compatibility.log",
+    "sha256": "156a79d6b811cd228c221fe8932b162cd6b3ca561778f8a77cb952eb666c3f32"
+  },
+  "rebuild/support/py310-numpy2-pip-check.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy2-pip-check.log",
+    "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+  },
+  "rebuild/support/py310-numpy1-no-polars-compatibility.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-no-polars-compatibility.log",
+    "sha256": "e11abd13bb1b012a20136977acc07b1d1de2b10499c4ab6f7bf9cebeb3cfc11b"
+  },
+  "rebuild/support/py310-numpy1-no-polars-modern_python.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-no-polars-modern_python.log",
+    "sha256": "b0b1d9e4f0a0ea8ff582a1f415d0d8e8e0a5498d5ee2ae1a07b0a1573a8bfcdc"
+  },
+  "rebuild/support/py311-numpy1-modern.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy1-modern.xml",
+    "sha256": "d2f06bc8760deb2ada63a90e16a3f3a8b72ab6f5c9ead30db07a8cc60eb9caae"
+  },
+  "rebuild/support/py310-numpy1-no-polars-imports.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-no-polars-imports.log",
+    "sha256": "91e7c4396fe22947c6af879000d7514fa5bd195d99b3b94ee8eb26dc8eb5de01"
+  },
+  "rebuild/support/py312-numpy1-deps.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy1-deps.log",
+    "sha256": "8ae61a6c9ef3754bc71a54ecae612933cc53a4363988d96e5ae82ca9a6fe9377"
+  },
+  "rebuild/support/py311-numpy1-install.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy1-install.log",
+    "sha256": "cebdd34192cf5a75d72d1307e682055796147fb54047ad6b0c713a381a70b5bb"
+  },
+  "rebuild/support/py312-numpy1-compatibility.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy1-compatibility.log",
+    "sha256": "3035c5d5ae860ae785a96dd3bbba38e2ad98de13b74d3a8c7290ef77eec81a18"
+  },
+  "rebuild/support/py310-numpy1-imports.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-imports.log",
+    "sha256": "ac27b597241cbf9c0992be3a2f9fca1153a77da938a88a329e803d49de18ad57"
+  },
+  "rebuild/support/py312-numpy1-venv.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy1-venv.log",
+    "sha256": "8419e95f60f13199d134c775ea7cc1157a9d0a24dea9c80eaccc68b314c093da"
+  },
+  "rebuild/support/py311-numpy1-imports.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy1-imports.log",
+    "sha256": "d04a2494ecadea511ff8591d7dfea02547b1c476b1c41aa2d9532725cd45133f"
+  },
+  "rebuild/support/py312-numpy2-venv.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py312-numpy2-venv.log",
+    "sha256": "e9883d3047e50207a0ac7da493f779dd2774b5674989fcc284a14894871996fd"
+  },
+  "rebuild/support/py311-numpy2-imports.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py311-numpy2-imports.log",
+    "sha256": "b4eef48fb9b2cc27b544b1b1237a93ba295153844c1993058f13d1a5ae126cd0"
+  },
+  "rebuild/support/py310-numpy1-compatibility.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-compatibility.xml",
+    "sha256": "f838dfe04a0541f37572e071d1919f924e2dbd22695afacfa20675a182a18d3c"
+  },
+  "rebuild/support/py310-numpy1-no-polars-deps.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-no-polars-deps.log",
+    "sha256": "9b7781f48dc25f87ec10004aab8b134b8007c7f71ae1169affdd6156fc555038"
+  },
+  "rebuild/support/py310-numpy1-venv.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-normalized-sdist-daad315/support/py310-numpy1-venv.log",
+    "sha256": "b25804676be0b626b502f3fb3fe5ac18cd4a1ff69cc052c211b118d4851eaffc"
+  },
+  "lifecycle/reinstalled-compatibility.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/reinstalled-compatibility.xml",
+    "sha256": "7e57c0978d7830ce04ef7f8484d39521909ffaf8fad552838f12deb586408ebc"
+  },
+  "lifecycle/commands.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/commands.json",
+    "sha256": "8c49663f7421d101f96829b25062e13364ae7b5a8755ec56d6ff5a8d6f73ee82"
+  },
+  "lifecycle/uninstalled.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/uninstalled.json",
+    "sha256": "ad1e8baaf568a455bd238234666a323f46e0680b9b6eeb60979db4901c093b37"
+  },
+  "lifecycle/upgraded.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/upgraded.json",
+    "sha256": "e64f45052f8690ca7c193d2e9f16d19fa2e49865259baa6d16accb3f5b8f2497"
+  },
+  "lifecycle/supplied-build-provenance.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/supplied-build-provenance.json",
+    "sha256": "e1cb154bbed711a30f0931163631490f3f962c513b383f3283d70961e3c725d4"
+  },
+  "lifecycle/RESULT.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/RESULT.json",
+    "sha256": "1caeefb163fcb7f973221f7ab9c0ff499331ee9121b0394b4a83806d28cfbd03"
+  },
+  "lifecycle/old.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/old.json",
+    "sha256": "77f1c978730e458a5597bb5efffd63ccf2861c4bc0d61deff522feee2538219b"
+  },
+  "lifecycle/reinstalled.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/reinstalled.json",
+    "sha256": "f44368e37eb36df67be5b0c50988180818990474666c659d1a83a3d0a6248f80"
+  },
+  "lifecycle/plan.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/plan.json",
+    "sha256": "4eb94259c59b0da9853f8bb8ac24ebb64c8383af79ef639f1c2dcfde12a9fb25"
+  },
+  "lifecycle/upgraded-compatibility.xml": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/upgraded-compatibility.xml",
+    "sha256": "b0c31d3b8f8baefa1db8c016e97818833b6abae562073f14bad2500ffc48df47"
+  },
+  "lifecycle/logs/018-uninstalled-pip-check.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/018-uninstalled-pip-check.log",
+    "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+  },
+  "lifecycle/logs/010-explicit-dependency-transition.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/010-explicit-dependency-transition.log",
+    "sha256": "1b10681600bf9e457a3c71a5ffc68cbe38dc332c8520a4982c4aaa762b4572f7"
+  },
+  "lifecycle/logs/003-bootstrap-pip.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/003-bootstrap-pip.log",
+    "sha256": "bab39441f1993e5f8a66f2ec82ce4a913846029da06b4635044517dbd521b11c"
+  },
+  "lifecycle/logs/012-upgraded-pip-check.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/012-upgraded-pip-check.log",
+    "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+  },
+  "lifecycle/logs/013-upgraded-dependency-freeze.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/013-upgraded-dependency-freeze.log",
+    "sha256": "265c9fe193e908fbf3d94457b025fd803e297d43fa0d90833b5c96b7db48a4b9"
+  },
+  "lifecycle/logs/021-reinstalled-dependency-freeze.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/021-reinstalled-dependency-freeze.log",
+    "sha256": "265c9fe193e908fbf3d94457b025fd803e297d43fa0d90833b5c96b7db48a4b9"
+  },
+  "lifecycle/logs/001-interpreter-version.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/001-interpreter-version.log",
+    "sha256": "1e6ec4bde0a9d54e43fccbbd688c8f46f68897ccad026517dd73d5c89c2563d6"
+  },
+  "lifecycle/logs/014-inspect-upgraded.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/014-inspect-upgraded.log",
+    "sha256": "388a196767503729b02d7016ee1fe59daf1c467f2fa44e7a22b3bde08efc87ab"
+  },
+  "lifecycle/logs/004-old-dependencies.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/004-old-dependencies.log",
+    "sha256": "e18c0d04d024cf1d6b74bb48cc0a41112d541b8246c9da5a915328c70455a652"
+  },
+  "lifecycle/logs/006-install-authentic-original.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/006-install-authentic-original.log",
+    "sha256": "fae529131f421bca9861552326bab9217d8d8c31e01539c6e5330ea2c3fe038a"
+  },
+  "lifecycle/logs/008-inspect-old.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/008-inspect-old.log",
+    "sha256": "0724b7798978255e92484f21923adee7ef6293c313ccf7f58cc8d776129598a2"
+  },
+  "lifecycle/logs/009-old-dependency-freeze.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/009-old-dependency-freeze.log",
+    "sha256": "4e97f46212ee5f5161e49e16e51447a7a5e46b7a9b5af691c62efc7351d59f01"
+  },
+  "lifecycle/logs/007-old-pip-check.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/007-old-pip-check.log",
+    "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+  },
+  "lifecycle/logs/022-inspect-reinstalled.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/022-inspect-reinstalled.log",
+    "sha256": "d2e9ff1c9db5fff6ae9916f0534bf3ac8b0299a6322ceaaf45754633bd828501"
+  },
+  "lifecycle/logs/002-create-venv.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/002-create-venv.log",
+    "sha256": "8ef0e22972cb6676b91e44c825721b348adf27e948e265b69ead25689e2b071d"
+  },
+  "lifecycle/logs/017-inspect-uninstalled.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/017-inspect-uninstalled.log",
+    "sha256": "b9460ce87d665187c5b30c3328bbe47adeab126e854c9428171caf52442bfca1"
+  },
+  "lifecycle/logs/020-reinstalled-pip-check.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/020-reinstalled-pip-check.log",
+    "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+  },
+  "lifecycle/logs/016-uninstall-actual-upstream-wheel.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/016-uninstall-actual-upstream-wheel.log",
+    "sha256": "d50b5df68cf86006a313c3351780f5954eb11b559364dada8f87b3f795dcb0bb"
+  },
+  "lifecycle/logs/015-upgraded-208-compatibility.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/015-upgraded-208-compatibility.log",
+    "sha256": "511bdbd9cea48e62bb2e638459821e34966c28cea7eebc3bdef8a541352cd045"
+  },
+  "lifecycle/logs/005-clean-namespaces.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/005-clean-namespaces.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "lifecycle/logs/023-reinstalled-208-compatibility.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/023-reinstalled-208-compatibility.log",
+    "sha256": "ba5b00f201c83947f3481622006a7477a3edd84c756f2c624bec2254fbc5961b"
+  },
+  "lifecycle/logs/011-upgrade-same-distribution.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/011-upgrade-same-distribution.log",
+    "sha256": "259fafd4b430475a1be4fe3a6e998ffbc88ecfce633bdd6f6bfe7c5c770bb0c3"
+  },
+  "lifecycle/logs/019-reinstall-actual-upstream-wheel.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2/logs/019-reinstall-actual-upstream-wheel.log",
+    "sha256": "fae1548800e12ca8fd8ce35b3985f7eede99c4796b659c301ceb857086cbf60d"
+  },
+  "numerical-audits/installed-imports-after.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-numerical-audits-daad315/installed-imports-after.log",
+    "sha256": "597d8961b2c109a97aaa15fd36396f222b9c3efa8f8de290ada22391426bceac"
+  },
+  "numerical-audits/install.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-numerical-audits-daad315/install.log",
+    "sha256": "5314e761f9264a68fe3da5c83e33b5c6b2765ca32b3e911014ebbdd58bd29089"
+  },
+  "numerical-audits/installed-imports.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-numerical-audits-daad315/installed-imports.log",
+    "sha256": "597d8961b2c109a97aaa15fd36396f222b9c3efa8f8de290ada22391426bceac"
+  },
+  "numerical-audits/venv.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-numerical-audits-daad315/venv.log",
+    "sha256": "311a2680451099888c44acf3590b7e314021a3b6883348742a4c7161642af785"
+  },
+  "numerical-audits/compressed-state.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-numerical-audits-daad315/compressed-state.log",
+    "sha256": "689158307309c47a51396d067a57fdfdfb0c0e2c7b2db12bf00195ea9c8de047"
+  },
+  "numerical-audits/modern-compressed-state-audit.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-numerical-audits-daad315/modern-compressed-state-audit.json",
+    "sha256": "6c45849ea0acd9d66a2597ef35805e994ee34213b95b6e9e73ba603c58c539dd"
+  },
+  "numerical-audits/modern-wheel-validation.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-numerical-audits-daad315/modern-wheel-validation.json",
+    "sha256": "b3f782f68d2c5e1521d02d4b94a220b4bdc831e2db09cf53961ad1596a5944c2"
+  },
+  "numerical-audits/modern-weighted-point-audit.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-numerical-audits-daad315/modern-weighted-point-audit.json",
+    "sha256": "98ba63e6c25ad79a7e3c30f345625fc8fd8491c7265b18da0a341c73aadc1e84"
+  },
+  "numerical-audits/weighted-point.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-numerical-audits-daad315/weighted-point.log",
+    "sha256": "17b473fb5eb58b452f7c00b9d686e58609245890f976c3665c48c24c657c971f"
+  },
+  "numerical-audits/modern-wheel-validation.log": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-numerical-audits-daad315/modern-wheel-validation.log",
+    "sha256": "c33d6f9bf09b717b3c31073c7cf5bc0367d53d04cfe8fa57a836207b73df9ea3"
+  },
+  "lifecycle/invocation.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-v2-invocation.json",
+    "sha256": "d56d0af2b7ea8b04b63fc8853d6a852a9a1a01b57dc7ca5bc930a88eca5f7a53"
+  },
+  "lifecycle/failed-v1-invocation.json": {
+    "source": "/var/tmp/codex-tdigest-pr3-20261014/overnight/package-hygiene/upstream-lifecycle-daad315-invocation.json",
+    "sha256": "bc0261a9988993c819605d030fcadaf1a6d9918b1d983cf24bc7c1df4a8134c7"
+  }
+}

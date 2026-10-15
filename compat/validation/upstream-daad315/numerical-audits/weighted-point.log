@@ -1,0 +1,1 @@
+{"status": "PASS", "output": "/var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-numerical-audits-daad315/modern-weighted-point-audit.json", "seed": 202610140639, "seconds": 0.34985752499778755, "checks": {"cdf": 13568, "quantile_rank": 19968, "digests": 800, "integer_mass": 304}, "ordinary_failure_count": 0, "known_extreme_probe_count": 0}

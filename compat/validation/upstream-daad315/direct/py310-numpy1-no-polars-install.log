@@ -1,0 +1,4 @@
+Processing /var/tmp/codex-tdigest-pr3-20261014/overnight/upstream-runtime-support-daad315/wheels/tdigest_rs-2.0.0-cp310-abi3-linux_x86_64.whl
+Requirement already satisfied: numpy<3,>=1.26.4 in ./py310-numpy1-no-polars/lib/python3.10/site-packages (from tdigest-rs==2.0.0) (1.26.4)
+Installing collected packages: tdigest-rs
+Successfully installed tdigest-rs-2.0.0

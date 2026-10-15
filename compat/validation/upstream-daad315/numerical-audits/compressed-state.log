@@ -1,0 +1,1 @@
+{"status": "PASS", "seed": 202610140712, "seconds": 0.6705102730011276, "checks": {"expected_public_capacity_rejections": 6, "cases_attempted": 1440, "states": 3840, "mass_checks": 7680, "cdf_values": 180594, "quantile_values": 503040, "cases_completed": 1440}}
