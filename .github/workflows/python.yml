@@ -5,7 +5,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   DEFAULT_PYTHON_VERSION: "3.12"
-  UV_PROJECT_ENVIRONMENT: .venv
+  PIP_DISABLE_PIP_VERSION_CHECK: 1
 
 permissions:
   contents: read
@@ -15,63 +15,36 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Set up Python ${{ env.DEFAULT_PYTHON_VERSION }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        id: setup-python
         with:
           python-version: ${{ env.DEFAULT_PYTHON_VERSION }}
           check-latest: true
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v5
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-      - name: Sync Python dependencies
-        run: uv sync --all-groups --project bindings/python
       - name: Lint
-        run: |
-          uv run --project bindings/python ruff check bindings/python integration
-          uv run --project bindings/python ruff format --check bindings/python integration
-          uv run --project bindings/python mypy --config-file bindings/python/pyproject.toml bindings/python/tdigest_rs
+        run: pipx run --python '${{ steps.setup-python.outputs.python-path }}' hatch run dev:lint
+        working-directory: bindings/python
 
   test:
     name: Test
     strategy:
       matrix:
-        python-version: ["3.12"]
-        runner: [ubuntu-latest, macos-14, windows-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+        runner: [ubuntu-latest, macos-15-intel, macos-14, windows-latest]
       fail-fast: false
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         id: setup-python
         with:
           python-version: ${{ matrix.python-version }}
           check-latest: true
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v5
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-      - name: Sync Python dependencies
-        run: uv sync --all-groups --project bindings/python
-      - name: Build Python extension
-        run: uv run --project bindings/python maturin develop -F python
-      - name: Build Rust CLI binary for integration tests
-        run: cargo build --bin tdigest
-      - name: Build Java classes/native for integration tests (Unix)
-        if: runner.os != 'Windows'
-        run: ./bindings/java/gradlew --no-daemon --console=plain -p bindings/java classes
-      - name: Build Java classes/native for integration tests (Windows)
-        if: runner.os == 'Windows'
-        run: .\bindings\java\gradlew.bat --no-daemon --console=plain -p bindings/java classes
       - name: Test
-        run: uv run --project bindings/python pytest -q bindings/python/tests integration/api_coherence
+        run: pipx run --python '${{ steps.setup-python.outputs.python-path }}' hatch run dev:test
+        working-directory: bindings/python
 
   build:
     name: Build
@@ -86,6 +59,8 @@ jobs:
             target: aarch64-unknown-linux-musl
           - runner: ubuntu-latest
             target: x86_64-unknown-linux-musl
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
           - runner: macos-14
             target: aarch64-apple-darwin
           - runner: windows-latest
@@ -93,9 +68,9 @@ jobs:
       fail-fast: false
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Build
-        uses: PyO3/maturin-action@v1
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b
         with:
           command: build
           args: --release
@@ -103,7 +78,7 @@ jobs:
           target: ${{ matrix.target }}
           working-directory: bindings/python
       - name: Upload Python Package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: python-package-${{ matrix.target }}
           path: target/wheels/*.whl
