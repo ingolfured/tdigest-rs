@@ -107,7 +107,7 @@ class TestJavaToPythonSerde:
         Java -> Python bytes interop.
         Runs once with cfg precision and once forced to F32.
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
 
         p50_java, cdf_java, blob = _run_java_emit_blob(
             class_name=class_name,
@@ -155,7 +155,7 @@ class TestJavaToPythonSerde:
         """
         Java TDigest.toBytes(version=1|2|3) must emit decodable blobs in Python.
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
 
         for version in (1, 2, 3):
             p50_java, cdf_java, blob = _run_java_emit_blob(
@@ -216,7 +216,7 @@ class TestJavaToPolarsSerde:
         """
         import pytest
         import polars as pl
-        import tdigest_rs as td
+        import gr_tdigest as td
 
         # Only test the F64 case here to keep semantics tight.
         if cfg["precision_java"] != "F64":
@@ -302,7 +302,7 @@ class TestJavaToPolarsSerde:
         - quantile/cdf in Polars must match Java and canonical expectations.
         """
         import polars as pl
-        import tdigest_rs as td
+        import gr_tdigest as td
 
         p50_java, cdf_java, blob = _run_java_emit_blob(
             class_name="TDJavaToPolarsSerdeF32",
@@ -365,7 +365,7 @@ class TestJavaToPolarsSerde:
         """
         import pytest
         import polars as pl
-        import tdigest_rs as td
+        import gr_tdigest as td
 
         p50_java, cdf_java, blob = _run_java_emit_blob(
             class_name="TDJavaF32ForPolarsStrict",

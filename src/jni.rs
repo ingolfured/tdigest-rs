@@ -95,6 +95,7 @@ impl NativeDigest {
             max_size,
             scale,
             policy,
+            delta: None,
         };
         FrontendDigest::from_values(values, config, precision)
             .map(|inner| Self { inner })
@@ -240,6 +241,10 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_toBytesVersion(
     };
 
     let d = unsafe { from_handle::<NativeDigest>(handle) };
+    if let Err(error) = d.inner.validate_wire_version(version) {
+        throw_illegal_arg(&mut env, error.to_string());
+        return arr.into_raw();
+    }
     let bytes = d.inner.to_bytes_with_version(version);
 
     let out = env

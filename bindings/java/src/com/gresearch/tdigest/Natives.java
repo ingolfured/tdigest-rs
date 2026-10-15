@@ -25,8 +25,8 @@ final class Natives {
                     : (osArch0.equals("x86") || osArch0.equals("i386") || osArch0.equals("i686")) ? "x86"
                     : osArch0;
 
-    // Canonical base name for System.loadLibrary("tdigest_rs")
-    final String base = "tdigest_rs";
+    // Canonical base name for System.loadLibrary("gr_tdigest")
+    final String base = "gr_tdigest";
     final String lib =
         platform.equals("windows") ? base + ".dll"
       : platform.equals("macos")   ? "lib" + base + ".dylib"
@@ -34,7 +34,7 @@ final class Natives {
 
     final String resource = "/META-INF/native/" + platform + "-" + arch + "/" + lib;
 
-    // 0) Explicit override: -Dcom.gresearch.tdigest.native=/abs/path/to/libtdigest_rs.so
+    // 0) Explicit override: -Dcom.gresearch.tdigest.native=/abs/path/to/libgr_tdigest.so
     final String overridePath = System.getProperty("com.gresearch.tdigest.native");
     if (overridePath != null && !overridePath.isEmpty()) {
       System.load(overridePath);

@@ -1,5 +1,5 @@
-use tdigest_rs::tdigest::wire::{decode_digest, wire_precision, WireDecodedDigest, WirePrecision};
-use tdigest_rs::tdigest::{ScaleFamily, TDigest};
+use gr_tdigest::tdigest::wire::{decode_digest, wire_precision, WireDecodedDigest, WirePrecision};
+use gr_tdigest::tdigest::{ScaleFamily, TDigest};
 
 #[test]
 fn rust_f64_supports_add_merge_quantile_cdf_median_and_wire_roundtrip() {

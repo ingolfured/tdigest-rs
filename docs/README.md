@@ -3,6 +3,8 @@
 This directory is the maintainer map for the implementation. It complements the
 root design documents instead of replacing them.
 
+Start with [the compatibility refresh guide](review-refresh.md). The numerical internals below describe the opt-in modern engine; the preserved original core lives in `src/upstream`.
+
 Canonical root docs:
 
 - `../api_design.md`: target public API contract across Rust, Python, Polars,

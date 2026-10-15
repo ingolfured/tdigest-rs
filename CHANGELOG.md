@@ -1,38 +1,24 @@
 # Changelog
 
-All notable changes to this project are documented in this file.
-
 ## [Unreleased]
 
-### Changed
-- Snapshot overwrite of implementation to the unified Rust core + Python/Polars/CLI/Java/JNI stack.
-- Project version target updated from `1.0.0` to `2.0.0` to avoid collision with pre-existing `1.0.x` releases.
-- Project identity normalized to `tdigest-rs` / `tdigest_rs` across code, docs, and packaging metadata.
-- Python API removed legacy `delta` configuration in favor of `max_size` + `scale` and keeps strict non-finite validation.
-- Java namespace migrated to `com.gresearch.tdigest` with aligned JNI symbol names.
-- Compressor Stage 4 cap strategy now uses a second k-limit merge with binary-searched `d'` (same scale-family geometry as Stage 3) instead of always using equal-weight bucketization.
-- CI matrix and dependency setup were adjusted for portability:
-  - removed unsupported `macos-13` jobs from Rust/Python workflows,
-  - fixed Python CI mypy config discovery path,
-  - removed `patchelf` extras from default Python build/dev dependencies to avoid Windows sync failures.
-- Python CI test jobs now prebuild integration-test artifacts (`target/debug/tdigest` and Gradle `classes` with bundled natives) before running pytest.
-- Moved `jemalloc-ctl` to Linux GNU-only dev dependencies to prevent Windows Rust test failures.
-- Coherence test path detection was hardened for Windows (`tdigest.exe`, `gradlew.bat`, normalized native arch tags).
-- Coherence test native-library lookup now normalizes `darwin` to `macos` for Java native path compatibility on macOS runners.
-- Updated `tdigest_design.md` and quality-regression baselines to reflect the intentional Stage 4 algorithm change.
+### Compatibility-preserving refresh
+- Preserve modern centroid information when the K2Norm normalizer is nonpositive; add weighted, merge, wire and Python/Polars regressions without changing the original compatibility engine.
+- Reuse the actual GNU x86_64 platform wheel in the seven-cell installed-artifact gate; create and check its source archive separately without recompiling the extension. Keep other platform artifact-installation limits explicit.
+- Restore the original `tdigest_rs.TDigest` API and pinned calculations as the default, including `delta`, dtype/state behavior and original reconstruction quirks; expose the modern engine explicitly as `gr_tdigest`.
+- Ship the original `tdigest_core` Rust package with public fields/methods and independent exact-output/API regressions. Its nested path is explicit; original repository-root path dependencies are not silently redirected.
+- Bring in reviewed modern weighted-mass, endpoint, finite-mean, subnormal-query, transactional scaling and wire-validation fixes. f32 centroid mass is stored as f64 (12 to 16 bytes); extended V3 states are distinguished and older formats reject lossy export.
+- Keep distribution `tdigest-rs`, original Python import paths and the existing Java namespace; report public versions from the correct distribution. Root version `2.0.0` remains provisional, with no publication implied.
+- Declare CPython 3.10–3.12 / NumPy 1.26.4–2.x support bounds and an optional exact Polars 1.34.0 extra; add real-wheel and source-archive gates, genuine published 0.1.0 pickle fixtures, and version-identity regressions.
+- Preserve current upstream action SHA pins, required-check graph, release environment, Python/platform matrix and GNU-only allocator rules. Scope Linux packaging tools to Linux, retain platform path handling, and replace obsolete Hatch/release-manifest commands for the new layout.
+- Remove the test-only compatibility shadow module and private multi-registry publishing commands. Document same-distribution upgrade, shared-namespace co-installation, original Rust path and platform validation limits.
+- This adapted candidate requires fresh validation; historical private results do not certify the changed distribution or unrun platform artifacts.
 
-### Added
-- Maintainer internals docs under `docs/` for the compressor pipeline, query kernels, quality checks, wire/precision behavior, and upstream review compatibility workflow.
-- Byte-for-byte copied upstream Python test and benchmark snapshot under `compat/tdigest-rs-upstream/` with provenance/checksum metadata.
-- Dedicated `make compat-test` and `make compat-bench` targets using an isolated legacy `tdigest_rs` adapter for copied upstream-suite review parity.
-- Python compatibility methods/properties:
-  - `from_means_weights(...)`
-  - `update(...)` returning a new digest
-  - `merge(...)` returning a new digest
-  - `means`, `weights`, `__len__`
-  - `to_dict()` / `from_dict()` with new schema and legacy schema support
-- Rust core + Python binding `trimmed_mean(lower, upper)`.
-- Stage 4 unit coverage for cap/weight/order invariants under the new second-pass k-limit cap behavior.
+## Historical replacement-project development notes
+
+The entries below were imported by the earlier PR snapshot. They describe that
+project's development history, not releases of G-Research/tdigest-rs or the
+current upstream publication policy.
 
 ## [0.2.4] - 2026-02-16
 

@@ -23,11 +23,9 @@ import pytest
 #     - quantile(p) with finite p∉[0,1] → ValueError (strict)
 # =====================================================================
 
-
 class TestProbeValidation:
     def test_python(self, cfg):
-        import tdigest_rs as td
-
+        import gr_tdigest as td
         d = td.TDigest.from_array(
             [0.0, 1.0, 2.0, 3.0],
             max_size=cfg["max_size"],
@@ -42,9 +40,7 @@ class TestProbeValidation:
             with pytest.raises(ValueError):
                 _ = d.quantile(bad)
 
-    def test_java(
-        self, cfg, tmp_path: Path, compile_run_java_fn, java_builder_chain_fn
-    ):
+    def test_java(self, cfg, tmp_path: Path, compile_run_java_fn, java_builder_chain_fn):
         import textwrap
 
         builder = java_builder_chain_fn(cfg)
@@ -77,65 +73,46 @@ class TestProbeValidation:
         # NaN should raise (strict)
         args = ["quantile", "--stdin", "--p", "NaN", *cli_build_args_fn(cfg)]
         with pytest.raises(subprocess.CalledProcessError) as e:
-            subprocess.check_output(
-                [str(paths.cli_bin), *args],
-                input="0 1 2 3",
-                text=True,
-                stderr=subprocess.STDOUT,
-            )
+            subprocess.check_output([str(paths.cli_bin), *args], input="0 1 2 3", text=True, stderr=subprocess.STDOUT)
         assert "p must be" in e.value.output.lower()
 
         # p out of range should raise
         for bad in ("-0.1", "1.1"):
             args = ["quantile", "--stdin", "--p", bad, *cli_build_args_fn(cfg)]
             with pytest.raises(subprocess.CalledProcessError) as e:
-                subprocess.check_output(
-                    [str(paths.cli_bin), *args],
-                    input="0 1 2 3",
-                    text=True,
-                    stderr=subprocess.STDOUT,
-                )
+                subprocess.check_output([str(paths.cli_bin), *args], input="0 1 2 3", text=True, stderr=subprocess.STDOUT)
             assert "p must be in [0,1]" in e.value.output.lower()
 
     def test_polars_cdf_nan_and_null_probe(self, cfg):
         import polars as pl
-        import tdigest_rs as td
+        import gr_tdigest as td
         from polars.exceptions import ComputeError
 
-        df = pl.DataFrame({"x": [0.0, 1.0, 2.0, 3.0]}).with_columns(
-            pl.col("x").cast(pl.Float64)
-        )
-        df_nan = df.with_columns(
-            probe=pl.Series([float("nan"), 0.0, 1.0, 2.0], dtype=pl.Float64)
-        )
-        out = df_nan.with_columns(
-            td_col=td.tdigest(
+        df = pl.DataFrame({"x": [0.0, 1.0, 2.0, 3.0]}).with_columns(pl.col("x").cast(pl.Float64))
+        df_nan = df.with_columns(probe=pl.Series([float("nan"), 0.0, 1.0, 2.0], dtype=pl.Float64))
+        out = (
+            df_nan.with_columns(td_col=td.tdigest(
                 "x",
                 max_size=cfg["max_size"],
                 scale=cfg["scale_pl"],
                 singleton_policy=cfg["singleton_pl"],
                 precision=cfg["precision_pl"],
-            )
-        ).select(c=td.cdf("td_col", pl.col("probe")))
+            ))
+            .select(c=td.cdf("td_col", pl.col("probe")))
+        )
         s = out["c"]
         assert math.isnan(float(s[0]))
 
         # Null probe should ERROR (policy: invalid probe)
-        df_null = df.with_columns(
-            probe=pl.Series([None, 2.0, None, 1.0], dtype=pl.Float64)
-        )
+        df_null = df.with_columns(probe=pl.Series([None, 2.0, None, 1.0], dtype=pl.Float64))
         with pytest.raises(ComputeError):
-            (
-                df_null.with_columns(
-                    td_col=td.tdigest(
-                        "x",
-                        max_size=cfg["max_size"],
-                        scale=cfg["scale_pl"],
-                        singleton_policy=cfg["singleton_pl"],
-                        precision=cfg["precision_pl"],
-                    )
-                ).select(c=td.cdf("td_col", pl.col("probe")))
-            )
+            (df_null.with_columns(td_col=td.tdigest(
+                "x",
+                max_size=cfg["max_size"],
+                scale=cfg["scale_pl"],
+                singleton_policy=cfg["singleton_pl"],
+                precision=cfg["precision_pl"],
+            )).select(c=td.cdf("td_col", pl.col("probe"))))
 
 
 # =====================================================================
@@ -146,11 +123,9 @@ class TestProbeValidation:
 #   Note: CLI covered via ProbeValidation (quantile strict).
 # =====================================================================
 
-
 class TestInfinityProbeBehavior:
     def test_python(self, cfg):
-        import tdigest_rs as td
-
+        import gr_tdigest as td
         d = td.TDigest.from_array(
             [0.0, 1.0, 2.0, 3.0],
             max_size=cfg["max_size"],
@@ -164,9 +139,7 @@ class TestInfinityProbeBehavior:
             with pytest.raises(ValueError):
                 _ = d.quantile(bad)
 
-    def test_java(
-        self, cfg, tmp_path: Path, compile_run_java_fn, java_builder_chain_fn
-    ):
+    def test_java(self, cfg, tmp_path: Path, compile_run_java_fn, java_builder_chain_fn):
         import textwrap
 
         builder = java_builder_chain_fn(cfg)
@@ -201,27 +174,21 @@ class TestInfinityProbeBehavior:
 
     def test_polars(self, cfg):
         import polars as pl
-        import tdigest_rs as td
+        import gr_tdigest as td
 
-        df = pl.DataFrame({"x": [0.0, 1.0, 2.0, 3.0]}).with_columns(
-            pl.col("x").cast(pl.Float64)
-        )
-        df = df.with_columns(
-            probe=pl.Series(
-                [float("-inf"), float("+inf"), float("-inf"), float("+inf")],
-                dtype=pl.Float64,
-            )
-        )
+        df = pl.DataFrame({"x": [0.0, 1.0, 2.0, 3.0]}).with_columns(pl.col("x").cast(pl.Float64))
+        df = df.with_columns(probe=pl.Series([float("-inf"), float("+inf"), float("-inf"), float("+inf")], dtype=pl.Float64))
 
-        out = df.with_columns(
-            td_col=td.tdigest(
+        out = (
+            df.with_columns(td_col=td.tdigest(
                 "x",
                 max_size=cfg["max_size"],
                 scale=cfg["scale_pl"],
                 singleton_policy=cfg["singleton_pl"],
                 precision=cfg["precision_pl"],
-            )
-        ).select(c=td.cdf("td_col", pl.col("probe")))
+            ))
+            .select(c=td.cdf("td_col", pl.col("probe")))
+        )
         s = out["c"]
         assert float(s[0]) == 0.0
         assert float(s[1]) == 1.0

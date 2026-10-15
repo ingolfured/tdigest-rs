@@ -12,7 +12,8 @@ use crate::tdigest::wire::{self, WireDecodedDigest, WireError, WireVersion};
 
 /// TDigest orchestration + public API, generic over centroid float storage `F` (`f32` or `f64`).
 ///
-/// - Centroids (means/weights) and `min/max` are stored in `F` to control **in-memory size**.
+/// - Centroid means and `min/max` are stored in `F` to control **in-memory size**.
+/// - Centroid weights stay in `f64` so f32 means do not discard small mass updates.
 /// - `sum` and `count` remain `f64` for **stable accumulation** and to match the on-wire schema.
 /// - The compressor/merges do their internal math in `f64` and convert at the boundaries.
 #[derive(Debug, PartialEq, Clone)]
@@ -25,6 +26,7 @@ pub struct TDigest<F: FloatLike + FloatCore> {
     min: OrderedFloat<F>,
     scale: ScaleFamily,
     policy: SingletonPolicy, // interpreted as atomic/edge policy
+    delta: Option<f64>,
 }
 
 pub type TDigestF64 = TDigest<f64>;
@@ -41,6 +43,7 @@ impl<F: FloatLike + FloatCore> Default for TDigest<F> {
             min: OrderedFloat::from(F::from_f64(f64::NAN)),
             scale: ScaleFamily::K2,
             policy: SingletonPolicy::Use,
+            delta: None,
         }
     }
 }
@@ -120,7 +123,7 @@ fn rescaled_centroid<F: FloatLike + FloatCore>(
     let weight = c.weight_f64() * weight_scale;
 
     if c.is_atomic_unit() {
-        if (weight - 1.0).abs() <= f64::EPSILON {
+        if weight == 1.0 {
             Centroid::<F>::new_atomic_unit_f64(mean)
         } else {
             Centroid::<F>::new_atomic_f64(mean, weight)
@@ -182,6 +185,7 @@ pub struct TDigestBuilder<F: FloatLike + FloatCore> {
     max_size: usize,
     scale: ScaleFamily,
     policy: SingletonPolicy,
+    delta: Option<f64>,
     // optional seeds
     init_centroids: Option<Vec<Centroid<F>>>,
     init_stats: Option<DigestStats>,
@@ -193,6 +197,7 @@ impl<F: FloatLike + FloatCore> Default for TDigestBuilder<F> {
             max_size: 1000,
             scale: ScaleFamily::K2,
             policy: SingletonPolicy::Use,
+            delta: None,
             init_centroids: None,
             init_stats: None,
             override_max_size: None,
@@ -224,6 +229,17 @@ impl<F: FloatLike + FloatCore> TDigestBuilder<F> {
     #[inline]
     pub fn singleton_policy(mut self, p: SingletonPolicy) -> Self {
         self.policy = p;
+        self
+    }
+
+    /// Enable legacy tdigest-rs `delta` mode.
+    #[inline]
+    pub fn delta(mut self, delta: f64) -> Self {
+        assert!(
+            delta.is_finite() && delta > 0.0,
+            "delta must be finite and > 0"
+        );
+        self.delta = Some(delta);
         self
     }
 
@@ -274,6 +290,7 @@ impl<F: FloatLike + FloatCore> TDigestBuilder<F> {
                 max: OrderedFloat::from(F::from_f64(st.data_max)),
                 scale: self.scale,
                 policy: self.policy,
+                delta: self.delta,
             }
         } else {
             TDigest {
@@ -285,6 +302,7 @@ impl<F: FloatLike + FloatCore> TDigestBuilder<F> {
                 min: OrderedFloat::from(F::from_f64(f64::NAN)),
                 scale: self.scale,
                 policy: self.policy,
+                delta: self.delta,
             }
         }
     }
@@ -308,6 +326,29 @@ pub struct DigestStats {
 }
 
 impl<F: FloatLike + FloatCore> TDigest<F> {
+    /// Temporary query view for positive subnormal mass. Two exact power-of-two
+    /// scales make every weight normal and place the actual total in [1, 2).
+    /// Keeping the factors separate avoids an overflowing combined reciprocal.
+    /// The caller supplies the actual centroid total; stored state is untouched.
+    /// This cannot restore information already lost during compression.
+    pub(super) fn normalized_subnormal_mass_for_queries(&self, total_mass: f64) -> Self {
+        debug_assert!(total_mass > 0.0 && total_mass < f64::MIN_POSITIVE);
+        const FIRST_SCALE: f64 = 1.0 / f64::MIN_POSITIVE;
+        let first_total = total_mass * FIRST_SCALE;
+        // first_total is normal in [2^-52, 1), so the second exponent is 1..52.
+        let exponent = ((first_total.to_bits() >> 52) & 0x7ff) as i32 - 1023;
+        let second_scale = f64::from_bits(((1023 - exponent) as u64) << 52);
+        let mut normalized = self.clone();
+        for centroid in &mut normalized.centroids {
+            let first = rescaled_centroid(centroid, 1.0, FIRST_SCALE);
+            *centroid = rescaled_centroid(&first, 1.0, second_scale);
+        }
+        normalized.count = first_total * second_scale;
+        normalized.sum = (normalized.sum * FIRST_SCALE) * second_scale;
+        debug_assert!(normalized.count >= 1.0 && normalized.count < 2.0);
+        normalized
+    }
+
     #[inline]
     pub fn max(&self) -> f64 {
         self.max.into_inner().to_f64()
@@ -359,10 +400,10 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
         Precision::of_type::<F>()
     }
 
-    /// Cast this digest to a different centroid-storage precision.
+    /// Cast this digest to a different mean-storage precision.
     ///
-    /// This preserves configuration and digest-level stats while converting
-    /// centroid means/weights to the target float type.
+    /// This preserves configuration, f64 centroid weights and digest-level stats
+    /// while converting centroid means and extrema to the target float type.
     pub fn cast_precision<T>(&self) -> TDigest<T>
     where
         T: FloatLike + FloatCore,
@@ -378,12 +419,14 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
             data_min: self.min(),
             data_max: self.max(),
         };
-        TDigest::<T>::builder()
+        let mut builder = TDigest::<T>::builder()
             .max_size(self.max_size())
             .scale(self.scale())
-            .singleton_policy(self.singleton_policy())
-            .with_centroids_and_stats(cents, stats)
-            .build()
+            .singleton_policy(self.singleton_policy());
+        if let Some(delta) = self.delta() {
+            builder = builder.delta(delta);
+        }
+        builder.with_centroids_and_stats(cents, stats).build()
     }
 
     // --- internal metadata setters (small & inlined) ---
@@ -434,6 +477,15 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
     #[inline]
     pub fn singleton_policy(&self) -> SingletonPolicy {
         self.policy
+    }
+
+    #[inline]
+    pub fn delta(&self) -> Option<f64> {
+        self.delta
+    }
+
+    pub(crate) fn set_delta(&mut self, delta: Option<f64>) {
+        self.delta = delta;
     }
 
     /// Ingest **unsorted** values; behavior matches [`TDigest::merge_sorted`] after sorting.
@@ -493,7 +545,7 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
         let mut total_weight = 0.0_f64;
         for (v, w) in &pairs {
             let mean = <F as FloatLike>::to_f64(*v);
-            if (*w - 1.0).abs() <= f64::EPSILON {
+            if *w == 1.0 {
                 cents.push(Centroid::<F>::new_atomic_unit_f64(mean));
             } else {
                 cents.push(Centroid::<F>::new_atomic_f64(mean, *w));
@@ -508,10 +560,14 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
             data_min: <F as FloatLike>::to_f64(pairs[0].0),
             data_max: <F as FloatLike>::to_f64(pairs[pairs.len() - 1].0),
         };
-        let weighted = TDigest::<F>::builder()
+        let mut weighted_builder = TDigest::<F>::builder()
             .max_size(self.max_size)
             .scale(self.scale)
-            .singleton_policy(self.policy)
+            .singleton_policy(self.policy);
+        if let Some(delta) = self.delta {
+            weighted_builder = weighted_builder.delta(delta);
+        }
+        let weighted = weighted_builder
             .with_centroids_and_stats(cents, stats)
             .build();
 
@@ -522,7 +578,7 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
     /// the same pipeline used for raw values.
     pub fn merge_digests(digests: Vec<TDigest<F>>) -> TDigest<F> {
         // Decide defaults by first non-empty digest to keep semantics stable.
-        let mut chosen: Option<(usize, ScaleFamily, SingletonPolicy)> = None;
+        let mut chosen: Option<(usize, ScaleFamily, SingletonPolicy, Option<f64>)> = None;
         let mut runs: Vec<&[Centroid<F>]> = Vec::with_capacity(digests.len());
         let mut total_count = 0.0_f64;
         let mut min = OrderedFloat::from(F::from_f64(f64::INFINITY));
@@ -532,7 +588,7 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
             let n = d.count();
             if n > 0.0 && !d.centroids.is_empty() {
                 if chosen.is_none() {
-                    chosen = Some((d.max_size, d.scale, d.policy));
+                    chosen = Some((d.max_size, d.scale, d.policy, d.delta));
                 }
                 total_count += n;
                 min = std::cmp::min(min, d.min);
@@ -543,7 +599,7 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
         if total_count == 0.0 {
             return TDigest::default();
         }
-        let (chosen_max_size, chosen_scale, chosen_policy) = chosen.unwrap();
+        let (chosen_max_size, chosen_scale, chosen_policy, chosen_delta) = chosen.unwrap();
 
         let mut result = TDigest::<F> {
             centroids: Vec::new(),
@@ -554,6 +610,7 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
             min,
             scale: chosen_scale,
             policy: chosen_policy,
+            delta: chosen_delta,
         };
 
         // Producer: k-way merge of centroid runs (no extra coalescing beyond equal-mean heads).
@@ -628,19 +685,44 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
     /// - digest `count` and `sum` are multiplied by `factor`
     /// - `min`/`max` are unchanged
     ///
-    /// This preserves quantile/cdf/median shape while re-weighting the digest.
+    /// This preserves quantile/cdf/median shape while re-weighting the digest,
+    /// subject to floating-point rounding. If a scaled centroid weight becomes
+    /// zero/nonfinite or either mass total becomes nonfinite, return an error without
+    /// changing the digest. This does not validate weighted-value sum overflow.
     pub fn scale_weights(&mut self, factor: f64) -> TdResult<&mut Self> {
         ensure_positive_finite_scale_factor(factor, "weight scale factor must be finite and > 0")?;
-        if self.centroids.is_empty() || self.count == 0.0 {
+        if self.centroids.is_empty() {
             return Ok(self);
         }
 
-        self.centroids = self
-            .centroids
-            .iter()
-            .map(|c| rescaled_centroid(c, 1.0, factor))
-            .collect();
-        self.count *= factor;
+        let mut scaled_centroids = Vec::with_capacity(self.centroids.len());
+        let mut scaled_mass = 0.0;
+        for centroid in &self.centroids {
+            let weight = centroid.weight_f64() * factor;
+            if !weight.is_finite() || weight <= 0.0 {
+                return Err(TdError::InvalidWeight {
+                    context: "scaled centroid weight must be finite and > 0",
+                });
+            }
+            scaled_mass += weight;
+            if !scaled_mass.is_finite() {
+                return Err(TdError::InvalidWeight {
+                    context: "scaled total weight must be finite and > 0",
+                });
+            }
+            // The product is validated before a checked centroid constructor.
+            scaled_centroids.push(rescaled_centroid(centroid, 1.0, factor));
+        }
+        let scaled_count = self.count * factor;
+        if !scaled_count.is_finite() || scaled_count <= 0.0 {
+            return Err(TdError::InvalidWeight {
+                context: "scaled total weight must be finite and > 0",
+            });
+        }
+
+        // Commit only after all products and both total representations pass.
+        self.centroids = scaled_centroids;
+        self.count = scaled_count;
         self.sum *= factor;
         Ok(self)
     }
@@ -698,6 +780,7 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
                 min: OrderedFloat::from(min),
                 scale: ScaleFamily::K2,
                 policy: SingletonPolicy::Use,
+                delta: None,
             }
         } else {
             let sz = centroids.len();
@@ -760,6 +843,7 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
             min: OrderedFloat::from(F::from_f64(f64::NAN)),
             scale: self.scale,
             policy: self.policy,
+            delta: self.delta,
         };
 
         let vmin = OrderedFloat::from(values[0]);
@@ -847,6 +931,7 @@ mod tests {
         chosen_max_size: usize,
         chosen_scale: ScaleFamily,
         chosen_policy: SingletonPolicy,
+        chosen_delta: Option<f64>,
         total_count: f64,
         min: OrderedFloat<f64>,
         max: OrderedFloat<f64>,
@@ -883,7 +968,7 @@ mod tests {
     }
 
     fn scan_non_empty_runs<'a>(digests: &'a [TDigest<f64>]) -> Option<MergeScan<'a>> {
-        let mut chosen: Option<(usize, ScaleFamily, SingletonPolicy)> = None;
+        let mut chosen: Option<(usize, ScaleFamily, SingletonPolicy, Option<f64>)> = None;
         let mut runs: Vec<&[Centroid<f64>]> = Vec::with_capacity(digests.len());
         let mut total_count = 0.0_f64;
         let mut min = OrderedFloat::from(f64::INFINITY);
@@ -893,7 +978,7 @@ mod tests {
             let n = d.count();
             if n > 0.0 && !d.centroids.is_empty() {
                 if chosen.is_none() {
-                    chosen = Some((d.max_size, d.scale, d.policy));
+                    chosen = Some((d.max_size, d.scale, d.policy, d.delta));
                 }
                 total_count += n;
                 min = std::cmp::min(min, d.min);
@@ -902,12 +987,13 @@ mod tests {
             }
         }
 
-        let (chosen_max_size, chosen_scale, chosen_policy) = chosen?;
+        let (chosen_max_size, chosen_scale, chosen_policy, chosen_delta) = chosen?;
 
         Some(MergeScan {
             chosen_max_size,
             chosen_scale,
             chosen_policy,
+            chosen_delta,
             total_count,
             min,
             max,
@@ -925,6 +1011,7 @@ mod tests {
             min: scan.min,
             scale: scan.chosen_scale,
             policy: scan.chosen_policy,
+            delta: scan.chosen_delta,
         }
     }
 

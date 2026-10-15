@@ -1,6 +1,6 @@
 use assert_cmd::Command;
 use assert_fs::prelude::*;
-use tdigest_rs::tdigest::wire::{wire_precision, WirePrecision};
+use gr_tdigest::tdigest::wire::{wire_precision, WirePrecision};
 
 fn run_cli(args: &[&str], stdin_data: Option<&str>) -> String {
     let mut cmd = Command::cargo_bin("tdigest").expect("cli binary");

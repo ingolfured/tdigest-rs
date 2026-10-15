@@ -1,0 +1,13 @@
+bindings/python/tests/data/upstream_numerical_golden.json linguist-generated=true
+compat/performance/results/* linguist-generated=true
+compat/performance/measured-core.patch linguist-generated=true
+bindings/python/tests/data/published_0_1_0_pickle_golden.json linguist-generated=true
+compat/weighted-point-audit/recorded_results/* linguist-generated=true
+compat/compressed-state-audit/recorded_public_result.json linguist-generated=true
+compat/compressed-state-audit/initial_configuration_report.json linguist-generated=true
+compat/compressed-state-audit/historical_initial_audit.py linguist-generated=true
+compat/validation/*.json linguist-generated=true
+compat/package-ownership/recorded-52f6212/*.json linguist-generated=true
+compat/package-ownership/recorded-52f6212/temporary-project-name.patch linguist-generated=true whitespace=-blank-at-eol
+compat/package-ownership/recorded-52f6212/** linguist-generated=true
+compat/performance/interleaved/PROVENANCE.json linguist-generated=true

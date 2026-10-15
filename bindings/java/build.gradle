@@ -55,14 +55,14 @@ def genResDir = new File(buildDir, 'generated-resources')
 /* -------- Build native with feature `java` -------- */
 tasks.register('cargoBuild', Exec) {
   workingDir repoRoot
-  commandLine 'cargo', 'build', '--release', '--features', 'java'
+  commandLine 'cargo', 'build', '--release', '--locked', '--features', 'java'
   standardOutput = System.out
   errorOutput    = System.err
 }
 
 /* -------- Copy native into JAR resources (canonical name only) -------- */
-/* Library base name must match System.loadLibrary("tdigest_rs") */
-def libBase = "tdigest_rs"
+/* Library base name must match System.loadLibrary("gr_tdigest") */
+def libBase = "gr_tdigest"
 def os = org.gradle.internal.os.OperatingSystem.current()
 def libFile = os.isWindows() ? "${libBase}.dll"
            : os.isMacOsX()   ? "lib${libBase}.dylib"

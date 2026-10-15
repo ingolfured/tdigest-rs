@@ -23,10 +23,7 @@ def java_builder_chain(
         f".singletonPolicy(SingletonPolicy.{cfg['singleton_java']})",
         f".precision(Precision.{prec})",
     ]
-    if (
-        str(cfg.get("singleton_java")) == "USE_WITH_PROTECTED_EDGES"
-        and cfg.get("pin_per_side") is not None
-    ):
+    if str(cfg.get("singleton_java")) == "USE_WITH_PROTECTED_EDGES" and cfg.get("pin_per_side") is not None:
         lines.append(f".edgesPerSide({int(cfg['pin_per_side'])})")
     return "\n                        ".join(lines)
 

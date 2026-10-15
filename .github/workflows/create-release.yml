@@ -51,8 +51,9 @@ jobs:
           version=${{ github.event.inputs.version }}
           echo "::group::Updating version to $version"
           cargo install cargo-edit
-          cargo set-version $version
-          git add Cargo.toml Cargo.lock bindings/python/Cargo.toml
+          # Keep the preserved tdigest_core version separate from the release artifact.
+          cargo set-version --package tdigest-rs "$version"
+          git add Cargo.toml Cargo.lock
           git commit -m "Release $version"
           git push
           echo "::endgroup::"

@@ -10,7 +10,7 @@ class TestPythonRoundTripSerde:
     def test_python_round_trip(
         self, dataset, expect, cfg, add_pin_kw_fn, assert_close_fn
     ):
-        import tdigest_rs as td
+        import gr_tdigest as td
 
         kwargs = dict(
             max_size=cfg["max_size"],
@@ -57,7 +57,7 @@ class TestPythonPolarsSerdeInterop:
         """
         Build a Python TDigest with explicit precision ("f32" or "f64").
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
 
         py_kwargs = dict(
             max_size=cfg["max_size"],
@@ -78,7 +78,7 @@ class TestPythonPolarsSerdeInterop:
         """
         Build a Polars TDigest struct column over a single Float32/Float64 column.
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
 
         df = pl.DataFrame({"x": dataset["DATA"]}).with_columns(
@@ -131,7 +131,7 @@ class TestPythonPolarsSerdeInterop:
         - Polars struct column must be compact (Float32 min/max).
         - quantile/cdf must match Python digest.
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
 
         d_py = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f32")
@@ -169,7 +169,7 @@ class TestPythonPolarsSerdeInterop:
         - Polars struct column must be full-precision (Float64 min/max).
         - quantile/cdf must match Python digest.
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
 
         d_py = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f64")
@@ -204,7 +204,7 @@ class TestPythonPolarsSerdeInterop:
         - td.to_bytes(...) → Python TDigest.from_bytes(...) yields inner_kind() == "f32".
         - quantile/cdf coherent across the boundary.
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
 
         df_td = self._build_polars_digest(
@@ -248,7 +248,7 @@ class TestPythonPolarsSerdeInterop:
         - td.to_bytes(...) → Python TDigest.from_bytes(...) yields inner_kind() == "f64".
         - quantile/cdf coherent across the boundary.
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
 
         df_td = self._build_polars_digest(
@@ -291,7 +291,7 @@ class TestPythonPolarsSerdeInterop:
         - Final Python digest has inner_kind() == "f32".
         - quantile/cdf preserved end-to-end.
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
 
         d_py = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f32")
@@ -327,7 +327,7 @@ class TestPythonPolarsSerdeInterop:
         - Final Python digest has inner_kind() == "f64".
         - quantile/cdf preserved end-to-end.
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
 
         d_py = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f64")
@@ -362,7 +362,7 @@ class TestPythonPolarsSerdeInterop:
         - Python intermediate digest has inner_kind() == "f32".
         - quantile/cdf preserved end-to-end.
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
 
         df_td = self._build_polars_digest(
@@ -416,7 +416,7 @@ class TestPythonPolarsSerdeInterop:
         - Python intermediate digest has inner_kind() == "f64".
         - quantile/cdf preserved end-to-end.
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
 
         df_td = self._build_polars_digest(
@@ -463,7 +463,7 @@ class TestPythonPolarsSerdeInterop:
         - infer_column_precision(..., strict=True) must raise.
         - strict=False returns a fallback precision (currently "f64").
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
         import pytest
 
@@ -492,7 +492,7 @@ class TestPythonPolarsSerdeInterop:
         """
         All blobs are f32-encoded → infer_column_precision(..., strict=True/False) == "f32".
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
 
         d32 = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f32")
@@ -510,7 +510,7 @@ class TestPythonPolarsSerdeInterop:
         """
         All blobs are f64-encoded → infer_column_precision(..., strict=True/False) == "f64".
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
 
         d64 = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f64")
@@ -528,7 +528,7 @@ class TestPythonPolarsSerdeInterop:
         """
         All-null blob column → default fallback is "f64".
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
 
         df = pl.DataFrame({"blob": [None, None]}).with_columns(
@@ -544,7 +544,7 @@ class TestPythonPolarsSerdeInterop:
         """
         td.from_bytes("blob") with precision="auto" must fail on mixed f32/f64 blobs.
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
         import pytest
 
@@ -567,7 +567,7 @@ class TestPythonPolarsSerdeInterop:
         """
         td.from_bytes(..., precision="f32") must fail if blobs are f64-encoded.
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
         import pytest
 
@@ -586,7 +586,7 @@ class TestPythonPolarsSerdeInterop:
         """
         td.from_bytes(..., precision="f64") must fail if blobs are f32-encoded.
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
         import pytest
 
@@ -605,7 +605,7 @@ class TestPythonPolarsSerdeInterop:
         """
         Null blob rows are invalid input for td.from_bytes(...): strict error.
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
         import pytest
 
@@ -622,7 +622,7 @@ class TestPythonPolarsSerdeInterop:
         """
         All-null blob columns are invalid for td.from_bytes(...): strict error.
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
         import pytest
 
@@ -637,7 +637,7 @@ class TestPythonPolarsSerdeInterop:
         """
         Empty bytes (b"") are not a valid TDIG payload and must fail decode.
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
         import pytest
 
@@ -656,7 +656,7 @@ class TestPythonPolarsSerdeInterop:
         - schema is compact (Float32 min/max)
         - quantile/cdf coherent with original Python digest.
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
 
         d32 = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f32")
@@ -688,7 +688,7 @@ class TestPythonPolarsSerdeInterop:
         - quantile/cdf coherent with original Python TDigest(f32),
         - Python roundtrip keeps inner_kind() == "f32".
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
 
         # Build a Python f32 digest and serialize to wire bytes.
@@ -735,7 +735,7 @@ class TestPythonPolarsSerdeInterop:
         Python to_bytes(version=1|2|3) must produce decodable TDIG blobs
         with coherent quantile/cdf behavior.
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
 
         d = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f64")
         x0 = float(dataset["DATA"][0])
@@ -754,7 +754,7 @@ class TestPythonPolarsSerdeInterop:
         Migration behavior: a Binary column mixing TDIG v1 and v2 blobs with
         the same precision (f64) must decode under precision=\"auto\".
         """
-        import tdigest_rs as td
+        import gr_tdigest as td
         import polars as pl
 
         d = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f64")

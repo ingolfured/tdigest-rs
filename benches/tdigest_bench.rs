@@ -8,7 +8,7 @@ use std::process::Command;
 use std::time::Duration;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput};
-use tdigest_rs::tdigest::{ScaleFamily, TDigest};
+use gr_tdigest::tdigest::{ScaleFamily, TDigest};
 use testdata::{gen_dataset, DistKind};
 
 #[cfg(target_os = "linux")]
@@ -27,12 +27,13 @@ fn rss_peak_kib() -> u64 {
     0
 }
 
-fn build_digest_unsorted(vals: Vec<f64>) -> TDigest {
+fn build_digest_unsorted(vals: Vec<f64>) -> TDigest<f64> {
     TDigest::builder()
         .max_size(1_000)
         .scale(ScaleFamily::K2)
         .build()
         .merge_unsorted(vals)
+        .expect("finite benchmark data")
 }
 
 fn bench_merge_unsorted(c: &mut Criterion) {

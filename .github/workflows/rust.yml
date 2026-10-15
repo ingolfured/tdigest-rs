@@ -16,9 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Clippy
-        run: cargo clippy --verbose
+        run: cargo clippy --locked --workspace --all-targets --verbose
       - name: Format check
-        run: cargo fmt --verbose --check
+        run: cargo fmt --all --verbose --check
 
   test:
     name: Test
@@ -31,4 +31,8 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --locked --workspace --verbose
+      - name: Test original numerical fixtures in release mode
+        run: cargo test --locked --release --test original_rust_numerics
+      - name: Test original public package in release mode
+        run: cargo test --locked --release -p tdigest_core

@@ -18,6 +18,56 @@ fn parse_policy(kind: Option<&str>, pin_per_side: Option<usize>) -> Result<Singl
     parse_singleton_policy_str(kind, pin_per_side).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+/// Resolve `(scale, policy)` honoring delta-mode contract.
+///
+/// `delta` selects the compression family used by the old tdigest-rs library.
+/// The full legacy API is provided separately by the shipped `tdigest_rs` package.
+/// Compression-mode settings are:
+/// - `scale` defaults to `K2Norm` (canonical Dunning K2 from paper eq 8);
+/// - `singleton_policy` defaults to `Off` (no edge protection / pinning);
+/// - `pin_per_side` must be unset.
+/// Explicit values that disagree with this contract are rejected so the user
+/// gets a clear error instead of a silently-different digest.
+fn resolve_delta_mode_defaults(
+    scale: Option<&str>,
+    singleton_policy: Option<&str>,
+    pin_per_side: Option<usize>,
+    delta: Option<f64>,
+) -> Result<(ScaleFamily, SingletonPolicy), PyErr> {
+    if delta.is_none() {
+        let sc = parse_scale(scale)?;
+        let policy = parse_policy(singleton_policy, pin_per_side)?;
+        return Ok((sc, policy));
+    }
+    let sc = match scale {
+        None => ScaleFamily::K2Norm,
+        Some(s) => {
+            let parsed = parse_scale(Some(s))?;
+            if parsed != ScaleFamily::K2Norm {
+                return Err(PyValueError::new_err(
+                    "delta-mode only supports scale='k2norm' (canonical Dunning K2); \
+                     omit `scale` or pass scale='k2norm' to use delta",
+                ));
+            }
+            parsed
+        }
+    };
+    let policy = match (singleton_policy, pin_per_side) {
+        (None, None) => SingletonPolicy::Off,
+        _ => {
+            let parsed = parse_policy(singleton_policy, pin_per_side)?;
+            if parsed != SingletonPolicy::Off {
+                return Err(PyValueError::new_err(
+                    "delta-mode only supports singleton_policy='off' with no pin_per_side; \
+                     omit both, or drop `delta` if you need edge protection",
+                ));
+            }
+            parsed
+        }
+    };
+    Ok((sc, policy))
+}
+
 fn map_frontend_err(err: FrontendError) -> PyErr {
     match err {
         FrontendError::InvalidTrainingData(msg)
@@ -106,7 +156,7 @@ impl PyTDigest {
 #[pymethods]
 impl PyTDigest {
     #[staticmethod]
-    #[pyo3(signature = (values, max_size=1000, scale=None, f32_mode=false, singleton_policy=None, pin_per_side=None))]
+    #[pyo3(signature = (values, max_size=1000, scale=None, f32_mode=false, singleton_policy=None, pin_per_side=None, delta=None))]
     pub fn from_array(
         py: Python<'_>,
         values: PyObject,
@@ -115,19 +165,21 @@ impl PyTDigest {
         f32_mode: bool,
         singleton_policy: Option<&str>,
         pin_per_side: Option<usize>,
+        delta: Option<f64>,
     ) -> PyResult<Self> {
         if max_size == 0 {
             return Err(PyValueError::new_err("max_size must be > 0"));
         }
 
-        let sc = parse_scale(scale)?;
-        let policy = parse_policy(singleton_policy, pin_per_side)?;
+        let (sc, policy) =
+            resolve_delta_mode_defaults(scale, singleton_policy, pin_per_side, delta)?;
         let (_ndim, values_f64) = array_values(py, values)?;
 
         let config = DigestConfig {
             max_size,
             scale: sc,
             policy,
+            delta,
         };
         let precision = if f32_mode {
             DigestPrecision::F32
@@ -141,7 +193,7 @@ impl PyTDigest {
     }
 
     #[staticmethod]
-    #[pyo3(signature = (means, weights, max_size=1000, scale=None, f32_mode=false, singleton_policy=None, pin_per_side=None))]
+    #[pyo3(signature = (means, weights, max_size=1000, scale=None, f32_mode=false, singleton_policy=None, pin_per_side=None, delta=None))]
     pub fn from_means_weights(
         py: Python<'_>,
         means: PyObject,
@@ -151,13 +203,14 @@ impl PyTDigest {
         f32_mode: bool,
         singleton_policy: Option<&str>,
         pin_per_side: Option<usize>,
+        delta: Option<f64>,
     ) -> PyResult<Self> {
         if max_size == 0 {
             return Err(PyValueError::new_err("max_size must be > 0"));
         }
 
-        let sc = parse_scale(scale)?;
-        let policy = parse_policy(singleton_policy, pin_per_side)?;
+        let (sc, policy) =
+            resolve_delta_mode_defaults(scale, singleton_policy, pin_per_side, delta)?;
         let (_ndim_m, means_f64) = array_values(py, means)?;
         let (_ndim_w, weights_f64) = array_values(py, weights)?;
         if means_f64.len() != weights_f64.len() {
@@ -172,6 +225,7 @@ impl PyTDigest {
             max_size,
             scale: sc,
             policy,
+            delta: delta,
         };
         let precision = if f32_mode {
             DigestPrecision::F32
@@ -285,6 +339,9 @@ impl PyTDigest {
     ) -> PyResult<Bound<'py, PyBytes>> {
         let bytes = if let Some(v) = version {
             let parsed = parse_wire_version(v)?;
+            self.inner
+                .validate_wire_version(parsed)
+                .map_err(|e| PyValueError::new_err(e.to_string()))?;
             self.inner.to_bytes_with_version(parsed)
         } else {
             self.inner.to_bytes()
@@ -377,6 +434,7 @@ fn merge_all(digests: Bound<'_, PyAny>) -> PyResult<PyTDigest> {
 
 pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyTDigest>()?;
+    crate::upstream_py::register(m)?;
     m.add_function(wrap_pyfunction!(wire_precision_py, m)?)?;
     m.add_function(wrap_pyfunction!(merge_all, m)?)?;
     Ok(())

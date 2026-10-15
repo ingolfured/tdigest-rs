@@ -1,7 +1,7 @@
 // src/error.rs
 use core::fmt;
 
-/// Library-wide error for tdigest-rs.
+/// Library-wide error for gr-tdigest.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TdError {
     /// User tried to insert NaN/±inf during digest construction.
@@ -17,7 +17,7 @@ pub enum TdError {
     /// Invalid scaling factor for digest-level scaling operations.
     InvalidScaleFactor { context: &'static str },
 
-    /// Weight was non-positive in a weighted-ingest path.
+    /// A weight or scaled total was non-positive or non-finite.
     InvalidWeight { context: &'static str },
 
     /// Values/weights length mismatch in weighted-ingest path.

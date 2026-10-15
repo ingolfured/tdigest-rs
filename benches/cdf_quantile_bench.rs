@@ -1,10 +1,12 @@
 use std::hint::black_box;
 use std::time::Duration;
 
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
 use bytesize::ByteSize;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use gr_tdigest::tdigest::{ScaleFamily, TDigest};
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
 use jemalloc_ctl::{epoch, stats};
-use tdigest_rs::tdigest::{ScaleFamily, TDigest};
 use testdata::{gen_dataset, DistKind};
 
 /* ------------------------ helpers ------------------------ */
@@ -15,7 +17,7 @@ fn build_digest(
     max_size: usize,
     scale: ScaleFamily,
     seed: u64,
-) -> TDigest {
+) -> TDigest<f64> {
     let mut data = gen_dataset(kind, n, seed);
     data.sort_by(|a, b| a.total_cmp(b));
     TDigest::builder()
@@ -23,10 +25,12 @@ fn build_digest(
         .scale(scale)
         .build()
         .merge_sorted(data)
+        .expect("finite benchmark data")
 }
 
 /// Allocate inside `f`, keep the object alive until after reading jemalloc counters.
 /// Returns `(object, delta_bytes)`.
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
 fn alloc_bytes_hold<T, F: FnOnce() -> T>(f: F) -> (T, usize) {
     epoch::advance().unwrap();
     let before = stats::allocated::read().unwrap();
@@ -62,24 +66,30 @@ fn bench_cdf_light(c: &mut Criterion) {
 
         group.finish();
 
-        // ---- memory footprint (one line per size) ----
-        // 1) Digest construction footprint
-        let (_td_hold, digest_bytes) =
-            alloc_bytes_hold(|| build_digest(DistKind::Mixture, m, 1_000, ScaleFamily::K2, 4242));
+        #[cfg(all(target_os = "linux", target_env = "gnu"))]
+        {
+            // ---- memory footprint (one line per size) ----
+            // 1) Digest construction footprint
+            let (_td_hold, digest_bytes) = alloc_bytes_hold(|| {
+                build_digest(DistKind::Mixture, m, 1_000, ScaleFamily::K2, 4242)
+            });
 
-        // 2) One evaluation footprint (keep both digest and output Vec alive)
-        let ((_td_eval_hold, _out_hold), eval_bytes) = alloc_bytes_hold(|| {
-            let td2 = build_digest(DistKind::Mixture, m, 1_000, ScaleFamily::K2, 4242);
-            let out = td2.cdf(&values);
-            (td2, out)
-        });
+            // 2) One evaluation footprint (keep both digest and output Vec alive)
+            let ((_td_eval_hold, _out_hold), eval_bytes) = alloc_bytes_hold(|| {
+                let td2 = build_digest(DistKind::Mixture, m, 1_000, ScaleFamily::K2, 4242);
+                let out = td2.cdf(&values);
+                (td2, out)
+            });
 
-        println!(
-            "[memory] size={:<8} digest={}, eval_once={}",
-            m,
-            ByteSize(digest_bytes as u64),
-            ByteSize(eval_bytes as u64),
-        );
+            println!(
+                "[memory] size={:<8} digest={}, eval_once={}",
+                m,
+                ByteSize(digest_bytes as u64),
+                ByteSize(eval_bytes as u64),
+            );
+        }
+        #[cfg(not(all(target_os = "linux", target_env = "gnu")))]
+        println!("[memory] size={m}: jemalloc counters unavailable on this target");
     }
 }
 

@@ -1,10 +1,12 @@
 # bindings/python/tests/test_api_python.py
 import math
+import pickle
+from copy import deepcopy
 
 import numpy as np
 import pytest
 
-from tdigest_rs import ScaleFamily, SingletonPolicy, TDigest
+from gr_tdigest import ScaleFamily, SingletonPolicy, TDigest
 
 
 class TestPythonApiSmoke:
@@ -44,11 +46,10 @@ class TestPythonApiSmoke:
         a = TDigest.from_array([0.0, 1.0, 2.0, 3.0], max_size=64, scale="k2")
         b = TDigest.from_array([10.0, 11.0, 12.0, 13.0], max_size=64, scale="k2")
 
-        before_a = a.quantile(0.5)
+        before = a.quantile(0.5)
         out = a.merge(b)
-        assert out is not a
-        assert a.quantile(0.5) == pytest.approx(before_a, abs=1e-9)
-        assert out.quantile(0.5) > before_a
+        assert out is a
+        assert a.quantile(0.5) > before
 
         merged = TDigest.merge_all([a, b])
         assert math.isfinite(merged.quantile(0.5))
@@ -97,32 +98,25 @@ class TestPythonApiSmoke:
             rt = TDigest.from_bytes(blob)
             assert math.isfinite(rt.quantile(0.5))
 
-    def test_from_means_weights_update_trimmed_mean_and_dict_compat(self):
+    def test_delta_mode_uses_legacy_k2_cluster_rule(self):
         d = TDigest.from_means_weights(
-            arr=np.array([0.0, 1.0, 2.0, 3.0], dtype=np.float64),
-            weights=np.array([1.0, 1.0, 1.0, 1.0], dtype=np.float64),
-            max_size=64,
-            scale="k2",
+            [0.0, 1.0, 2.0, 3.0, 4.0],
+            [100.0, 1.0, 1.0, 1.0, 1.0],
+            delta=20.0,
         )
-        assert len(d) > 0
-        assert isinstance(d.means, np.ndarray)
-        assert isinstance(d.weights, np.ndarray)
-        assert d.weights.dtype == np.float64
 
-        tm = d.trimmed_mean(0.1, 0.9)
-        assert math.isfinite(tm)
+        assert len(d) == 4
 
-        d2 = d.update([4.0, 5.0])
-        assert d2 is not d
-        assert d2.quantile(0.5) >= d.quantile(0.5)
+    def test_pickle_and_deepcopy_roundtrip_via_wire_bytes(self):
+        d = TDigest.from_array([0.0, 1.0, 2.0, 3.0], max_size=64, scale="k2", precision="f32")
 
-        payload = d2.to_dict()
-        d3 = TDigest.from_dict(payload)
-        assert d3.quantile(0.5) == pytest.approx(d2.quantile(0.5), abs=1e-9)
+        loaded = pickle.loads(pickle.dumps(d))
+        copied = deepcopy(d)
 
-        legacy = {"means": [0.0, 1.0, 2.0], "weights": [1.0, 2.0, 3.0]}
-        d4 = TDigest.from_dict(legacy)
-        assert math.isfinite(d4.quantile(0.5))
+        assert loaded.inner_kind() == "f32"
+        assert copied.inner_kind() == "f32"
+        assert loaded.median() == pytest.approx(d.median(), abs=1e-9)
+        assert copied.quantile(0.5) == pytest.approx(d.quantile(0.5), abs=1e-9)
 
 
 class TestPythonApiValidation:
@@ -184,19 +178,12 @@ class TestPythonApiValidation:
         with pytest.raises(ValueError):
             d.add_weighted([1.0], [0.0])
 
-    def test_trimmed_mean_probe_validation(self):
-        d = TDigest.from_array([0.0, 1.0, 2.0, 3.0], max_size=64, scale="k2")
-        with pytest.raises(ValueError):
-            d.trimmed_mean(float("nan"), 0.9)
-        with pytest.raises(ValueError):
-            d.trimmed_mean(0.8, 0.2)
+    def test_delta_rejects_max_size_and_incompatible_options(self):
+        with pytest.raises(ValueError, match="either max_size or delta"):
+            TDigest.from_array([0.0, 1.0], max_size=64, delta=20.0)
 
-    def test_delta_arguments_are_rejected(self):
-        with pytest.raises(ValueError):
-            TDigest.from_array([0.0, 1.0], delta=100.0)
-        with pytest.raises(ValueError):
-            TDigest.from_means_weights([0.0], [1.0], delta=100.0)
+        with pytest.raises(ValueError, match="scale='k2norm'"):
+            TDigest.from_array([0.0, 1.0], delta=20.0, scale="k3")
 
-        d = TDigest.from_array([0.0, 1.0], max_size=64, scale="k2")
-        with pytest.raises(ValueError):
-            d.update([2.0], delta=10.0)
+        with pytest.raises(ValueError, match="singleton_policy='off'"):
+            TDigest.from_array([0.0, 1.0], delta=20.0, singleton_policy=SingletonPolicy.USE)
