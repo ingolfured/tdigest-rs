@@ -61,3 +61,5 @@ wheel is not a manylinux, musllinux, macOS or Windows validation result.
 
 Publishing follows the existing upstream workflows and environments described
 in [PUBLISH.md](PUBLISH.md). No package publication is part of this candidate.
+
+Polars digest structs with delta require K2Norm scale and singleton policy Off, as binary digests do. Incompatible structs return a configuration error when read for queries or serialization.
