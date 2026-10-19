@@ -49,6 +49,11 @@ make test
 make python-support-test
 ```
 
+Setup supports linked Git worktrees. For paths containing spaces, set
+`CARGO_TARGET_DIR` to a directory without spaces because the bundled jemalloc
+build rejects spaces in its installation prefix. Keep `target` as a symlink
+to that directory for the CLI and Java development tools.
+
 The installed-wheel gate builds one release Linux wheel and checks it outside
 the checkout on six Python/NumPy combinations plus a Polars-free baseline.
 The upstream CI platform matrix remains configured separately; a local Linux
