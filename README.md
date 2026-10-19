@@ -63,3 +63,5 @@ Publishing follows the existing upstream workflows and environments described
 in [PUBLISH.md](PUBLISH.md). No package publication is part of this candidate.
 
 Polars digest structs with delta require K2Norm scale and singleton policy Off, as binary digests do. Incompatible structs return a configuration error when read for queries or serialization.
+
+Modern NumPy query and centroid arrays are independent writable, resizable Float64 snapshots. Direct copying into NumPy storage avoids temporary Python float/list allocations; list, tuple and scalar result behavior is preserved. This carries the conversion change from [personal PR9](https://github.com/ingolfured/gr-tdigest/pull/9); the original `tdigest_rs` interface is unchanged.
