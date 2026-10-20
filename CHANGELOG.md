@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Fixed
+- Copy modern Python NumPy query and centroid outputs directly into NumPy-owned memory, avoiding intermediate Python float/list allocations while preserving exact values and independent writable/resizable arrays.
+- Reject Polars digest structs that combine delta with an incompatible scale or singleton policy before querying or exporting them, returning a configuration error instead of panicking during serialization.
+- Resolve development paths from Make's working directory, quote environment paths and locate hooks through Git so setup works in linked worktrees, checkouts with spaces and subprocess launches with inherited PWD.
+
 ### Compatibility-preserving refresh
 - Isolate platform pytest collection with a real temporary configuration and resolved root directory, avoiding Windows null-device and short-path discovery failures without changing test assertions or expected counts.
 - Preserve LF checkout bytes for the 13 checksum-bound original implementation, Python wrapper, tests and benchmark files, including when Git uses `core.autocrlf=true`; keep the raw-byte checks and numerical code unchanged.

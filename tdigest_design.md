@@ -434,6 +434,9 @@ Decode behavior:
   their original defaults and weight-based kind inference. Mutation/serialization
   upgrades to the current schema without changing mean precision. Single-digest
   serialization avoids recompression.
+  Struct decoding checks delta/scale/policy compatibility before building the
+  digest, so malformed configurations return codec errors before queries or
+  serialization can use them.
 
 ## 7. Frontend service role
 
@@ -471,3 +474,5 @@ preserves existing application outputs; `gr_tdigest`, Polars, Java, and the CLI
 continue using the modern shared core. Numerical fixes there must not silently
 change the original interface. See the vendored source provenance and exact
 output regression tests.
+
+Modern Python NumPy outputs use `PyArray1::from_slice` to copy f64 results directly into NumPy-owned storage, preserving dtype, shape, independent writable arrays, OWNDATA and resizing. List and tuple outputs retain their container paths. Scalar results, including the existing one-element NumPy query fast path, retain their behavior. Only conversion overhead changes; core query arithmetic and the original interface remain unchanged.
