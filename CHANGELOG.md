@@ -4,6 +4,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Update the retired macOS 14 ARM runner to macOS 15 while retaining both Mac
+  architectures, and explicitly stage pinned Rust before the full-project CI gate.
+
 - Add reproducible installed-wheel comparisons and real published-package upgrade
   checks; preserve the original rejection of empty-array construction in their
   workload definitions. Retain the development project's Java 11/17/21/25 gates
