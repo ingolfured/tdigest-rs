@@ -89,6 +89,17 @@ def worker(engine: str) -> dict:
         precision = "f32" if dtype == np.float32 else "f64"
         for n in (0, 1, 32, 1000, 10000, 100000, 1000000):
             data = values(n, dtype)
+            if n == 0 and engine == "legacy":
+
+                def reject_empty():
+                    try:
+                        build(data)
+                    except ValueError:
+                        return
+                    raise AssertionError("legacy empty construction unexpectedly succeeded")
+
+                measure(f"{precision}/reject_empty/{n}", reject_empty, {"state_sha256": None})
+                continue
             digest = build(data)
             details = describe(digest, data)
             measure(f"{precision}/build/{n}", lambda: build(data), details)
@@ -105,7 +116,10 @@ def worker(engine: str) -> dict:
             def sequential():
                 result = copy.copy(children[0])
                 for other in children[1:]:
-                    result = result.merge(other)
+                    if engine == "modern":
+                        result.merge(other)
+                    else:
+                        result = result.merge(other)
                 return result
 
             measure(f"{precision}/merge_sequential_40/{child_size}", sequential, describe(sequential(), data))

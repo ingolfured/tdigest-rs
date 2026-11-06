@@ -36,9 +36,23 @@ integration, isolated original tests and review documentation.
 
 ## Validation and performance evidence
 
-The final preparation report will record the exact tested commit/artifact hashes,
-completed local and CI checks and fresh baseline/candidate timings. No pending
-check is a pass. Run the following gates against the actual upstream package:
+The [validation record](docs/upstream-1.0.0/validation.md) identifies tested
+commits/artifact hashes and completed local checks, including all 91 original
+tests, 56 installed-wheel runtime cells and a real published-0.1.0 upgrade.
+The [fresh performance comparison](docs/upstream-1.0.0/performance.md) reports
+absolute timings, seven-sample ranges and storage/accuracy controls for both
+precisions, construction, 40-digest merges and queries. In that workload:
+
+- Existing legacy million-value construction improves 3.48–3.92×, with unchanged
+  centroid/weight bytes; median and quantile queries regress.
+- Modern opt-in provides additional capabilities, but its tested 40×1,000 merge
+  workload is about 73–80× slower than published legacy and uses more storage.
+- The extended regression gate passes with **10 known statistical failures**
+  still visible as expected failures, not accuracy passes.
+
+Final CI run links and the exact PR head are maintained in the
+[PR description](https://github.com/G-Research/tdigest-rs/pull/38). No pending
+check is a pass. Reproduce the local gates against the actual upstream package:
 
 ```bash
 make build

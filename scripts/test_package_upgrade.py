@@ -35,7 +35,13 @@ if sys.argv[1] == 'record':
     assert version('tdigest-rs') == '0.1.0'
     rows=[]
     for dtype in (np.float32, np.float64):
-        for n in (0, 1, 32, 1000):
+        try:
+            TDigest.from_array(np.array([], dtype=dtype))
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('published legacy must reject empty construction')
+        for n in (1, 2, 32, 1000):
             for seed in (31, 4242):
                 for delta in (30., 300.):
                     values=np.random.default_rng(seed).normal(size=n).astype(dtype)

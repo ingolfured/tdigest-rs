@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Add reproducible installed-wheel comparisons and real published-package upgrade
+  checks; preserve the original rejection of empty-array construction in their
+  workload definitions. Retain the development project's Java 11/17/21/25 gates
+  and standalone native-override packaging check in upstream Actions.
+- Record fresh 0.1.0/1.0.0 performance and artifact validation, including slower
+  queries/modern merges, unequal storage budgets and the ten known accuracy limits.
+
 - Propose upstream version 1.0.0 with an explicit staged rollout: preserve the
   legacy path now, deprecate only in a later release, and remove only in a future
   major release after notice. Isolate the byte-identical original 91-case suite
@@ -16,7 +23,7 @@ All notable changes to this project are documented in this file.
   and pinned release workflow; retain the original numerical compatibility engine.
 
 The planned upstream release is **1.0.0**. Read the [1.0.0 release notes](RELEASE_NOTES_1.0.0.md)
-for the changes from 0.2.x, upgrade instructions and supported runtimes.
+for the imported development changes, upgrade instructions and supported runtimes.
 
 ### Changed
 
@@ -66,6 +73,12 @@ for the changes from 0.2.x, upgrade instructions and supported runtimes.
 - Consolidate the 0.3.0 changes and migration advice into release notes; remove
   the historical follow-up report directory and its added qualification tooling
   and checklist. Executable library tests and frozen reference inputs remain.
+
+## Imported development history
+
+The entries below describe the separate `ingolfured/gr-tdigest` development
+project. They are not published G-Research `tdigest-rs` releases; the published
+upstream baseline for this contribution is 0.1.0.
 
 ## [0.2.4] - 2026-02-16
 
