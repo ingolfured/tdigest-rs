@@ -38,6 +38,7 @@ const CAP_SEARCH_LO: f64 = 1e-6;
 struct WeightedStats {
     w_sum: f64,
     mw_sum: f64,
+    moment: crate::tdigest::summation::Sum,
     first_mean: f64,
     last_mean: f64,
     first_atomic: bool,
@@ -55,6 +56,7 @@ impl WeightedStats {
         self.items += 1;
         self.w_sum += centroid.weight_f64();
         self.mw_sum += centroid.weight_f64() * centroid.mean_f64();
+        self.moment.add(centroid.weight_f64() * centroid.mean_f64());
     }
     #[inline]
     fn mean(&self) -> f64 {
@@ -64,7 +66,16 @@ impl WeightedStats {
             // later merges produce duplicate or out-of-order means.
             self.first_mean
         } else if self.w_sum > 0.0 {
-            let mean = self.mw_sum / self.w_sum;
+            // Preserve the established same-sign finite averaging order. A
+            // different last bit can change later cluster membership. Use
+            // compensation when cancellation or intermediate overflow needs it.
+            let moment =
+                if (self.first_mean < 0.0 && self.last_mean > 0.0) || !self.mw_sum.is_finite() {
+                    self.moment.total()
+                } else {
+                    self.mw_sum
+                };
+            let mean = moment / self.w_sum;
             // Weighted averaging can round beyond both input means by an ulp.
             // Disjoint sorted clusters must retain disjoint mean intervals.
             // Do not hide aggregate/weighted-sum overflow behind this bound.
@@ -93,6 +104,7 @@ impl WeightedStats {
     fn clear(&mut self) {
         self.w_sum = 0.0;
         self.mw_sum = 0.0;
+        self.moment = crate::tdigest::summation::Sum::default();
         self.items = 0;
     }
 }
@@ -110,16 +122,18 @@ pub(crate) fn compress_into<F, I>(
     result: &mut TDigest<F>,
     max_size: usize,
     items: I,
-) -> Vec<Centroid<F>>
+) -> crate::TdResult<Vec<Centroid<F>>>
 where
     F: FloatLike + FloatCore,
     I: IntoIterator<Item = Centroid<F>>,
 {
     // -- 1) Normalize ---------------------------------------------------------
-    let norm = normalize_stream::<F, _>(items);
+    let norm = normalize_stream::<F, _>(items)?;
     if norm.out.is_empty() {
-        return norm.out;
+        return Ok(norm.out);
     }
+
+    validate_compression_stream(&norm.out)?;
 
     // Centroid mass and weighted sums can be recomputed, but centroid means
     // do not retain the true extrema of mixed clusters. Keep the data bounds
@@ -134,8 +148,9 @@ where
     let delta = result.delta();
     if delta.is_none() {
         if let Some(v) = policy.fast_path(&norm.out) {
+            validate_compression_stream(&v)?;
             debug_assert!(crate::tdigest::centroids::is_sorted_strict_by_mean(&v));
-            return v;
+            return Ok(v);
         }
     }
     let slices = policy.slice(&norm.out);
@@ -152,6 +167,8 @@ where
         klimit_merge::<F>(slices.interior, d, family, KLIMIT_TOL)
     };
 
+    validate_compression_stream(&core)?;
+
     // -- 4) Cap ---------------------------------------------------------------
     // Second k-limit cap pass if the interior exceeds its budget.
     // Fallback to equal-weight bucketization remains as a safety net in cap_core.
@@ -164,6 +181,8 @@ where
     // -- 5) Assemble ----------------------------------------------------------
     let assembled = assemble_with_edges::<F>(slices.left, core_capped, slices.right);
 
+    validate_compression_stream(&assembled)?;
+
     // -- 6) Post --------------------------------------------------------------
     let compressed = if delta.is_some() {
         assembled
@@ -171,10 +190,29 @@ where
         policy.post(assembled)
     };
 
+    validate_compression_stream(&compressed)?;
     debug_assert!(crate::tdigest::centroids::is_sorted_strict_by_mean(
         &compressed
     ));
-    compressed
+    Ok(compressed)
+}
+
+// Check between stages before rounded mass can reach a checked constructor or
+// an overflowed mean can reach an ordering assertion. A finite positive naive
+// total also bounds every contiguous accumulator in the following stage.
+fn validate_compression_stream<F: FloatLike + FloatCore>(
+    cs: &[Centroid<F>],
+) -> crate::TdResult<()> {
+    let mut mass = 0.0;
+    for c in cs {
+        mass += c.weight_f64();
+        if !mass.is_finite() || !c.mean_f64().is_finite() {
+            return Err(crate::TdError::NonFiniteInput {
+                context: "compression mass or mean overflow",
+            });
+        }
+    }
+    Ok(())
 }
 
 /* =============================================================================
@@ -216,6 +254,7 @@ impl Policy {
                 }
                 None
             }
+            Policy::Use { max } if max <= 2 && max > 0 => Some(bucketize_equal_weight(out, max)),
             Policy::Use { .. } | Policy::UseProt { .. } => None,
         }
     }
@@ -313,10 +352,15 @@ fn klimit_merge<F: FloatLike + FloatCore>(
         return Vec::new();
     }
     let total_w: f64 = items.iter().map(|c| c.weight_f64()).sum();
-    // n in the canonical Dunning K2 normalizer is the centroid count of the
-    // current merge pass; for non-K2Norm families this argument is ignored.
+    // This implementation uses the current merge pass's centroid count as n
+    // in the Dunning K2 normalizer; non-K2Norm families ignore this argument.
     let n = items.len() as f64;
 
+    // Z = 4*ln(n/d) + 24 is Dunning's published K2 normalizer, not a
+    // threshold fitted for this guard. The factor 4 comes from the centroid
+    // count bound; 24 is the chosen offset for that bound over practical n/d.
+    // See "The Size of a t-Digest", section 5:
+    // https://arxiv.org/abs/1903.09921
     // K2Norm increases with q only when its normalizer is positive. At a
     // sufficiently large delta relative to the normalized input count, a
     // nonpositive normalizer would reverse the scale and accept every merge.
@@ -358,6 +402,44 @@ fn klimit_merge<F: FloatLike + FloatCore>(
     flush_cluster::<F>(&mut clusters, &mut acc);
 
     clusters
+}
+
+/// Count a trial k-limit pass without constructing discarded centroid means.
+/// Decisions depend only on weights; preserve the full pass's addition order.
+fn klimit_count<F: FloatLike + FloatCore>(
+    items: &[Centroid<F>],
+    d: f64,
+    family: ScaleFamily,
+    tol: f64,
+) -> usize {
+    if items.is_empty() {
+        return 0;
+    }
+    let total_w: f64 = items.iter().map(|c| c.weight_f64()).sum();
+    let n = items.len() as f64;
+    if family == ScaleFamily::K2Norm && (n / d).ln().mul_add(4.0, 24.0) <= 0.0 {
+        return items.len();
+    }
+    let mut c_acc = 0.0_f64;
+    let mut weight = 0.0_f64;
+    let mut clusters = 0;
+    let mut k_left = q_to_k(c_acc / total_w, d, family, n);
+    for centroid in items {
+        let next = centroid.weight_f64();
+        let q_r = (c_acc + weight + next) / total_w;
+        if (q_to_k(q_r, d, family, n) - k_left) <= 1.0 + tol {
+            weight += next;
+        } else {
+            if weight > 0.0 {
+                clusters += 1;
+                c_acc += weight;
+                weight = 0.0;
+            }
+            k_left = q_to_k(c_acc / total_w, d, family, n);
+            weight += next;
+        }
+    }
+    clusters + usize::from(weight > 0.0)
 }
 
 /// **(4) Cap** — reduce to at most `core_cap` by running a second k-limit pass.
@@ -402,7 +484,7 @@ fn cap_with_second_klimit<F: FloatLike + FloatCore>(
 
     for _ in 0..CAP_SEARCH_ITERS {
         let mid = 0.5 * (lo + hi);
-        let len_mid = klimit_merge(core, mid, family, KLIMIT_TOL).len();
+        let len_mid = klimit_count(core, mid, family, KLIMIT_TOL);
         if len_mid <= core_cap {
             found = true;
             best = mid;
@@ -437,7 +519,7 @@ fn cap_with_second_klimit<F: FloatLike + FloatCore>(
 
 /// **(4) Cap** — order-preserving equal-weight bucketization into `buckets` groups.
 ///
-/// - Emits up to `buckets` outputs; a tiny trailing remainder may be skipped (see [`cap_core`]).
+/// - Emits up to `buckets` outputs, retaining every positive residual contribution.
 /// - Multi-item buckets are **mixed**; a one-item bucket retains its input kind.
 fn bucketize_equal_weight<F: FloatLike + FloatCore>(
     cs: &[Centroid<F>],
@@ -462,12 +544,11 @@ fn bucketize_equal_weight<F: FloatLike + FloatCore>(
 
     for c in cs {
         acc.add(c);
-        if acc.w_sum >= target && acc.w_sum > 0.0 {
+        // Reserve the final bucket for all remaining positive contributions,
+        // even when rounded total/target boundaries were reached early.
+        if acc.w_sum >= target && acc.w_sum > 0.0 && out.len() < buckets - 1 {
             out.push(acc.centroid::<F>());
             acc.clear();
-            if out.len() == buckets {
-                break;
-            }
         }
     }
     if !acc.is_empty() && out.len() < buckets {
@@ -686,7 +767,8 @@ mod tests {
             .max_size(100)
             .scale(ScaleFamily::K2)
             .singleton_policy(SingletonPolicy::Off)
-            .build();
+            .build()
+            .unwrap();
 
         let input = vec![
             c::<Fp>(1.0, 1.0, true),
@@ -694,7 +776,7 @@ mod tests {
             c::<Fp>(2.0, 3.0, true),
         ];
 
-        let out = super::compress_into(&mut td, 100, input);
+        let out = super::compress_into(&mut td, 100, input).unwrap();
         assert_eq!(out.len(), 2);
         assert!(
             !out[0].is_singleton(),
@@ -713,10 +795,11 @@ mod tests {
         let mut td = TDigest::<Fp>::builder()
             .max_size(10)
             .singleton_policy(SingletonPolicy::Off)
-            .build();
+            .build()
+            .unwrap();
         // `normalize_stream` should panic if means are decreasing.
         let input = vec![c::<Fp>(1.0, 1.0, true), c::<Fp>(0.9, 1.0, true)];
-        let _ = super::compress_into(&mut td, 10, input);
+        let _ = super::compress_into(&mut td, 10, input).unwrap();
     }
 
     // ---------- bucketizer ----------
@@ -868,7 +951,8 @@ mod tests {
             .scale(ScaleFamily::K2Norm)
             .singleton_policy(SingletonPolicy::Off)
             .delta(20.0)
-            .build();
+            .build()
+            .unwrap();
 
         let input = vec![
             c::<Fp>(0.0, 100.0, true),
@@ -877,7 +961,7 @@ mod tests {
             c::<Fp>(3.0, 1.0, true),
             c::<Fp>(4.0, 1.0, true),
         ];
-        let out = super::compress_into(&mut td, 100, input);
+        let out = super::compress_into(&mut td, 100, input).unwrap();
         assert_eq!(
             out.len(),
             4,
@@ -917,14 +1001,15 @@ mod tests {
         let mut td = TDigest::<Fp>::builder()
             .max_size(10)
             .singleton_policy(SingletonPolicy::Off)
-            .build();
+            .build()
+            .unwrap();
 
         let input = vec![
             c::<Fp>(0.0, 1.0, true),
             c::<Fp>(1.0, 1.0, true),
             c::<Fp>(2.0, 1.0, true),
         ];
-        let out = super::compress_into(&mut td, 10, input.clone());
+        let out = super::compress_into(&mut td, 10, input.clone()).unwrap();
         assert_eq!(out.len(), 3);
         for (i, o) in out.iter().enumerate() {
             assert!(o.is_singleton());
@@ -937,10 +1022,11 @@ mod tests {
         let mut td = TDigest::<Fp>::builder()
             .max_size(3)
             .singleton_policy(SingletonPolicy::Off)
-            .build();
+            .build()
+            .unwrap();
 
         let input: Vec<_> = (0..10).map(|i| c::<Fp>(i as f64, 1.0, true)).collect();
-        let out = super::compress_into(&mut td, 3, input);
+        let out = super::compress_into(&mut td, 3, input).unwrap();
         assert!(
             out.len() <= 3,
             "must not exceed max_size (got {})",
@@ -955,10 +1041,11 @@ mod tests {
         let mut td = TDigest::<Fp>::builder()
             .max_size(3) // total cap in this policy (edges included)
             .singleton_policy(SingletonPolicy::Use)
-            .build();
+            .build()
+            .unwrap();
 
         let input: Vec<_> = (0..8).map(|i| c::<Fp>(i as f64, 1.0, true)).collect();
-        let out = super::compress_into(&mut td, 3, input);
+        let out = super::compress_into(&mut td, 3, input).unwrap();
 
         assert!(out.len() <= 3, "Use policy keeps total <= max_size");
         assert!(
@@ -983,12 +1070,13 @@ mod tests {
         let mut td = TDigest::<Fp>::builder()
             .max_size(2) // core capacity only
             .singleton_policy(SingletonPolicy::UseWithProtectedEdges(2))
-            .build();
+            .build()
+            .unwrap();
 
         let mut input: Vec<_> = (0..12).map(|i| c::<Fp>(i as f64, 1.0, true)).collect();
         input[5] = c::<Fp>(5.0, 2.0, false);
 
-        let out = super::compress_into(&mut td, 2, input);
+        let out = super::compress_into(&mut td, 2, input).unwrap();
 
         assert!(out.len() >= 4 && out.len() <= 6);
         assert!(out[0].is_singleton() && approx(out[0].mean_f64(), 0.0, 1e-12));
@@ -1004,6 +1092,22 @@ mod tests {
         assert!(core_count <= 2, "core must respect max_size");
     }
 
+    #[test]
+    fn cluster_mean_recovers_after_intermediate_moment_overflow() {
+        let mut stats = super::WeightedStats::default();
+        // Each product is finite; only the partial sum overflows.
+        for mean in [-f64::MAX, -f64::MAX, 1.0, f64::MAX, f64::MAX] {
+            stats.add(&Centroid::<f64>::new_atomic_f64(mean, 1.0));
+        }
+        assert_eq!(stats.mean(), 0.2);
+        assert_eq!(stats.centroid::<f64>().weight(), 5.0);
+        // Reusing the accumulator must discard its old compensation and scale.
+        stats.clear();
+        stats.add(&Centroid::<f64>::new_atomic_f64(6.0, 2.0));
+        stats.add(&Centroid::<f64>::new_atomic_f64(12.0, 1.0));
+        assert_eq!(stats.mean(), 8.0);
+    }
+
     // ---------- metadata on result ----------
 
     #[test]
@@ -1011,7 +1115,8 @@ mod tests {
         let mut td = TDigest::<Fp>::builder()
             .max_size(10)
             .singleton_policy(SingletonPolicy::Off)
-            .build();
+            .build()
+            .unwrap();
 
         let input = vec![
             c::<Fp>(-3.0, 1.0, true),
@@ -1021,11 +1126,72 @@ mod tests {
         let w_sum: f64 = input.iter().map(|x| x.weight_f64()).sum();
         let mw_sum: f64 = input.iter().map(|x| x.weight_f64() * x.mean_f64()).sum();
 
-        let out = super::compress_into(&mut td, 10, input);
+        let out = super::compress_into(&mut td, 10, input).unwrap();
         assert!(!out.is_empty());
         assert!(approx(td.count(), w_sum, 1e-12));
         assert!(approx(td.sum(), mw_sum, 1e-12));
         assert!(approx(td.min(), -3.0, 1e-12));
         assert!(approx(td.max(), 4.0, 1e-12));
+    }
+}
+
+#[cfg(test)]
+mod count_probe_tests {
+    use super::*;
+
+    fn compare_counts<F: FloatLike + FloatCore>() {
+        for size in [0, 1, 2, 3, 16, 67, 200, 1003] {
+            for weighted in [false, true] {
+                let weights = [1.0, 0.5, 0.25, 16777217.0, 1e-100, 1e100];
+                let items: Vec<Centroid<F>> = (0..size)
+                    .map(|i| {
+                        let mean = (i as f64 - size as f64 / 2.0) * 1e25;
+                        let weight = if weighted {
+                            weights[i % weights.len()]
+                        } else {
+                            1.0
+                        };
+                        if i % 2 == 0 {
+                            Centroid::new_atomic_f64(mean, weight)
+                        } else {
+                            Centroid::new_mixed_f64(mean, weight)
+                        }
+                    })
+                    .collect();
+                for family in [
+                    ScaleFamily::Quad,
+                    ScaleFamily::K1,
+                    ScaleFamily::K2,
+                    ScaleFamily::K2Norm,
+                    ScaleFamily::K3,
+                ] {
+                    for delta in [
+                        f64::MIN_POSITIVE,
+                        1e-6,
+                        0.5,
+                        2.0,
+                        16.0,
+                        32.0,
+                        200.0,
+                        1000.0,
+                        1e100,
+                    ] {
+                        for tolerance in [0.0, KLIMIT_TOL] {
+                            assert_eq!(klimit_count(&items, delta, family, tolerance), klimit_merge(&items, delta, family, tolerance).len(), "size={size} weighted={weighted} family={family:?} delta={delta} tolerance={tolerance}");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn count_probe_matches_full_pass_f32() {
+        compare_counts::<f32>();
+    }
+
+    #[test]
+    fn count_probe_matches_full_pass_f64() {
+        compare_counts::<f64>();
     }
 }

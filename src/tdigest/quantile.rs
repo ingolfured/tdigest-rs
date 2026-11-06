@@ -197,7 +197,9 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
             // Deriving that boundary independently from both centers can leave
             // a rounding-sized positive span (even for equal weights like 0.1),
             // incorrectly moving the boundary quantile to one of the means.
-            let boundary = cum_w_at_left_center + w_left / 2.0;
+            let boundary = crate::tdigest::summation::sum(
+                self.centroids()[..=left_idx].iter().map(|c| c.weight_f64()),
+            );
             return if target_index < boundary {
                 m_left
             } else if target_index > boundary {
@@ -272,6 +274,9 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
         let mut cur = 0.0_f64;
         let mut acc_sum = 0.0_f64;
         let mut acc_w = 0.0_f64;
+        let magnitude = self.min().abs().max(self.max().abs());
+        let mut normalized_sum = crate::tdigest::summation::Sum::default();
+        let mut normalized_mass = crate::tdigest::summation::Sum::default();
 
         for c in self.centroids() {
             let w = c.weight_f64();
@@ -293,12 +298,23 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
             if take > 0.0 {
                 acc_sum += c.mean_f64() * take;
                 acc_w += take;
+                if magnitude > 0.0 {
+                    let relative_mass = take / total;
+                    normalized_sum.add((c.mean_f64() / magnitude) * relative_mass);
+                    normalized_mass.add(relative_mass);
+                }
             }
             cur = next;
         }
 
         if acc_w > 0.0 {
-            acc_sum / acc_w
+            if acc_sum.is_finite() {
+                acc_sum / acc_w
+            } else {
+                // A selected tail's moment can overflow although its average
+                // lies between finite extrema. Divide before multiplying.
+                (normalized_sum.total() / normalized_mass.total()).clamp(-1.0, 1.0) * magnitude
+            }
         } else {
             f64::NAN
         }
@@ -313,7 +329,7 @@ mod tests {
     #[test]
     fn centroid_addition_regression_pr_1() {
         let vals = vec![1.0, 1.0, 1.0, 2.0, 1.0, 1.0];
-        let mut t = TDigestBuilder::new().max_size(10).build();
+        let mut t = TDigestBuilder::new().max_size(10).build().unwrap();
         for v in vals {
             t = t.merge_unsorted(vec![v]).expect("no NaNs");
         }
@@ -342,6 +358,7 @@ mod tests {
         let t = TDigestBuilder::new()
             .max_size(10)
             .build()
+            .unwrap()
             .merge_sorted(values.clone())
             .expect("no NaNs");
 
@@ -372,6 +389,7 @@ mod tests {
         let t = TDigestBuilder::new()
             .max_size(10)
             .build()
+            .unwrap()
             .merge_sorted(values.clone())
             .expect("no NaNs");
 
@@ -394,7 +412,7 @@ mod tests {
     fn median_between_centroids_even_count() {
         // With symmetric bracketing, Q(0.5) equals the average of the two middle piles (→ 0.0).
         for num in [1, 2, 3, 10, 20] {
-            let mut t = TDigestBuilder::new().max_size(100).build();
+            let mut t = TDigestBuilder::new().max_size(100).build().unwrap();
             for _ in 0..num {
                 t = t.merge_sorted(vec![-1.0]).expect("no NaNs");
             }
@@ -419,13 +437,18 @@ mod tests {
             let td = TDigestBuilder::<f64>::new()
                 .max_size(1000)
                 .build()
+                .unwrap()
                 .merge_weighted_unsorted(&[0.0, 10.0], &weights)
                 .unwrap();
             let expected = if weights[0] > weights[1] { 0.0 } else { 10.0 };
             assert_eq!(td.median(), expected);
             assert_eq!(td.median(), td.quantile(0.5));
         }
-        assert!(TDigestBuilder::<f64>::new().build().median().is_nan());
+        assert!(TDigestBuilder::<f64>::new()
+            .build()
+            .unwrap()
+            .median()
+            .is_nan());
     }
 
     #[test]
@@ -442,6 +465,7 @@ mod tests {
         let td = TDigestBuilder::new()
             .max_size(N + 1)
             .build()
+            .unwrap()
             .merge_sorted(v.clone())
             .expect("no NaNs");
 
@@ -463,6 +487,7 @@ mod tests {
         let td = TDigestBuilder::new()
             .max_size(1000)
             .build()
+            .unwrap()
             .merge_sorted(v.clone())
             .expect("no NaNs");
 

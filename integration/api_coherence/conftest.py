@@ -36,14 +36,13 @@ BASE_CFG = {
     "scale_pl": "k2",
     "scale_java": "K2",
     # singleton defaults
-    "singleton_cli": "use",  # "off"|"use"|"edges"
+    "singleton_cli": "use",    # "off"|"use"|"edges"
     "singleton_py": "use",
     "singleton_pl": "use",
-    "singleton_java": "USE",  # OFF|USE|USE_WITH_PROTECTED_EDGES
+    "singleton_java": "USE",   # OFF|USE|USE_WITH_PROTECTED_EDGES
     # edge pins default (used whenever policy == "edges")
     "pin_per_side": 2,
 }
-
 
 @dataclass(frozen=True)
 class Paths:
@@ -60,23 +59,20 @@ class Paths:
 
 # -------------------- paths & build once --------------------
 
-
 @pytest.fixture(scope="session")
 def paths() -> Paths:
     root = Path(__file__).resolve().parents[2]
     profile = os.environ.get("PROFILE", "dev")
     cargo_dir = "release" if profile == "release" else "debug"
-    is_windows = platform.system().lower().startswith("win")
 
-    # CLI binary (adjust name if your target differs)
-    cli_name = "tdigest.exe" if is_windows else "tdigest"
-    cli_bin = root / "target" / cargo_dir / cli_name
+    # Match Cargo and the Java resource packager when builds use an external cache.
+    target_dir = root / os.environ.get("CARGO_TARGET_DIR", "target")
+    cli_bin = target_dir / cargo_dir / ("tdigest.exe" if os.name == "nt" else "tdigest")
 
     # Java bits
     java_src_dir = root / "bindings" / "java"
-    gradlew_name = "gradlew.bat" if is_windows else "gradlew"
-    gradlew = java_src_dir / gradlew_name
-    if not gradlew.exists() or (not is_windows and not os.access(gradlew, os.X_OK)):
+    gradlew = java_src_dir / "gradlew"
+    if not gradlew.exists() or not os.access(gradlew, os.X_OK):
         raise AssertionError(f"Gradle wrapper not found or not executable: {gradlew}")
 
     classes_dir = java_src_dir / "build" / "classes" / "java" / "main"
@@ -103,26 +99,13 @@ def paths() -> Paths:
             ) from e
 
     # Where the native libs land (wrapper task that embeds natives)
-    arch = platform.machine().lower()
-    if arch in ("x86_64", "amd64"):
-        arch = "x86_64"
-    elif arch in ("aarch64", "arm64"):
-        arch = "aarch64"
-    os_tag = platform.system().lower()
-    if os_tag == "darwin":
-        os_tag = "macos"
-    sys_tag = f"{os_tag}-{arch}"
+    sys_tag = f"{platform.system().lower()}-{platform.machine()}"
     native_dirs = [
         java_src_dir / "build" / "resources" / "main" / "META-INF" / "native" / sys_tag,
-        java_src_dir
-        / "build"
-        / "generated-resources"
-        / "META-INF"
-        / "native"
-        / sys_tag,
+        java_src_dir / "build" / "generated-resources" / "META-INF" / "native" / sys_tag,
     ]
 
-    classpath_sep = ";" if is_windows else ":"
+    classpath_sep = ";" if platform.system().lower().startswith("win") else ":"
 
     return Paths(
         root=root,
@@ -138,7 +121,6 @@ def paths() -> Paths:
 
 
 # -------------------- expectations & dataset --------------------
-
 
 @pytest.fixture(scope="session")
 def expect() -> dict[str, float]:
@@ -163,16 +145,13 @@ def cfg() -> dict[str, object]:
 def run_cli_fn():
     return run_cli
 
-
 @pytest.fixture(scope="session")
 def assert_close_fn():
     return assert_close
 
-
 @pytest.fixture(scope="session")
 def cli_build_args_fn():
     return cli_build_args
-
 
 @pytest.fixture(scope="session")
 def cli_supports_auto_fn(paths: Paths):
@@ -181,9 +160,7 @@ def cli_supports_auto_fn(paths: Paths):
 
 @pytest.fixture(scope="session")
 def compile_run_java_fn(paths: Paths):
-    return lambda tmp_path, class_name, java_src: compile_run_java(
-        paths, tmp_path, class_name, java_src
-    )
+    return lambda tmp_path, class_name, java_src: compile_run_java(paths, tmp_path, class_name, java_src)
 
 
 @pytest.fixture(scope="session")
