@@ -70,6 +70,7 @@ import hashlib, importlib, importlib.metadata as metadata, importlib.util, json,
 expected = json.loads(sys.argv[1])
 assert sys.flags.isolated == 1
 assert '.'.join(map(str, sys.version_info[:2])) == expected['python']
+assert sys.implementation.name == 'cpython' and sys.version_info.releaselevel == 'final', sys.version
 prefix = pathlib.Path(sys.prefix).resolve()
 names = ('tdigest_rs', 'tdigest_rs.lib', 'tdigest_rs.tdigest_rs',
          'gr_tdigest', 'gr_tdigest._gr_tdigest')

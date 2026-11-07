@@ -18,6 +18,9 @@ development history into the upstream PR.
 - G-Research's governance files, pinned Actions references, platform wheel matrix,
   required-check mechanism and tag-based PyPI/GitHub release workflow are retained.
   The workflow adapts to the new layout and adds the full cross-language tests.
+  All twelve platform/Python interface cells install the actual platform release
+  wheel instead of repeating native compilation. The runtime installer is updated
+  for stable CPython 3.15; prerelease interpreters are rejected explicitly.
 - Jemalloc and its benchmark counters stay restricted to Linux GNU targets.
   Cross-platform packaging leaves wheel platform selection to the upstream build
   matrix; the separate Linux source-archive gate explicitly builds manylinux_2_28.

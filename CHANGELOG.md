@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Update the runtime-matrix installer for stable CPython 3.15 and reject prerelease
+  interpreters explicitly. Run all twelve cross-platform Python interface cells
+  against the actual release wheels, avoiding duplicate native compilation.
+
 - Update the retired macOS 14 ARM runner to macOS 15 while retaining both Mac
   architectures, and explicitly stage pinned Rust before the full-project CI gate.
 
