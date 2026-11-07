@@ -21,7 +21,7 @@ use ordered_float::FloatCore;
 use crate::tdigest::centroids::Centroid;
 use crate::tdigest::merges::normalize_stream;
 use crate::tdigest::precision::FloatLike;
-use crate::tdigest::scale::{q_to_k, ScaleFamily};
+use crate::tdigest::scale::{k2_log_odds, q_to_k, ScaleFamily, K2_DENOMINATOR};
 use crate::tdigest::singleton_policy::SingletonPolicy;
 use crate::tdigest::TDigest;
 
@@ -442,6 +442,55 @@ fn klimit_count<F: FloatLike + FloatCore>(
     clusters + usize::from(weight > 0.0)
 }
 
+// With integral weights totaling less than 2^53, every regrouping has the
+// same exact prefix masses. Cache the K2 log-odds at those boundaries once.
+// Fractional and large masses must keep each trial's original addition order.
+fn integer_k2_boundaries<F: FloatLike + FloatCore>(
+    core: &[Centroid<F>],
+    family: ScaleFamily,
+) -> Option<Vec<f64>> {
+    if family != ScaleFamily::K2 {
+        return None;
+    }
+    let mut total = 0.0;
+    for c in core {
+        let w = c.weight_f64();
+        if w.fract() != 0.0 {
+            return None;
+        }
+        total += w;
+    }
+    if total >= (1u64 << 53) as f64 {
+        return None;
+    }
+
+    let mut boundaries = Vec::with_capacity(core.len() + 1);
+    boundaries.push(k2_log_odds(0.0));
+    let mut prefix = 0.0;
+    for c in core {
+        prefix += c.weight_f64();
+        boundaries.push(k2_log_odds(prefix / total));
+    }
+    Some(boundaries)
+}
+
+fn count_integer_k2_clusters(boundaries: &[f64], d: f64) -> usize {
+    let factor = d / K2_DENOMINATOR;
+    let mut left = factor * boundaries[0];
+    let mut previous = factor * boundaries[1];
+    let mut clusters = 1;
+    for &boundary in &boundaries[2..] {
+        let right = factor * boundary;
+        // Keep the two multiplications before subtraction, as in klimit_merge.
+        if right - left > 1.0 + KLIMIT_TOL {
+            clusters += 1;
+            left = previous;
+        }
+        previous = right;
+    }
+    clusters
+}
+
 /// **(4) Cap** — reduce to at most `core_cap` by running a second k-limit pass.
 ///
 /// We binary-search `d'` in `(0, d]` and choose the largest value that yields `<= core_cap`
@@ -482,9 +531,13 @@ fn cap_with_second_klimit<F: FloatLike + FloatCore>(
     let mut best = lo;
     let mut found = false;
 
+    let boundaries = integer_k2_boundaries(core, family);
     for _ in 0..CAP_SEARCH_ITERS {
         let mid = 0.5 * (lo + hi);
-        let len_mid = klimit_count(core, mid, family, KLIMIT_TOL);
+        let len_mid = match &boundaries {
+            Some(ranks) => count_integer_k2_clusters(ranks, mid),
+            None => klimit_count(core, mid, family, KLIMIT_TOL),
+        };
         if len_mid <= core_cap {
             found = true;
             best = mid;
@@ -1138,6 +1191,41 @@ mod tests {
 #[cfg(test)]
 mod count_probe_tests {
     use super::*;
+
+    #[test]
+    fn integer_k2_capacity_search_bounds_logarithm_calls() {
+        let items: Vec<_> = (0..1500)
+            .map(|i| Centroid::<f64>::new_atomic_f64(i as f64, (1 + i % 3) as f64))
+            .collect();
+        super::super::scale::K2_LOG_CALLS.with(|calls| calls.set(0));
+        let out = cap_with_second_klimit(&items, 998, 1000.0, ScaleFamily::K2);
+        assert!(out.len() <= 998);
+        let calls = super::super::scale::K2_LOG_CALLS.with(|calls| calls.get());
+        assert!(
+            calls <= 4 * items.len() + 2,
+            "{calls} K2 logarithms for {} centroids",
+            items.len()
+        );
+    }
+
+    #[test]
+    fn cached_k2_trials_match_original_cluster_boundaries() {
+        let items: Vec<_> = (0..300)
+            .map(|i| Centroid::<f64>::new_atomic_f64(i as f64, [1., 17., 16777217.][i % 3]))
+            .collect();
+        let ranks = integer_k2_boundaries(&items, ScaleFamily::K2).unwrap();
+        for trial in 1..1000 {
+            let d = trial as f64 / 7.0;
+            assert_eq!(
+                count_integer_k2_clusters(&ranks, d),
+                klimit_merge(&items, d, ScaleFamily::K2, KLIMIT_TOL).len()
+            );
+        }
+        for weight in [0.5, (1u64 << 53) as f64, f64::MAX] {
+            let c = Centroid::<f64>::new_atomic_f64(0., weight);
+            assert!(integer_k2_boundaries(&[c], ScaleFamily::K2).is_none());
+        }
+    }
 
     fn compare_counts<F: FloatLike + FloatCore>() {
         for size in [0, 1, 2, 3, 16, 67, 200, 1003] {

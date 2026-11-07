@@ -32,6 +32,22 @@ pub(crate) fn clamp(v: f64, lo: f64, hi: f64) -> f64 {
     v.max(lo).min(hi)
 }
 
+#[cfg(test)]
+thread_local! {
+    pub(super) static K2_LOG_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+pub(super) const K2_DENOMINATOR: f64 = 4.0 * std::f64::consts::LN_2;
+const RANK_EPS: f64 = 1e-15;
+
+#[inline]
+pub(super) fn k2_log_odds(q: f64) -> f64 {
+    #[cfg(test)]
+    K2_LOG_CALLS.with(|calls| calls.set(calls.get() + 1));
+    let q = clamp(q, RANK_EPS, 1.0 - RANK_EPS);
+    (q / (1.0 - q)).ln()
+}
+
 /// Family-aware `q → k` mapping. `d` is the scale denominator (≈ `max_size`,
 /// or `δ` in delta-mode). `n` is the centroid count of the current merge pass —
 /// only consulted by [`ScaleFamily::K2Norm`]; other families ignore it.
@@ -41,8 +57,8 @@ pub(crate) fn clamp(v: f64, lo: f64, hi: f64) -> f64 {
 /// Consumed by Stage **3** to evaluate the Δk ≤ 1 condition.
 #[inline]
 pub(crate) fn q_to_k(q: f64, d: f64, family: ScaleFamily, n: f64) -> f64 {
-    use std::f64::consts::{LN_2, PI};
-    let eps = 1e-15;
+    use std::f64::consts::PI;
+    let eps = RANK_EPS;
     let qq = clamp(q, eps, 1.0 - eps);
     match family {
         // Piecewise-quadratic
@@ -61,10 +77,7 @@ pub(crate) fn q_to_k(q: f64, d: f64, family: ScaleFamily, n: f64) -> f64 {
             (d / (2.0 * PI)) * s
         }
         // k2: logistic, no-norm — n-independent.
-        ScaleFamily::K2 => {
-            let s = (qq / (1.0 - qq)).ln();
-            (d / (4.0 * LN_2)) * s
-        }
+        ScaleFamily::K2 => (d / K2_DENOMINATOR) * k2_log_odds(q),
         // k2_norm: canonical Dunning K2 with n-aware normalizer.
         // Paper eq (8): k(q) = δ / (4·ln(n/δ) + 24) · ln(q/(1-q)).
         // Normalizer constants and size-bound rationale: Dunning,

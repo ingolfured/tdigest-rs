@@ -544,7 +544,7 @@ is a CI regression; ordinary Java tests alone previously missed this path.
 
 ## Capacity-search implementation
 
-Trial capacity searches count k-limit clusters using the same ordered weight additions and scale comparisons as the emitting pass. They do not construct temporary centroid means or allocate discarded output vectors. The selected final pass still uses the existing full compression path. This changes work performed during search, not its numerical decisions or storage settings.
+Trial capacity searches count k-limit clusters using the same ordered weight additions and scale comparisons as the emitting pass. They do not construct temporary centroid means or allocate discarded output vectors. The selected final pass still uses the existing full compression path. For K2 cores with integral weights totaling less than 2^53, every trial visits the same prefix ranks regardless of how it groups centroids. The search computes each boundary log-odds once and applies the trial scale before subtracting the two scaled boundaries. Other weights and scale families use the original count pass. The selected scale still goes through the full merge.
 
 ## Standalone JNI payload selection
 

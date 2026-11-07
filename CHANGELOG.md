@@ -4,6 +4,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Reuse exact integer-weight K2 rank boundaries during capacity search. Repeated
+  40-way merges avoid recomputing their logarithms in every trial.
+
 - Update the runtime-matrix installer for stable CPython 3.15 and reject prerelease
   interpreters explicitly. Run all twelve cross-platform Python interface cells
   against the actual release wheels, avoiding duplicate native compilation.
