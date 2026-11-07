@@ -72,8 +72,7 @@ At preparation time, upstream's `CI` workflow is `disabled_inactivity`, and the
 connected account has only read access to G-Research's repository. A maintainer
 must re-enable/run it and complete the existing upstream approval and app-backed
 required check. Fork CI cannot satisfy those upstream controls. No gate has been
-disabled or replaced to obtain a pass. The PR remains draft until these external
-gates are resolved. Jenkins is not used.
+disabled or replaced to obtain a pass. The PR was draft when these checks ran. Jenkins is not used.
 
 The 10 statistical limits and three ignored Rust diagnostics remain explicit.
 Neither the local checks nor fork CI constitute release approval, publication,

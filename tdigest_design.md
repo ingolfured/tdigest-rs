@@ -483,7 +483,7 @@ output regression tests.
 
 Modern Python NumPy outputs use PyArray1::from_slice to copy f64 results directly into NumPy-owned memory. List and tuple outputs retain their existing container paths. The direct copy preserves dtype, shape, independent writable storage, OWNDATA and resizing. Moving Rust vectors into NumPy was considered but excluded because Rust-owned ndarray buffers cannot be resized.
 
-The measured NumPy output change and its remaining inconclusive observations are documented in `compat/performance/numpy-output-20261015`. It changes conversion overhead only; core query arithmetic and both public interfaces retain their results.
+The measured NumPy output change and its remaining inconclusive observations are documented in the [historical NumPy output measurements](https://github.com/ingolfured/gr-tdigest/blob/5801881075c6e31fec746c8c62c6a25782b6c13f/compat/performance/numpy-output-20261015/README.md). It changes conversion overhead only; core query arithmetic and both public interfaces retain their results.
 
 ## Modern Python construction and the GIL
 

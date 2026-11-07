@@ -4,6 +4,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Consolidate engine and release guidance, correct the exact-point underflow
+  note and preserve the Windows wrapper's CRLF bytes on fresh checkouts.
+
 - Reuse exact integer-weight K2 rank boundaries during capacity search. Repeated
   40-way merges avoid recomputing their logarithms in every trial.
 

@@ -28,8 +28,10 @@ development history into the upstream PR.
   metadata use the upstream identity. Historical source and measurement links
   continue to identify the revision they actually measured.
 
-The modern numerical core, Python/Rust binding logic, Polars implementation and
-original arithmetic sources match the source snapshot. The JNI adaptation changes
+At PR head `fa69285` the modern core and bindings match the development snapshot.
+The proposed follow-up `01529bf` changes `src/tdigest/compressor.rs` and
+`src/tdigest/scale.rs` to reuse integer-weight K2 rank boundaries. The original
+arithmetic and public bindings still match the snapshot. The JNI adaptation changes
 names rather than numerical operations. Frozen reference inputs and the untouched
 original Python compatibility suite are preserved.
 
