@@ -1,20 +1,13 @@
-# tdigest-rs for Python
+# tdigest-rs
 
-`tdigest_rs.TDigest` keeps the original Python API and numerical implementation.
-The modern engine is available separately as `gr_tdigest.TDigest`.
+Install `tdigest-rs` for the NumPy APIs or `tdigest-rs[polars]` for Polars
+expressions. Existing callers import `TDigest` from `tdigest_rs`. Import it
+from `gr_tdigest` to use the modern engine with fractional weights and CDF.
 
-Install `tdigest-rs` for NumPy use, or `tdigest-rs[polars]` for modern Polars
-expressions. The candidate runtime contract is CPython 3.10–3.12 with NumPy
-`>=1.26.4,<3`; the optional Polars extra pins version `1.34.0`.
+The package supports standard CPython 3.10–3.15. Python 3.10–3.12 supports
+NumPy 1.26.4 or 2.x, Python 3.13–3.14 requires NumPy 2.3.4 or later in the
+2.x line, and Python 3.15 requires NumPy 2.5.4 or later in that line. The
+Polars extra accepts compatible installed versions from 1.0.0 onward.
 
-```python
-import numpy as np
-from tdigest_rs import TDigest
-
-digest = TDigest.from_array(np.array([1.0, 2.0, 3.0]), delta=300.0)
-print(digest.median())
-```
-
-Do not co-install the private `gr-tdigest` distribution: it owns overlapping
-Python package paths. See the repository README and `docs/review-refresh.md`
-for upgrade, saved-state, Rust API and platform limitations.
+See the [project README](https://github.com/G-Research/tdigest-rs) for build
+instructions, release notes and language guides.

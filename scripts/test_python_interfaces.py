@@ -14,7 +14,13 @@ import sys
 import tempfile
 
 from test_legacy_wheel import stage_compatibility_tests, verify_upstream_snapshot
-from test_python_support import MODERN_TESTS, check_results
+from check_upstream_tests import ORIGINAL_TEST_CASES
+from test_python_support import (
+    COMPATIBILITY_CASES,
+    MODERN_CASES,
+    MODERN_TESTS,
+    check_results,
+)
 
 
 def main() -> None:
@@ -46,7 +52,11 @@ def main() -> None:
             env=env,
             check=True,
         )
-        for name, paths, expected in (("compatibility", [tests, parity], 208), ("modern", [modern], 92)):
+        for name, paths, expected in (
+            ("upstream_legacy", [tests], ORIGINAL_TEST_CASES),
+            ("compatibility", [parity], COMPATIBILITY_CASES - ORIGINAL_TEST_CASES),
+            ("modern", [modern], MODERN_CASES),
+        ):
             xml = work / f"{name}.xml"
             subprocess.run(
                 [

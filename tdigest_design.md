@@ -1,5 +1,22 @@
 # tdigest_design.md
 
+## JVM toolchain delivery
+
+Java classes and tests compile with `--release 11`; a Gradle task checks class
+major version55. Gradle 8.14.5 permits the build itself to run on JDK 11. The CI matrix covers
+JDK 11, 17, 21 and 25; its JDK 25 entry selects checksum-verified Gradle 9.1.0
+through `TDIGEST_GRADLE_URL`/`TDIGEST_GRADLE_SHA256`, keeping the Java 11 target
+and older-JDK wrapper unchanged. Optional
+`bindings/java/bootstrap.py` is standard-library-only and runs before JVM lookup
+when tool-source/offline environment settings are present. It verifies archive
+SHA256, validates extraction paths/links, and installs into a digest-keyed cache
+by atomic rename. Configured-source failure has no fallback. Offline mode refuses
+network downloads and adds `--offline` to Gradle/Cargo. Gradle's internal Maven
+repository replaces MavenCentral exclusively. Native JAR resources follow the
+actual `CARGO_TARGET_DIR`. No digest arithmetic or original compatibility source
+changes are involved.
+
+
 This document is the **current-state implementation design** for the Rust TDigest core.
 
 - Scope: internals in `src/tdigest/*` and how frontends use them.
@@ -60,8 +77,7 @@ On the tested Linux x86_64 target with Rust 1.90, a modern `Centroid<f32>` occup
 16 bytes instead of 12; `Centroid<f64>` remains 24 bytes. The f32 digest shell
 remains 96 bytes. This costs four bytes per allocated f32 centroid (one third more
 centroid storage), and its speed/cache impact must be measured. Means and extrema
-retain their chosen precision. Public Rust `weight() -> F` remains a potentially
-lossy compatibility accessor; `weight_f64()` exposes the authoritative mass.
+retain their chosen precision. Public modern Rust `weight()` and `weight_f64()` both expose authoritative Float64 mass, including for Float32 means.
 Python weights remain Float64 arrays and Java weighted inputs remain double[].
 The separate original `tdigest_rs` implementation retains its uint32 weights.
 
@@ -113,25 +129,15 @@ weighted-value product overflow, and the raw-sum overflow policy are separate.
 - This is a streaming two-way merge iterator (no prebuilt merged buffer).
 5. Run the full compressor pipeline with `compress_into`.
 
-Important: compressor stage 1 recomputes digest metadata (`count`, `sum`, `min`, `max`) from the normalized stream and writes those back to the result.
+Stage 1 computes centroid metadata, but add/merge callers retain authoritative data-level count and sum from raw observations and incoming aggregate headers. Rounded centroid means cannot reconstruct historical sums. Modern aggregate summation uses compensation and a power-of-two fallback for finite cancellation across intermediate overflow.
 
 Weighted constructor/merge helpers:
 - `from_weighted_unsorted(values, weights, max_size)` builds from weighted input directly.
 - `merge_weighted_unsorted(values, weights)` merges weighted input into an existing digest.
 
-### 3.3 Digest-to-digest merge (`merge_digests`)
+### 3.3 Digest-to-digest merge
 
-`TDigest::merge_digests(digests)`:
-1. Scan digests and keep only non-empty runs (`count>0` and non-empty centroid vector).
-2. Pick the first non-empty digest as the config source (`max_size`, `scale`, `policy`, `delta`).
-3. Perform a streaming k-way merge of sorted centroid runs via `KWayCentroidMerge::from_runs`.
-  - Implementation uses a min-heap over run heads (`O(total_len * log(k))`).
-  - It avoids materializing one full concat+sort buffer before compression.
-  - Historical concat+sort run merge is retained only as a `#[cfg(test)]` baseline helper.
-4. Recompress with `compress_into` using the chosen config.
-5. If all digests are empty, return `TDigest::default()`.
-
-Note: core merge is permissive by design. Strict precision/config checks are enforced in `FrontendDigest::merge_in_place`.
+Public `merge_digests` and `try_merge_digests` validate every contributor, including empty state, and reject incompatible capacity, scale, policy, delta or precision before compression. A streaming k-way merge avoids a full concatenate-and-sort buffer. In-place merge methods prepare checked independent state and replace the receiver only on success. Empty merge-all returns the documented default state.
 
 ## 4. Compression pipeline internals
 
@@ -365,8 +371,8 @@ mutate the stored digest.
 CDF uses the actual centroid total already computed for its prefix array.
 Quantile first checks its stored total, then computes actual mass only in the
 subnormal branch. The temporary count is the scaled actual mass, so recursion
-terminates after one copy even if a directly seeded subnormal header differs
-from its subnormal centroid total. Empty/NaN handling, quantile endpoints, and
+terminates after one copy. Public reconstruction rejects a seeded header whose
+count differs from its centroid mass beyond summation roundoff. Empty/NaN handling, quantile endpoints, and
 weight-independent single-centroid quantiles retain their existing branches.
 Normal-total queries keep the previous summation order, kernels, and allocation
 behavior, with only an extra condition. The rare fallback allocates a query copy.
@@ -457,7 +463,7 @@ Adapters (`src/py.rs`, `src/jni.rs`, `src/polars_expr.rs`) should remain thin ar
 - Default re-encoding writes v3; old formats cannot store delta mode.
 
 2. Strict merge location.
-- Strict compatibility checks are frontend-layer behavior, not core merge behavior.
+- Both the checked core merge and frontend merge validate configuration, including empty contributors.
 
 3. Doc split discipline.
 - Keep target behavior only in `api_design.md` and current internals only here.
@@ -475,4 +481,120 @@ continue using the modern shared core. Numerical fixes there must not silently
 change the original interface. See the vendored source provenance and exact
 output regression tests.
 
-Modern Python NumPy outputs use `PyArray1::from_slice` to copy f64 results directly into NumPy-owned storage, preserving dtype, shape, independent writable arrays, OWNDATA and resizing. List and tuple outputs retain their container paths. Scalar results, including the existing one-element NumPy query fast path, retain their behavior. Only conversion overhead changes; core query arithmetic and the original interface remain unchanged.
+Modern Python NumPy outputs use PyArray1::from_slice to copy f64 results directly into NumPy-owned memory. List and tuple outputs retain their existing container paths. The direct copy preserves dtype, shape, independent writable storage, OWNDATA and resizing. Moving Rust vectors into NumPy was considered but excluded because Rust-owned ndarray buffers cannot be resized.
+
+The measured NumPy output change and its remaining inconclusive observations are documented in the [historical NumPy output measurements](https://github.com/ingolfured/gr-tdigest/blob/5801881075c6e31fec746c8c62c6a25782b6c13f/compat/performance/numpy-output-20261015/README.md). It changes conversion overhead only; core query arithmetic and both public interfaces retain their results.
+
+## Modern Python construction and the GIL
+
+The raw constructor calls the unchanged `FrontendDigest::from_values` inside `Python::allow_threads` once input conversion and configuration resolution are complete. The weighted constructor creates an unexposed empty digest, then releases the GIL around its unchanged `add_weighted_f64` call. Both closures work with owned vectors and Rust state only; error translation and returning the new Python object occur with the GIL held. Existing object methods and pinned original arithmetic retain their existing paths.
+
+Modern Python training uses `training_array_values` for constructors and updates. Aligned native-endian contiguous one-dimensional NumPy f32/f64 arrays are borrowed read-only while copying into an owned f64 vector; the borrow ends before the constructor releases the GIL. Other layouts/dtypes use the existing NumPy/Python conversion. Query conversion remains unchanged.
+
+## Python runtime compatibility
+
+The Python package keeps Polars expression conversion, lazy imports, plugin registration and precision inference in `gr_tdigest/_polars.py`. `gr_tdigest/_shared.py` holds argument normalization and wire-header inspection shared with the numerical wrapper. The package initializer re-exports the existing API and retains numerical object adaptation; neither internal module imports the package initializer. Native plugin lookup stays relative to the installed package directory. Enum identities remain at the public package path for pickle compatibility.
+
+The extension targets the CPython3.10 stable ABI and advertises standard CPython3.10–3.15. The binding stack uses PyO3 0.29.3, rust-numpy 0.29, pyo3-polars 0.28 and Polars Rust0.55 with Python Polars 1.44.2 and 2.0.0. Development pins 1.44.2; the optional integration accepts >=1.0.0 without an upper cap. An installed-wheel matrix covers the 1.0 floor, representative 1.x releases and 2.0, verifying both base and extra installs preserve the preinstalled Polars version. Rust1.95 is pinned because the updated Polars dependency tree requires it. PyO3 attachment/cast and Polars iterator API migrations do not change digest arithmetic. The original upstream numerical sources, wrapper and91 tests remain checksum-bound.
+
+The release gate builds the verified source archive once with Python 3.10, then installs that unchanged ABI3 wheel into isolated Python 3.10–3.15 runtimes, including a Polars-free installation on every version. It reuses Cargo dependency artifacts and runs alongside the main build and unit tests in CI. Standard CPython is the supported runtime; free-threaded and PyPy builds require separate artifacts and are not covered by these claims.
+
+## Quality measurement and failure visibility
+
+The parametrized tests in `tests/quality/test_accuracy.py` use shared independent sorted-data references, pinned recorded observations and deterministic distribution grids. They test real f32/f64 storage, three budgets, input reversal and40-way sequential/balanced merges. They match original parameters by observed logical field bytes without consulting accuracy, record all search candidates and retain poor modern outcomes in comparison totals. The earlier exponential quality-score helper is not an acceptance metric.
+
+Fast profiles run in normal pytest discovery and `make test`; the extended matrix is marked slow and collected with `--quality-extended`. Known accuracy-limit cases become expected failures only after invariants, frozen-metric tolerances and the exact finding inventory have been checked. New regressions fail normally. Optional pytest reports retain all measured outcomes, and candidate baseline generation requires a complete matrix and an explicit output directory without replacing the checked-in baselines.
+
+Exact rational weighted controls cover probability semantics across extreme mass scales. Rust numerical-foundation regressions cover tiny-capacity mass, residual contributions, cancellation and fractional atomic boundaries. The quality pytest lifecycle verifies source and installed native-binary hashes before finalizing reports or generating candidate baselines; changed inputs invalidate the receipt and fail the run. This verifies input stability, not universal Modern accuracy superiority. The independent original arithmetic, wrapper, oracle and 91 original tests stay untouched.
+
+JVM test tool selection is shared through `bindings/java/bootstrap.py::java_environment`: Gradle and direct coherence subprocesses use the same verified JDK and child environment, including when host Java commands are unavailable.
+
+## Consumer candidate numerical safeguards
+
+The consumer candidate validates externally reconstructed mass, finite metadata, ordered finite means, positive weights and extrema before accepting structs or TDIG. Empty state requires zero aggregates and NaN extrema. Count agreement uses a centroid-count-dependent floating summation roundoff bound; data sum is retained independently of compressed means.
+
+Capacity 1/2 with Use compresses all input mass rather than reserving edges with zero interior capacity. Equal-weight bucketization reserves its final bucket for all residual contributions. Compensated modern aggregate/cluster moments improve finite cancellation; atomic quantile boundaries use a directly accumulated prefix. These changes do not touch the original engine. Unsupported mixed-observation weighted products that underflow to zero return an error. A single exact Atomic point retains sufficient information to represent its distribution even when its rounded Float64 moment is subnormal or zero. Its mean query uses the retained point value, and merges or transforms recover a newly representable moment from that value and total mass. This rule does not restore information lost from mixed centroids. Exact-boundary targets remain frozen; a failed control may improve to a verified exact pass without editing the reference.
+
+Checked Rust `try_merge_digests` and `try_cast_precision` validate state/configuration and output. Public in-place merge/merge_many use checked preparation and return Result before committing. The public `merge_digests` and `cast_precision` also return checked Results. Unchecked recompression/conversion helpers are private. Python/JVM/Polars use checked paths. Collapsed means during an explicit precision conversion coalesce as Mixed, preserving mass and distinguishing them from an exact point.
+
+Public modern builder/seed construction now returns `Result` and validates before
+exposing state. The private builder bypass exists only for transient equal-mean
+observation streams and precision conversion, followed by normalization and final
+validation. Explicitly invalid delta settings no longer panic during option
+selection: build reports the error. Default delta configuration is K2Norm/Off.
+Oversized `TDigest::new` seeds compress using their requested capacity, rather than
+choosing the configuration from an unrelated empty digest.
+
+Cluster averaging retains the established finite same-sign addition order, because
+an unnecessary final-bit change can alter subsequent cluster boundaries. Mixed-sign
+cancellation and intermediate overflow still use the compensated accumulator.
+The full unchanged comparison suite verifies both numerical safeguards and the
+absence of newly introduced per-profile regressions.
+
+Training conversion to Float32 rejects nonfinite results and nonzero values rounded
+to zero in the shared Python/JNI frontend and Polars additions. Ordinary rounding
+remains allowed. Full-state aggregate-mean validation allows mean-precision
+roundoff (Float32 or Float64); weights and aggregate statistics remain Float64.
+
+The Gradle native-copy task clears its exclusively generated resource directory
+and renames the selected native file to the loader's canonical basename. The
+JAR task inspects the final archive and rejects missing, extra or misnamed native
+payloads. A renamed-override build followed by an outside-checkout JAR execution
+is a CI regression; ordinary Java tests alone previously missed this path.
+
+## Capacity-search implementation
+
+Trial capacity searches count k-limit clusters using the same ordered weight additions and scale comparisons as the emitting pass. They do not construct temporary centroid means or allocate discarded output vectors. The selected final pass still uses the existing full compression path. For K2 cores with integral weights totaling less than 2^53, every trial visits the same prefix ranks regardless of how it groups centroids. The search computes each boundary log-odds once and applies the trial scale before subtracting the two scaled boundaries. Other weights and scale families use the original count pass. The selected scale still goes through the full merge.
+
+## Standalone JNI payload selection
+
+The JAR bundles a canonically named native payload with source and SHA-256 identity in its manifest. Explicit native overrides accept relative distributed-file paths; extraction can use a configured writable directory. Loader diagnostics identify attempted paths and causes. Configured build-native overrides are packaged under the runtime resource name.
+
+Regression coverage in `tests/numerical_foundation.rs` checks both mean precisions for tiny Use capacities, rounded-away tail mass with a nonzero moment, cancellation at compressed and uncompressed capacities, and fractional symmetric atomic boundaries with probes on both sides. Compressor unit coverage checks recovery from intermediate moment overflow and accumulator reuse after clearing.
+
+## Check modern construction, reconstruction, precision casts and merges.
+
+Builders and seeded constructors return Result and validate mass, finite ordered means, extrema, aggregate metadata and delta configuration. Merges validate all contributors, including empties, and commit only a validated independent result. Precision casts reject unrepresentable values. Rust, Python/JNI and Polars call sites propagate the checked results. Exact-point subnormal state is recognized; positive scaling is validated as described below.
+
+The shared validator additionally compares the stored aggregate mean with a compensated normalized centroid moment. Dividing means by the largest absolute observed bound and weights by total mass avoids intermediate weighted-product overflow. The comparison allows 32 Float32 epsilons of the observed magnitude, Float64 accumulation roundoff, and absolute subnormal mean/moment quantization. Float32 rounding remains allowed after a Float64 upcast because no rounding-history field is retained. The original sum is never replaced with the lossy centroid moment. Fully atomic summaries require their first/last means to match the extrema. These are numerical consistency checks, not reconstruction of the discarded observations.
+
+Checked export and no-op update/merge paths use this validator too. Struct codecs reject missing centroid lists and partial modern configuration while retaining the six-field legacy schema. Polars integer export errors instead of narrowing configuration; binary decoders check platform-sized integers and reject nonempty payloads for empty legacy digests.
+
+V1 export additionally rejects all-unit-weight payloads whose historical atomic-kind inference would contradict mixed-cluster bounds. V2/V3 retain kinds and can represent those valid summaries.
+
+## Validate positive transformations before committing modern state.
+
+Weight and value scaling prepare independent candidate state, reject aggregate overflow and unsupported underflow, validate the candidate, and replace the receiver only on success. Exact atomic points retain their distribution when the rounded weighted moment is subnormal or zero and recover representable moments after later scaling or merging.
+
+## Checked Polars state and binary precision
+
+Polars training uses checked precision conversion and reconstruction validates every digest row. Missing digests error rather than becoming empty digests. Binary decoding requires a precision hint and empty decoding uses its schema.
+
+## Polars CDF shape and broadcasting
+
+CDF broadcasting follows row counts instead of nonempty digest contents. Scalar probes broadcast over digest rows. List probes retain List output, including one-row and empty results. Python sequence probes become a flat probe Series.
+
+## Complete overflow boundaries
+
+The original `tdigest_core` entry points now route through `checked.rs`. It uses
+checked uint32 total accumulation before the pinned kernels and rejects nonfinite
+outputs or discarded cluster mass produced from finite observations. The original
+numerical kernels and Python wrapper remain checksum-pinned; the checksum gate
+reverses only the explicitly enumerated import routing in `lib.rs`. Source archive
+verification includes the guard module. In-range exact-output fixtures still run.
+The Python native adapter translates these checked errors to `ValueError`.
+
+Modern normalization uses a compensated run-mass fallback when naive coalescing
+overflows. Normalization and compression propagate `Result` to the public checked
+operations. Each compression-stage boundary checks finite mass and means before
+further accumulation or ordering assertions; an unsupported rounded total returns
+an error instead of reaching a centroid assertion. Temporary result state is never
+committed after a failure. Trimmed means additionally accumulate normalized mass
+and moments, using those only when the historical direct moment is nonfinite.
+This preserves ordinary query results while recovering finite extreme averages.
+
+`tests/overflow_boundaries.rs`, original Rust overflow tests, and the language
+coherence overflow matrix cover integer limits, overflowed moments, coalescing,
+creation/merge/scaling rollback, and finite extreme CDF/quantile queries. These
+checks concern arithmetic safety; they do not promise exact statistics or remove
+floating-point rounding, capacity limits, or explicitly permitted NaN semantics.

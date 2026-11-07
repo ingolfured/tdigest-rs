@@ -1,6 +1,6 @@
 # api_design.md
 
-This is the **target-state API contract** for the opt-in modern engine across Rust, Python, Polars and Java. The original `tdigest_rs` / `tdigest_core` contract is preserved separately in sections 4.1.1–4.1.2; modern strict validation does not replace it.
+This is the **target-state API contract** for cross-surface behavior (Rust, Python, Polars, Java).
 
 - It defines what behavior we want after refactor completion.
 - It may differ from current implementation.
@@ -36,6 +36,18 @@ For current implementation internals, see `tdigest_design.md`.
 
 ## 3. Capability parity contract
 
+### JVM build and runtime support
+
+The Java binding targets Java 11 bytecode, with Java/JNI tests, JAR smoke tests
+and compiled-class version checks on JDK 11, 17, 21 and 25. The default
+Gradle 8.14.5 build can itself run on JDK 11; JDK 25 builds select Gradle 9.1.0
+through the verified distribution override. Internal build environments
+can select verified JDK/Gradle archives and an exclusive Maven dependency
+repository through the documented `TDIGEST_*` environment settings. Offline mode
+uses pre-staged tools/dependencies and never attempts a public fallback. It
+applies to Gradle and the native Cargo build. Publishing coordinates and the
+numerical API are unchanged.
+
 All surfaces must support:
 - Build/train from numeric values.
 - Add one value.
@@ -70,14 +82,11 @@ Notes:
 not merely approximate accuracy or passing upstream tolerances. It uses the
 pinned original Rust arithmetic and unmodified Python wrapper. Existing calls,
 dtype inference, uint32 weights, immutable merge/update, dictionary state, and
-copy/pickle reconstruction retain their upstream behavior, including quirks.
-The current review baseline keeps those calculations unchanged. Small numerical
-changes can be considered when they have a concrete benefit and measured impact;
-report absolute/relative differences and rank error on the affected workloads,
-including tails and repeated merges. There is no universal absolute tolerance:
-`1e-6` has different meaning for data near zero and data near a billion. Keep the
-independent upstream oracle and document deliberate differences rather than
-regenerating fixtures to hide them. The modern engine is explicitly selected
+copy/pickle reconstruction retain their upstream behavior, including quirks except for overflow. A checked boundary rejects total mass
+above `u32::MAX`, nonfinite arithmetic results from finite observations, and
+clusters lost to overflow. Python maps these failures to `ValueError`; successful
+in-range calculations still use the unchanged pinned kernels.
+Keep the independent upstream oracle and exact fixtures unchanged. The modern engine is explicitly selected
 through `gr_tdigest`; matching delta alone does not make its answers identical. The original interface has no new delta
 property, cdf method, or wire-state format. Focused regression tests cover immutable merge/update, dtype, copy/pickle, and the original dictionary state.
 The unchanged 91-case upstream suite, 70 exact original-output cases, and pinned-source checksums are required by `make test` and installed-wheel CI.
@@ -87,24 +96,45 @@ The unchanged 91-case upstream suite, 70 exact original-output cases, and pinned
 The `tdigest_core` workspace package exposes the original root `TDigest<T>` for
 f32/f64 with public `means: Vec<T>` and `weights: Vec<u32>` fields. Its seven
 methods and `anyhow::Result` signatures retain the pinned original semantics,
-including permissive probes and inherited malformed-input behavior. The modern
-`gr_tdigest` Rust library API remains separate. The root Cargo package is provisionally named `tdigest-rs`; a path consumer of the original crate must select `src/upstream`. New Rust checks cover both precisions and the
+including permissive probes and inherited malformed-input behavior, with the
+same checked overflow boundary as Python. Directly constructed public fields
+are checked on queries and merges too. The modern
+`tdigest-rs` API remains separate. New Rust checks cover both precisions and the
 same independently generated original-output fixture as the Python gate; the
 pinned upstream revision did not contain a Rust test suite.
 
 ### 4.1.3 Python runtime and installation
 
-The Python distribution supports CPython 3.10–3.12 through a py310 ABI3 wheel,
-with NumPy >=1.26.4,<3. The base installation exposes both NumPy numerical
+The Python distribution supports standard GIL builds of CPython 3.10–3.15 through a py310
+ABI3 wheel, with NumPy >=1.26.4,<3 on 3.10–3.12, >=2.3.4,<3 on
+3.13–3.14, and >=2.5.4,<3 on 3.15. The base installation exposes both NumPy numerical
 interfaces without requiring the Polars Python package. The optional `polars`
-extra installs the tested Polars 1.34.0 integration; this pin does not promise
-compatibility with untested future Polars releases. Existing numerical imports
-remain lazy, while expression operations require the extra.
+extra accepts Polars >=1.0.0 without an upper cap. Installing either the base
+package or its extra preserves an already installed compatible Polars version.
+Development remains pinned to 1.44.2. The installed-artifact gate exercises
+the same compiled wheel against 1.0.0, 1.20.0, 1.38.1, 1.44.2 and 2.0.0 across
+all supported Python versions, including consumer cardinality/schema and streaming regressions.
+The open dependency range permits newer releases; compatibility with unreleased
+versions cannot be guaranteed before testing. Existing numerical imports
+remain lazy, while expression operations require Polars to be installed.
 
-The installed-artifact gate reuses one real wheel across all three Python
-versions and both NumPy lines, and also tests a genuinely Polars-free baseline.
+The installed-artifact gate reuses one real wheel across the tested Polars
+versions and all six Python versions, using both NumPy lines on 3.10–3.12 and
+NumPy 2 on 3.13–3.15. It also
+tests genuinely Polars-free installations on every runtime. The default gate
+builds that ABI3 wheel once from the verified source archive with Python 3.10,
+reusing Cargo dependency artifacts, then installs it on every supported runtime.
+The 3.15 cell uses SciPy >=1.18.1 and pytest >=9.1.1 for compatibility validation;
+these are test dependencies. Standard CPython is covered; free-threaded runtimes
+and PyPy need separate qualification.
 The bounded Python metadata is narrower than upstream's open-ended >=3.10
 declaration. The development tool environment remains Python 3.12.
+
+Modern NumPy training inputs are copied into owned Rust vectors. Compatible aligned/native-endian/contiguous Float32/Float64 arrays use a bulk copy; other layouts/dtypes retain their generic conversion and validation behavior. Constructors and updates neither retain nor mutate input storage.
+
+### 4.1.4 Modern Python constructor concurrency
+
+`gr_tdigest.TDigest.from_array` and `from_means_weights` convert their Python inputs to owned Rust vectors before releasing the GIL for native construction. Each call builds a private digest and retains existing validation and numerical order. Independent calls may overlap in a caller-managed pool; input conversion remains serialized by the GIL. This does not add a shared-object mutation guarantee or change the original `tdigest_rs` interface.
 
 ### 4.2 Queries
 
@@ -206,3 +236,102 @@ Surface mapping:
 - Capability/coherence/serialization suites pass.
 - No documented cross-surface contract drift.
 - Binding layers are thinner with less duplicated validation logic.
+
+## Empirical accuracy contract
+
+Quality acceptance uses separate rank, percentile-value and midpoint-CDF measurements against sorted observed data, with tie intervals and actual precision casts. The original API remains numerically unchanged and has no fabricated CDF comparison. The fast suite runs in `make test`; extended results and explicit unresolved boundary controls are documented in `tests/quality/README.md`. A passing known-outcome regression check must not be presented as passing accuracy. These are measured operating envelopes, not formal guarantees or universal superiority over the original engine.
+
+## Consumer candidate migration and strict operations
+
+Modern Rust `TDigestBuilder::build()` and seeded `TDigest::new(...)` return
+`Result<TDigest<_>, TdError>`. Invalid capacity, delta/configuration, centroid
+ordering, means, mass or aggregate metadata are rejected before a digest can be
+queried. Builder delta mode defaults to K2Norm/Off unless settings were explicitly
+provided; explicit incompatible settings fail. Private transient compression and
+precision-conversion streams are checked before becoming public state.
+
+Modern builders, reconstruction and precision conversions return checked results. Merges validate matching configuration even for empty contributors and replace the receiver only after validating the prepared result.
+
+State validation checks centroid mass, ordering, finite statistics, aggregate-moment consistency and configuration. Fully atomic state must have extrema matching its observed points; protected-edge counts must be positive. Empty additions/merges and single-item frontend merges still validate existing state. Export validation uses the same contract. Struct reconstruction distinguishes a missing centroid list from an empty list and accepts either complete modern configuration or the legacy schema with no configuration fields. Binary reconstruction rejects trailing payload on empty digests and integer fields outside the platform range.
+
+The raw Float64 sum remains authoritative across compression and precision conversion. Moment checks compare normalized quantities, with a rounding envelope that allows prior Float32 storage even after upcasting, plus subnormal quantization. These checks reject detectable contradictions; they cannot authenticate the original observations or prove statistical accuracy from a compressed summary.
+
+Legacy TDIG v1 export rejects mixed unit-weight summaries when its historical kind heuristic would reconstruct atomic centroids inconsistent with the stored extrema; v2/v3 preserve the centroid kinds.
+
+Positive transformations prepare and validate independent state before commit; failures preserve the receiver. Exact atomic points may retain a rounded zero moment without losing their known location or mass.
+
+Polars rejects missing digest rows, checks training representability, and requires a binary precision hint. CDF broadcasting follows input lengths; per-row List expressions retain List output, while Python sequences provide a flat probe vector.
+
+Modern callers migrate to the new API and dependency defaults, while successful in-range original `tdigest_rs` calculations remain identical to the pinned oracle. The new modern default stays 1,000; historical modern callers migrate explicitly. New NumPy query outputs are Float64 one-dimensional arrays (including one element); zero-dimensional probes return scalars, list/tuple preserve containers, and multidimensional input is explicitly rejected. Native docstrings, `py.typed` and stubs ship in the actual wheel.
+
+Modern missing digests and mixed capacities are rejected. Empty contributors also undergo configuration validation. Polars broadcasts by shape, supports a scalar probe across digest rows, and never substitutes healthy state for aligned empties. Missing and valid empty state are distinct. Python iterable merge prepares private state before committing; add/scale overflow and unsupported product underflow cannot corrupt the receiver.
+
+The JVM candidate exposes array merge-all, weighted builder construction and modern delta/K2Norm configuration. Java object restoration registers the restored object itself with Cleaner; temporary referents never own restored handles. JNI catches catchable Rust panics, uses the system allocator, and reports controlled native loading paths and payload identity. Independent handles are supported; shared mutable handles are not thread-safe. Actual external and internal qualification is recorded in the candidate manifest/coverage report.
+
+The public Spark consumer check uses explicit byte-state serialization for Kryo,
+or Java object serialization, across separate executor processes. It verifies
+broadcast, shuffle and checkpoint restoration. Local separate-executor checks
+do not qualify a consuming cluster's image, filesystem or configuration.
+
+Polars requires explicit binary-column precision (`f32` or `f64`) so planning matches execution. This is a consistency check, not conversion. `from_bytes` remains a group reduction, including one empty state for empty input, rather than silently becoming row-wise. Scalar/list literal CDF probes and List-valued columns now have consistent planned/runtime types for zero, one and many rows.
+
+The public Polars functions delegate to a dedicated internal adapter. Polars remains lazily imported; numerical APIs and wire-header inspection work without the optional dependency. Shared Python configuration normalization is independent of both the adapter and the numerical wrapper. The public `tdigest(values, max_size=1000, *, ...)` signature retains positional capacity and does not accept delta.
+
+CDF chooses aligned rows or one-digest broadcasting from input shape. Missing states and incompatible contributors are errors. Column-based from_bytes requires explicit f32/f64 precision and reduces each logical group, including empty groups. Planned schema must equal the runtime schema. See bindings/python/POLARS_API.md.
+
+Modern Float32 training rejects values that overflow or round a nonzero input to
+zero, including additions routed through Python/JNI/Polars. Explicit precision
+conversion retains the same representability rule. Ordinary Float32 rounding is
+permitted without narrowing mass. A known exact point retains its midpoint CDF,
+quantiles and mean even when the rounded Float64 weighted moment is zero or
+subnormal; its full state and positive transforms preserve point identity. Mixed
+training products that are not representable still fail explicitly and leave
+receivers unchanged. The sum getter remains the rounded Float64 weighted moment.
+
+The separate `make quality-budgets` diagnostic covers explicit modern capacities
+200/1000, smaller capacities, alternate named scales and additional data shapes.
+Its sampled rank/CDF criteria extend the existing diagnostic envelope and are not
+a new owner-approved universal guarantee. Rank, value, CDF and tail results stay
+separate. Known small-summary failures remain release-acceptance issues; no
+implicit scale selection, new API default or original-engine change is made.
+Python training currently requires capacity >= 10; checked modern Rust allows
+positive capacities including 1. These limits are stated separately.
+
+A build-time `TDIGEST_NATIVE_FILE` override may have an arbitrary basename; the
+finished JAR must contain exactly one platform-native payload under the canonical
+loader resource name. This differs from a runtime native-file override, which
+loads the selected path directly. No source/developer library is required at runtime.
+
+## Scala and Kotlin consumer examples
+
+Public examples compile Scala 2.12.16 and Kotlin consumers against the shared Java JAR. The local authenticated Maven fixture exercises selected dependency resolution and prepared-cache offline use. Actual Spark driver/executor, serializer and checkpoint qualification remains a consumer-environment check.
+
+The loopback Maven fixture serves only paths contained within its configured repository, rejecting absolute paths and symlinks that resolve outside it.
+
+Kotlin example compilation tracks its source and application classpath so incremental builds recompile after either changes.
+
+## Installed Python discovery
+
+The installed package includes native method docstrings, public type stubs and py.typed metadata. The object and Polars guides describe defaults, shapes, mutation, ownership and errors separately.
+
+## Source-bound delivery gates
+
+Build checks reject an incompatible selected Rust/Cargo toolchain before native compilation. Installed-wheel qualification records exact runtime cells and the source-archive build. A separate wider budget diagnostic reports accuracy failures without waiving them; benchmarks retain throughput, latency and memory separately.
+
+## Overflow behavior across interfaces
+
+Modern creation, update, merge and scaling return checked results. Compression
+checks rounded/coalesced mass and output means before another stage or a checked
+centroid constructor can observe overflow; failures never replace the receiver.
+The normalization helper returns `Result` for overflowing mass. Queries over
+valid modern state retain finite CDF/quantile results at extreme finite values.
+Trimmed means use normalized moments if direct moment accumulation overflows.
+Empty-digest and NaN-probe semantics remain as documented above.
+
+The original compatibility interface deliberately rejects unsupported totals
+above `u32::MAX` rather than widening its storage or changing ordinary rounding.
+Its pinned kernels and independent golden fixtures remain unchanged; a separate
+Rust adapter checks mass before calls and finite outputs/conserved mass after
+calls. This covers construction, immutable merge, quantile, median and trimmed
+mean in Rust and Python. An overflow error replaces historical wrapping/panicking
+behavior; explicit nonfinite observations retain the existing compatibility API.

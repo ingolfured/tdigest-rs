@@ -32,3 +32,16 @@ import tdigest_rs
 assert gr_tdigest.__version__ == tdigest_rs.__version__ == expected
 """
     subprocess.run([sys.executable, "-I", "-c", code], check=True)
+
+
+def test_original_api_remains_available_without_deprecation_warnings():
+    code = """
+import numpy as np
+from tdigest_rs import TDigest
+assert TDigest.__module__ == 'tdigest_rs.lib'
+d = TDigest.from_array(np.array([0., 1., 2., 3.]))
+d.merge(d).median()
+d.update(np.array([4., 5.])).quantile(0.5)
+TDigest.from_dict(d.to_dict()).median()
+"""
+    subprocess.run([sys.executable, "-I", "-W", "error::DeprecationWarning", "-c", code], check=True)

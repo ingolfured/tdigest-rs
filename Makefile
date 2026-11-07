@@ -38,6 +38,10 @@ JAR_ARTIFACT    ?= $(PROJECT_SLUG)
 # ----------------------------------------------------------------------
 PATH := $(HOME)/.local/bin:$(HOME)/.cargo/bin:$(PATH)
 
+ifneq ($(filter 1 true yes,$(TDIGEST_OFFLINE)),)
+export CARGO_NET_OFFLINE := true
+endif
+
 CARGO  ?= cargo
 UV     ?= uv
 
@@ -51,7 +55,7 @@ PY_PKG_DIR      := $(PY_DIR)/gr_tdigest
 PY_TESTS_DIR    := $(PY_DIR)/tests
 
 # Upstream tdigest-rs review compatibility snapshot
-COMPAT_PY_DIR     := compat/tdigest-rs-upstream/bindings/python
+COMPAT_PY_DIR     := tests/upstream_legacy/bindings/python
 COMPAT_TESTS_DIR  := $(COMPAT_PY_DIR)/tests
 COMPAT_BENCH      := $(COMPAT_PY_DIR)/benchmarks/run.py
 COMPAT_RUNNER_DIR := compat/tdigest-rs-strict-python
@@ -133,7 +137,7 @@ API_JAR := $(DIST)/$(JAR_ARTIFACT)-latest.jar
 JAVA_WRAPPER_CHECK:
 	@test -x "$(GRADLEW_PATH)" || { \
 	  echo "$(STYLE_ERR)✗ Missing Gradle wrapper ($(GRADLEW_PATH))$(STYLE_RESET)"; \
-	  echo "  Bootstrap once: (cd $(JAVA_SRC) && gradle wrapper --gradle-version 9.1.0 --distribution-type bin)"; \
+	  echo "  Bootstrap once: (cd $(JAVA_SRC) && gradle wrapper --gradle-version 8.14.5 --distribution-type bin)"; \
 	  exit 1; }
 
 # ==============================================================================
@@ -158,7 +162,7 @@ setup:
 	$(call need,uv)
 	@test -x "$(GRADLEW_PATH)" || { \
 	  echo "$(STYLE_ERR)✗ Missing Gradle wrapper ($(GRADLEW_PATH))$(STYLE_RESET)"; \
-	  echo "  Bootstrap once: (cd $(JAVA_SRC) && gradle wrapper --gradle-version 9.1.0 --distribution-type bin)"; \
+	  echo "  Bootstrap once: (cd $(JAVA_SRC) && gradle wrapper --gradle-version 8.14.5 --distribution-type bin)"; \
 	  exit 1; }
 	$(UV) --version
 	$(call banner,Create repo .venv and install Python deps (all groups))
@@ -198,20 +202,28 @@ setup-hooks:
 # ==============================================================================
 # Build (dev by default)
 # ==============================================================================
-build: build-rust build-python build-java
+build: build-toolchain-check build-rust build-python build-java
 	@printf "$(STYLE_OK)✓ all components built (PROFILE=$(PROFILE))$(STYLE_RESET)\n"
 
-build-rust:
+.PHONY: build-toolchain-check
+build-toolchain-check:
+	@python3 scripts/check_build_tools.py
+
+build-rust: build-toolchain-check
 	$(call banner,Build: Rust lib + CLI ($(PROFILE)))
-	$(CARGO) build --locked $(CARGO_PROFILE_FLAG)
-	$(CARGO) build --locked $(CARGO_PROFILE_FLAG) --bin $(CLI_BIN)
+	$(CARGO) build $(CARGO_PROFILE_FLAG)
+	$(CARGO) build $(CARGO_PROFILE_FLAG) --bin $(CLI_BIN)
 
 # Always run maturin from bindings/python where its pyproject.toml lives
-build-python:
+build-python: build-toolchain-check
 	$(call banner,Build: Python extension (maturin develop, dev))
-	@(cd "$(PY_DIR)" && $(UV_ENV) $(UV) run --no-sync maturin develop --locked -F python)
+	@(cd "$(PY_DIR)" && $(UV_ENV) $(UV) run --no-sync maturin develop -F python)
 
-build-java: JAVA_WRAPPER_CHECK
+.PHONY: java-prepare
+java-prepare:
+	@"$${TDIGEST_BOOTSTRAP_PYTHON:-python3}" "$(JAVA_SRC)/bootstrap.py" --tdigest-prepare
+
+build-java: build-toolchain-check JAVA_WRAPPER_CHECK
 	$(call banner,Build: Java via Gradle (clean + jar))
 	@GRADLE_USER_HOME="$(GRADLE_USER_HOME)" "$(GRADLE)" --no-daemon --console=plain -p "$(JAVA_SRC)" clean jar
 	@LATEST="$$(ls -1t "$(JAVA_SRC)/$(JAVA_LIBS_REL)/$(JAR_ARTIFACT)-"*.jar 2>/dev/null | head -1)"; \
@@ -232,22 +244,42 @@ rust-test:
 
 # Explicit path to bindings/python/tests (pytest discovers from pyproject too)
 py-test: build-python
-	$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync python -m pytest -q "$(PY_TESTS_DIR)" "$(INTEG_TESTS_DIR)"
+	@mkdir -p build/ci
+	$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync python -m pytest -q "$(PY_TESTS_DIR)" "$(INTEG_TESTS_DIR)" tests/quality --junitxml=build/ci/python-coherence-quality.xml --quality-report "$(QUALITY_RESULTS_DIR)"
 
-java-test: JAVA_WRAPPER_CHECK
+QUALITY_RESULTS_DIR ?= $(CURDIR)/build/quality
+.PHONY: quality-fast quality-extended quality-regression
+quality-fast: build-python
+	@$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync python -m pytest -q tests/quality --quality-report "$(QUALITY_RESULTS_DIR)"
+
+quality-extended: build-python
+	@$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync python -m pytest -q tests/quality --quality-extended -m slow --quality-report "$(QUALITY_RESULTS_DIR)"
+
+quality-regression: quality-extended
+
+.PHONY: java-bootstrap-test
+java-bootstrap-test:
+	@"$${TDIGEST_BOOTSTRAP_PYTHON:-python3}" -m unittest discover -s "$(JAVA_SRC)/tests" -v
+
+java-test: JAVA_WRAPPER_CHECK java-bootstrap-test
 	@GRADLE_USER_HOME="$(GRADLE_USER_HOME)" "$(GRADLE)" --no-daemon --console=plain -p "$(JAVA_SRC)" test
 
 compat-test: build-python
-	@$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync python scripts/check_upstream_sources.py
-	@(cd "$(COMPAT_PY_DIR)" && $(UV_ENV) $(UV) run --project "$(abspath $(PY_DIR))" --no-sync python -m pytest -q tests)
+	@$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync python scripts/test_upstream_legacy.py
+
+.PHONY: quality-budgets
+quality-budgets: build-python
+	@mkdir -p "$(QUALITY_RESULTS_DIR)"
+	@$(UV_ENV) RAYON_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 $(UV) run --project "$(PY_DIR)" --no-sync python scripts/quality_budgets.py --output "$(QUALITY_RESULTS_DIR)/budgets-$$(date +%Y%m%dT%H%M%S)-$$$$.json"
 
 legacy-strict-test: compat-test
 
 legacy-wheel-test:
 	@$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync python scripts/test_legacy_wheel.py
 
+PYTHON_SUPPORT_RESULTS_DIR ?= $(CURDIR)/build/python-support
 python-support-test:
-	@$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync python scripts/test_python_support.py
+	@$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync python scripts/test_python_support.py --output-dir "$(PYTHON_SUPPORT_RESULTS_DIR)/support-$$(date +%Y%m%dT%H%M%S)-$$$$"
 
 compat-bench: build-python
 	@$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync python "$(STRICT_COMPAT_BENCH)"
@@ -270,8 +302,12 @@ lint:
 	@(cd "$(PY_DIR)" && $(UV_ENV) $(UV) run --no-sync ruff format .)
 
 	$(call banner,Python: installed-artifact gate scripts)
-	$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync ruff check --config "$(PY_DIR)/pyproject.toml" scripts/test_legacy_wheel.py scripts/test_python_support.py scripts/check_python_sdist.py scripts/test_python_interfaces.py scripts/prepare_release_sdist.py
-	$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync ruff format --check --config "$(PY_DIR)/pyproject.toml" scripts/test_legacy_wheel.py scripts/test_python_support.py scripts/check_python_sdist.py scripts/test_python_interfaces.py scripts/prepare_release_sdist.py
+	$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync ruff check --config "$(PY_DIR)/pyproject.toml" scripts/test_legacy_wheel.py scripts/test_python_support.py scripts/check_python_sdist.py
+	$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync ruff format --check --config "$(PY_DIR)/pyproject.toml" scripts/test_legacy_wheel.py scripts/test_python_support.py scripts/check_python_sdist.py
+	$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync ruff check --config "$(PY_DIR)/pyproject.toml" bindings/java/bootstrap.py bindings/java/tests bindings/java/examples/spark/check.py
+	$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync ruff format --check --config "$(PY_DIR)/pyproject.toml" bindings/java/bootstrap.py bindings/java/tests bindings/java/examples/spark/check.py
+	$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync ruff check --config "$(PY_DIR)/pyproject.toml" scripts/quality_budgets.py scripts/fetch_quality_data.py tests/quality
+	$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync ruff format --check --config "$(PY_DIR)/pyproject.toml" scripts/quality_budgets.py scripts/fetch_quality_data.py tests/quality
 
 	$(call banner,Python: mypy (auto-install types if missing))
 	@(cd "$(PY_DIR)" && $(UV_ENV) $(UV) run --no-sync python -m mypy gr_tdigest --install-types --non-interactive)
@@ -320,7 +356,7 @@ smoke-wheel:
 	TMP="$$(mktemp -d)"; \
 	$(UV) venv --python 3.12 --seed "$$TMP"; \
 	$(UV) pip install --python "$$TMP/bin/python" --upgrade pip; \
-	$(UV) pip install --python "$$TMP/bin/python" 'polars==1.34.0' 'numpy>=1.26.4,<3'; \
+	$(UV) pip install --python "$$TMP/bin/python" 'polars==1.44.2' 'numpy>=1.26.4,<3'; \
 	$(UV) pip install --python "$$TMP/bin/python" --no-index "$${LATEST}[polars]"; \
 	"$$TMP/bin/python" -c "import gr_tdigest as td; d=td.TDigest.from_array([0.0,1.0,2.0,3.0], max_size=100, scale='k2'); print('p50=', d.quantile(0.5)); print('cdf=', td.cdf); print('ok')"; \
 	rm -rf "$$TMP"; \
@@ -361,10 +397,61 @@ release: release-rust release-wheel release-jar
 	@printf "  Java JAR   : %s (symlink)\n" "$(API_JAR)"
 	@printf "$(STYLE_OK)✓ All release artifacts built & smoke-tested$(STYLE_RESET)\n"
 
-# Publication follows the upstream release workflow, not a local multi-registry command.
-publish publish-check publish-pypi publish-cargo publish-maven:
-	@printf '%s\n' 'Use the reviewed upstream release workflow; see PUBLISH.md.'
-	@exit 1
+publish-check:
+	$(call banner,Publish: validate environment)
+	@set -eu; \
+	if [ "$(PUBLISH_DRY_RUN)" = "1" ]; then \
+	  printf "$(STYLE_OK)✓ dry-run mode enabled (PUBLISH_DRY_RUN=1)$(STYLE_RESET)\n"; \
+	  exit 0; \
+	fi; \
+	[ -n "$${MATURIN_PYPI_TOKEN:-}" ] || { echo "$(STYLE_ERR)✗ Missing MATURIN_PYPI_TOKEN$(STYLE_RESET)"; exit 1; }; \
+	[ -n "$${CARGO_REGISTRY_TOKEN:-}" ] || { echo "$(STYLE_ERR)✗ Missing CARGO_REGISTRY_TOKEN$(STYLE_RESET)"; exit 1; }; \
+	[ -n "$${MAVEN_REPOSITORY_URL:-}" ] || { echo "$(STYLE_ERR)✗ Missing MAVEN_REPOSITORY_URL$(STYLE_RESET)"; exit 1; }; \
+	[ -n "$${MAVEN_USERNAME:-}" ] || { echo "$(STYLE_ERR)✗ Missing MAVEN_USERNAME$(STYLE_RESET)"; exit 1; }; \
+	[ -n "$${MAVEN_PASSWORD:-}" ] || { echo "$(STYLE_ERR)✗ Missing MAVEN_PASSWORD$(STYLE_RESET)"; exit 1; }; \
+	printf "$(STYLE_OK)✓ publish credentials present$(STYLE_RESET)\n"
+
+publish-pypi: release-wheel
+	$(call banner,Publish: PyPI)
+	mkdir -p "$(DIST)"
+	@(cd "$(PY_DIR)" && $(UV_ENV) $(UV) run --no-sync maturin sdist -o "$(abspath $(DIST))")
+	@set -eu; \
+	if [ "$(PUBLISH_DRY_RUN)" = "1" ]; then \
+	  echo "DRY RUN: skipping PyPI upload"; \
+	  ls -1 "$(DIST)"; \
+	else \
+	  [ -n "$${MATURIN_PYPI_TOKEN:-}" ] || { echo "$(STYLE_ERR)✗ Missing MATURIN_PYPI_TOKEN$(STYLE_RESET)"; exit 1; }; \
+	  MATURIN_PYPI_TOKEN="$$MATURIN_PYPI_TOKEN" $(UV_ENV) $(UV) run --project "$(PY_DIR)" maturin upload --non-interactive --skip-existing "$(abspath $(DIST))"/*; \
+	fi
+
+publish-cargo:
+	$(call banner,Publish: crates.io)
+	@set -eu; \
+	if [ "$(PUBLISH_DRY_RUN)" = "1" ]; then \
+	  cargo publish --dry-run --locked --package tdigest-rs; \
+	else \
+	  [ -n "$${CARGO_REGISTRY_TOKEN:-}" ] || { echo "$(STYLE_ERR)✗ Missing CARGO_REGISTRY_TOKEN$(STYLE_RESET)"; exit 1; }; \
+	  CARGO_REGISTRY_TOKEN="$$CARGO_REGISTRY_TOKEN" cargo publish --locked --package tdigest-rs; \
+	fi
+
+publish-maven: JAVA_WRAPPER_CHECK
+	$(call banner,Publish: Maven)
+	@set -eu; \
+	if [ "$(PUBLISH_DRY_RUN)" = "1" ]; then \
+	  GRADLE_USER_HOME="$(GRADLE_USER_HOME)" "$(GRADLE)" --no-daemon --console=plain -p "$(JAVA_SRC)" publishToMavenLocal; \
+	else \
+	  [ -n "$${MAVEN_REPOSITORY_URL:-}" ] || { echo "$(STYLE_ERR)✗ Missing MAVEN_REPOSITORY_URL$(STYLE_RESET)"; exit 1; }; \
+	  [ -n "$${MAVEN_USERNAME:-}" ] || { echo "$(STYLE_ERR)✗ Missing MAVEN_USERNAME$(STYLE_RESET)"; exit 1; }; \
+	  [ -n "$${MAVEN_PASSWORD:-}" ] || { echo "$(STYLE_ERR)✗ Missing MAVEN_PASSWORD$(STYLE_RESET)"; exit 1; }; \
+	  MAVEN_REPOSITORY_URL="$$MAVEN_REPOSITORY_URL" MAVEN_USERNAME="$$MAVEN_USERNAME" MAVEN_PASSWORD="$$MAVEN_PASSWORD" MAVEN_SIGNING_KEY="$${MAVEN_SIGNING_KEY:-}" MAVEN_SIGNING_PASSWORD="$${MAVEN_SIGNING_PASSWORD:-}" GRADLE_USER_HOME="$(GRADLE_USER_HOME)" "$(GRADLE)" --no-daemon --console=plain -p "$(JAVA_SRC)" publish; \
+	fi
+
+publish: publish-check
+	$(MAKE) publish-pypi
+	$(MAKE) publish-cargo
+	$(MAKE) publish-maven
+	@printf "\n$(STYLE_BOLD)==> Publish complete$(STYLE_RESET)\n"
+	@printf "$(STYLE_OK)✓ Published to PyPI, crates.io, and Maven (or dry-run equivalent)$(STYLE_RESET)\n"
 
 help:
 	@printf "\n$(STYLE_BOLD)Core (dev by default)$(STYLE_RESET)\n"
@@ -385,4 +472,15 @@ help:
 	@printf "  %-22s %s\n" "release-wheel"  "Build PROD wheel (release) inline and smoke"
 	@printf "  %-22s %s\n" "release-jar"    "Gradle jar -> dist/ + latest symlink + smoke"
 	@printf "  %-22s %s\n" "release"        "release-rust + release-wheel + release-jar"
-	@printf "  %-22s %s\n" "publication" "Use upstream release workflows; see PUBLISH.md"
+	@printf "  %-22s %s\n" "publish-check"  "Validate publish env vars (skipped in dry-run)"
+	@printf "  %-22s %s\n" "publish-pypi"   "Build sdist/wheel and upload to PyPI (or skip upload in dry-run)"
+	@printf "  %-22s %s\n" "publish-cargo"  "Publish crate to crates.io (or --dry-run)"
+	@printf "  %-22s %s\n" "publish-maven"  "Publish Java artifact to Maven repo (or publishToMavenLocal)"
+	@printf "  %-22s %s\n" "publish"        "publish-pypi + publish-cargo + publish-maven"
+	@printf "\n$(STYLE_BOLD)Publish env vars$(STYLE_RESET)\n"
+	@printf "  %-22s %s\n" "PUBLISH_DRY_RUN=1" "Run publish pipeline without uploading to registries"
+	@printf "  %-22s %s\n" "MATURIN_PYPI_TOKEN" "PyPI API token for maturin upload"
+	@printf "  %-22s %s\n" "CARGO_REGISTRY_TOKEN" "crates.io API token"
+	@printf "  %-22s %s\n" "MAVEN_REPOSITORY_URL" "Maven repository publish URL"
+	@printf "  %-22s %s\n" "MAVEN_USERNAME/PASSWORD" "Maven repository credentials"
+	@printf "  %-22s %s\n" "MAVEN_SIGNING_KEY/PASSWORD" "Optional in-memory PGP signing key/password"

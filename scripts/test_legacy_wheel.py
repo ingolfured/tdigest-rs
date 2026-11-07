@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Callable
-import hashlib
 import os
 from pathlib import Path, PurePosixPath
-import re
 import shutil
 import subprocess
 import sys
@@ -16,11 +14,16 @@ from zipfile import ZipFile
 
 from check_python_sdist import verify_sdist_contents
 from check_upstream_sources import verify_sources
+from check_upstream_tests import verify_tests
 
 
 def verify_wheel_contents(wheel: Path) -> None:
     """Reject generated Python caches before installing the release artifact."""
     with ZipFile(wheel) as archive:
+        required = {"gr_tdigest/_polars.py", "gr_tdigest/_shared.py"}
+        missing = required.difference(archive.namelist())
+        if missing:
+            raise RuntimeError("wheel omits Python adapter modules: " + ", ".join(sorted(missing)))
         unexpected = sorted(
             name
             for name in archive.namelist()
@@ -33,24 +36,13 @@ def verify_wheel_contents(wheel: Path) -> None:
 
 def verify_upstream_snapshot(root: Path) -> None:
     verify_sources(root)
-    upstream = root / "compat/tdigest-rs-upstream"
-    checksums = re.findall(
-        r"^([0-9a-f]{64})  (.+)$",
-        (upstream / "PROVENANCE.md").read_text(),
-        re.MULTILINE,
-    )
-    if len(checksums) != 7:
-        raise RuntimeError("expected checksums for all seven unchanged upstream files")
-    for expected, relative in checksums:
-        if hashlib.sha256((upstream / relative).read_bytes()).hexdigest() != expected:
-            raise RuntimeError(f"copied upstream file changed: {relative}")
-    print("All seven upstream file checksums match the pinned snapshot.", flush=True)
+    verify_tests(root)
 
 
 def stage_compatibility_tests(root: Path, temporary: Path) -> tuple[Path, Path]:
     tests = temporary / "tests"
     shutil.copytree(
-        root / "compat/tdigest-rs-upstream/bindings/python/tests",
+        root / "tests/upstream_legacy/bindings/python/tests",
         tests,
         ignore=shutil.ignore_patterns("__pycache__", ".pytest_cache"),
     )

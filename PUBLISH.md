@@ -1,45 +1,52 @@
-# Upstream release process
+# Publishing tdigest-rs
 
-This candidate retains G-Research/tdigest-rs's existing release workflow graph,
-SHA-pinned actions, required checks, trusted PyPI publisher and platform matrix.
-It does not adopt the private project's crates.io or Maven publishing workflows.
+The proposed upstream release version is `1.0.0`. The root `Cargo.toml` supplies
+that version to the Python distribution and JVM artifact. The original
+`tdigest_core` workspace package remains at `0.2.0`.
 
-The `create-release.yml` workflow is a maintainer action in the `create-release`
-environment. Its version update selects the modern root package `tdigest-rs`
-explicitly; it does not bump the preserved `tdigest_core` package or testdata.
-The former `bindings/python/Cargo.toml` no longer exists and is not staged.
-Root version `2.0.0` is provisional until maintainers choose a release version.
+Follow [ROLLOUT.md](ROLLOUT.md): this major release supports the old path without
+new deprecation warnings. Any deprecation and subsequent major-version removal
+are separate future release decisions, with migration documentation and notice.
 
-After required CI checks pass for an upstream version tag, `release.yml`
-downloads the `python-package-*` artifacts, publishes through the **`release`**
-environment's PyPI trusted publisher, and attaches those files to the GitHub
-release. Existing action SHA pins and permission boundaries remain in place.
-The new source archive joins the platform wheels under that artifact pattern;
-the separate runtime evidence artifact is not a package upload.
+## Release prerequisites
 
-The Linux runtime job downloads the actual `python-package-x86_64-unknown-linux-gnu`
-wheel produced by the platform build matrix and tests that artifact with
-`--wheel`; it does not compile a replacement wheel. Its checked source archive
-is created separately from `bindings/python`, with Cargo.lock unchanged, then
-passed through the same gate using `--sdist`. The runtime evidence records both
-artifact hashes, installed native hashes, dependency checks and seven-cell logs.
-The other six platform wheel artifacts are still build outputs: source-based
-platform tests do not establish installation of those exact repaired/cross-built
-wheels. Normalized-sdist rebuild remains a separate release validation step.
+Run `make build`, `make test` and `make python-support-test` on the final upstream
+commit. Review this repository's Rust and Python platform jobs, wheel builds,
+installed-wheel/runtime checks and cross-language project checks. Review the
+accuracy limits linked from the README; passing regression checks does not imply
+that every statistical accuracy target passes.
 
-Before a release, verify the exact adapted artifacts, including the original
-Python and Rust contracts, real same-distribution upgrade/uninstall/reinstall,
-the seven-cell NumPy/Polars support gate, normalized-sdist rebuild, and upstream
-platform checks. A local `linux_x86_64` wheel is not proof of manylinux or musl
-portability. Inspect the repaired tags and actual target requirements.
+Move the pending changelog entries into a versioned section before release.
+Merge the approved contribution into G-Research's `main`. This snapshot does
+not create a tag, publish packages or change repository environments or secrets.
 
-No safe co-installation with private `gr-tdigest` is claimed: both distributions
-own the same two Python namespaces. The default upgrade path assumes the
-private distribution is absent. A separate namespace/ownership decision is
-needed before supporting environments containing both.
+## Existing upstream release workflow
 
-Local `make release-*` targets build artifacts for review. Local `make publish*`
-targets intentionally stop with a reference to this document; they do not
-publish to PyPI, crates.io or Maven. No credentials, release, tag or upload are
-required for the review workflow. Registry release of either Rust package and
-Java publication require a separate maintainer decision.
+Use the **Create release** workflow (`.github/workflows/create-release.yml`) with
+the approved semantic version. It retains the existing `create-release`
+environment and GitHub App credentials. It updates the root `tdigest-rs` Cargo
+package and lockfile, commits the version, and pushes the corresponding `v*` tag.
+The preserved `tdigest_core` package is not version-bumped by that operation.
+
+The tag triggers **CI**. After the required Rust, Python and cross-language jobs
+succeed, the existing release workflow downloads the `python-package-*`
+artifacts, publishes the `tdigest-rs` distribution using the `release` environment
+and PyPI trusted publishing, and creates the GitHub release. The seven-platform
+wheel build matrix and pinned action references remain part of that pipeline.
+The Linux runtime-support job also supplies the checked source distribution.
+
+The original `check-required.yml` workflow and its app-backed required check stay
+in place. Fork CI does not replace the upstream approving review or required check.
+
+## Optional Rust and Maven publication
+
+The upstream automated release publishes Python and GitHub artifacts. Rust and
+Maven publication remain separate, explicit maintainer actions. The local Makefile
+provides `publish-cargo` and `publish-maven`, but they are not invoked by upstream
+CI. A matching registry `tdigest_core` dependency must exist before publishing
+the root Rust crate; a local path dependency is not sufficient for registry users.
+
+The JVM coordinates are `com.gresearch.tdigest:tdigest-rs`. Set `TDIGEST_SOURCE_SHA`
+when building a release JAR to record the source commit alongside the native
+payload hash. Configure the Maven destination and credentials only when choosing
+to publish that artifact.

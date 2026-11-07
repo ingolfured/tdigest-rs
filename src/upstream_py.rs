@@ -1,5 +1,5 @@
 //! Original tdigest_rs bindings, adapted only to the current PyO3/NumPy API.
-//! Numerical operations use the pinned upstream crate without modern validation.
+//! Numerical operations use the pinned upstream kernels with overflow guards.
 
 use numpy::{PyArray1, PyReadonlyArray1, PyUntypedArrayMethods};
 use pyo3::exceptions::PyValueError;
@@ -50,9 +50,12 @@ macro_rules! generate {
                     return Err(PyValueError::new_err("Array must be non-empty!"));
                 }
                 let arr = arr.as_array().to_vec();
-                py.allow_threads(|| {
+                py.detach(|| {
                     Ok(Self {
-                        inner: compact_digest(TDigest::from_array(&arr, delta)?),
+                        inner: compact_digest(
+                            TDigest::from_array(&arr, delta)
+                                .map_err(|e| PyValueError::new_err(e.to_string()))?,
+                        ),
                     })
                 })
             }
@@ -74,29 +77,48 @@ macro_rules! generate {
                 let arr = arr.as_array().to_vec();
                 let weights = weights.as_array().to_vec();
 
-                py.allow_threads(|| {
+                py.detach(|| {
                     Ok(Self {
-                        inner: compact_digest(TDigest::from_means_weights(&arr, &weights, delta)?),
+                        inner: compact_digest(
+                            TDigest::from_means_weights(&arr, &weights, delta)
+                                .map_err(|e| PyValueError::new_err(e.to_string()))?,
+                        ),
                     })
                 })
             }
 
             fn quantile(&self, py: Python, x: $type) -> PyResult<$type> {
-                py.allow_threads(|| Ok(self.inner.quantile(x)?))
+                py.detach(|| {
+                    self.inner
+                        .quantile(x)
+                        .map_err(|e| PyValueError::new_err(e.to_string()))
+                })
             }
 
             fn median(&self, py: Python) -> PyResult<$type> {
-                py.allow_threads(|| Ok(self.inner.median()?))
+                py.detach(|| {
+                    self.inner
+                        .median()
+                        .map_err(|e| PyValueError::new_err(e.to_string()))
+                })
             }
 
             fn trimmed_mean(&self, py: Python, lower: $type, upper: $type) -> PyResult<$type> {
-                py.allow_threads(|| Ok(self.inner.trimmed_mean(lower, upper)?))
+                py.detach(|| {
+                    self.inner
+                        .trimmed_mean(lower, upper)
+                        .map_err(|e| PyValueError::new_err(e.to_string()))
+                })
             }
 
             fn merge(&self, py: Python, other: &Self, delta: $type) -> PyResult<Self> {
-                py.allow_threads(|| {
+                py.detach(|| {
                     Ok(Self {
-                        inner: compact_digest(self.inner.merge(&other.inner, delta)?),
+                        inner: compact_digest(
+                            self.inner
+                                .merge(&other.inner, delta)
+                                .map_err(|e| PyValueError::new_err(e.to_string()))?,
+                        ),
                     })
                 })
             }

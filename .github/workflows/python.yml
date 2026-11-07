@@ -28,16 +28,26 @@ jobs:
           uv sync --locked --no-install-project --project bindings/python --group dev --python 3.12
       - name: Check Python formatting and pinned sources
         run: |
-          uv run --project bindings/python --no-sync ruff check --config bindings/python/pyproject.toml bindings/python scripts/check_python_sdist.py scripts/test_legacy_wheel.py scripts/test_python_support.py scripts/test_python_interfaces.py scripts/prepare_release_sdist.py
-          uv run --project bindings/python --no-sync ruff format --check --config bindings/python/pyproject.toml bindings/python scripts/check_python_sdist.py scripts/test_legacy_wheel.py scripts/test_python_support.py scripts/test_python_interfaces.py scripts/prepare_release_sdist.py
+          uv run --project bindings/python --no-sync ruff check --config bindings/python/pyproject.toml bindings/python scripts/check_python_sdist.py scripts/test_legacy_wheel.py scripts/test_python_support.py scripts/test_python_interfaces.py scripts/prepare_release_sdist.py scripts/check_upstream_tests.py scripts/test_upstream_legacy.py scripts/benchmark_upstream.py scripts/test_package_upgrade.py
+          uv run --project bindings/python --no-sync ruff format --check --config bindings/python/pyproject.toml bindings/python scripts/check_python_sdist.py scripts/test_legacy_wheel.py scripts/test_python_support.py scripts/test_python_interfaces.py scripts/prepare_release_sdist.py scripts/check_upstream_tests.py scripts/test_upstream_legacy.py scripts/benchmark_upstream.py scripts/test_package_upgrade.py
           uv run --project bindings/python --no-sync python scripts/check_upstream_sources.py
 
   test:
     name: Test
+    needs: build
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
-        runner: [ubuntu-latest, macos-15-intel, macos-14, windows-latest]
+        runner: [ubuntu-latest, macos-15-intel, macos-15, windows-latest]
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+          - runner: macos-15
+            target: aarch64-apple-darwin
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
       fail-fast: false
     runs-on: ${{ matrix.runner }}
     steps:
@@ -51,9 +61,23 @@ jobs:
         run: |
           python -m pip install uv==0.9.5
           uv sync --locked --no-install-project --project bindings/python --group dev --python ${{ matrix.python-version }}
-      - name: Build extension
-        run: uv run --no-sync maturin develop --release --locked
-        working-directory: bindings/python
+      - name: Download the actual platform release wheel
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: python-package-${{ matrix.target }}
+          path: downloaded-platform-wheel
+      - name: Install the release wheel into the clean locked environment
+        shell: bash
+        run: |
+          uv run --project bindings/python --no-sync python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import sys
+          wheels = list(Path("downloaded-platform-wheel").glob("*.whl"))
+          assert len(wheels) == 1, wheels
+          subprocess.run(["uv", "pip", "install", "--python", sys.executable, "--no-deps", str(wheels[0])], check=True)
+          subprocess.run(["uv", "pip", "check", "--python", sys.executable], check=True)
+          PY
       - name: Test original and modern installed interfaces
         run: uv run --project bindings/python --no-sync python scripts/test_python_interfaces.py
 
@@ -68,7 +92,7 @@ jobs:
           python-version: "3.12"
       - name: Prepare build tools
         run: |
-          python -m pip install uv==0.9.5
+          python -m pip install uv==0.13.6
           uv sync --locked --no-install-project --project bindings/python --group dev --python 3.12
       - name: Download the actual GNU x86_64 release wheel
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
@@ -77,7 +101,7 @@ jobs:
           path: downloaded-release-wheel
       - name: Create and check source archive without compiling an extension
         run: uv run --project bindings/python --no-sync python scripts/prepare_release_sdist.py --output-dir checked-sdist
-      - name: Test the downloaded release wheel across seven isolated environments
+      - name: Test the downloaded wheel on Python 3.10-3.15, Polars 1.x/2.x and without Polars
         shell: bash
         run: |
           shopt -s nullglob
@@ -89,6 +113,8 @@ jobs:
           fi
           uv run --project bindings/python --no-sync python scripts/test_python_support.py \
             --wheel "${wheels[0]}" --sdist "${sdists[0]}" --output-dir support-results
+          uv run --project bindings/python --no-sync python scripts/test_package_upgrade.py \
+            --wheel "${wheels[0]}" --output-dir upgrade-results
       - name: Upload checked source archive
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
@@ -106,6 +132,9 @@ jobs:
             support-results/*.log
             checked-sdist/*.json
             checked-sdist/*.log
+            upgrade-results/*.json
+            upgrade-results/*.xml
+            upgrade-results/*.log
 
   build:
     name: Build
@@ -122,7 +151,7 @@ jobs:
             target: x86_64-unknown-linux-musl
           - runner: macos-15-intel
             target: x86_64-apple-darwin
-          - runner: macos-14
+          - runner: macos-15
             target: aarch64-apple-darwin
           - runner: windows-latest
             target: x86_64-pc-windows-msvc

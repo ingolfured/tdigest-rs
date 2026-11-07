@@ -1,31 +1,97 @@
 # Changelog
 
+All notable changes to this project are documented in this file.
+
 ## [Unreleased]
 
+- Consolidate engine and release guidance, correct the exact-point underflow
+  note and preserve the Windows wrapper's CRLF bytes on fresh checkouts.
+
+- Reuse exact integer-weight K2 rank boundaries during capacity search. Repeated
+  40-way merges avoid recomputing their logarithms in every trial.
+
+- Update the runtime-matrix installer for stable CPython 3.15 and reject prerelease
+  interpreters explicitly. Run all twelve cross-platform Python interface cells
+  against the actual release wheels, avoiding duplicate native compilation.
+
+- Update the retired macOS 14 ARM runner to macOS 15 while retaining both Mac
+  architectures, and explicitly stage pinned Rust before the full-project CI gate.
+
+- Add reproducible installed-wheel comparisons and real published-package upgrade
+  checks; preserve the original rejection of empty-array construction in their
+  workload definitions. Retain the development project's Java 11/17/21/25 gates
+  and standalone native-override packaging check in upstream Actions.
+- Record fresh 0.1.0/1.0.0 performance and artifact validation, including slower
+  queries/modern merges, unequal storage budgets and the ten known accuracy limits.
+
+- Propose upstream version 1.0.0 with an explicit staged rollout: preserve the
+  legacy path now, deprecate only in a later release, and remove only in a future
+  major release after notice. Isolate the byte-identical original 91-case suite
+  under `tests/upstream_legacy/` with inventory, checksum and separate result gates.
+
+- Replace the upstream contribution snapshot with the completed personal-repository
+  0.3.0 tree at `0eaa79411d1ca46cd0cf7294b03b6aafaf1a120c`, including the final
+  accuracy report and capacity-search optimization. Preserve the `tdigest-rs`
+  distribution, `com.gresearch.tdigest` JVM namespace, upstream governance files
+  and pinned release workflow; retain the original numerical compatibility engine.
+
+The planned upstream release is **1.0.0**. Read the [1.0.0 release notes](RELEASE_NOTES_1.0.0.md)
+for the imported development changes, upgrade instructions and supported runtimes.
+
+### Changed
+
+- Return checked results from modern Rust construction, merges and precision
+  conversions; reject inconsistent state and unsupported arithmetic before
+  replacing a digest.
+- Keep modern centroid weights in Float64 for both mean precisions, and
+  standardize the modern default capacity at 1,000.
+- Use `delta` in place of `legacy_delta`; modern delta mode selects K2Norm/Off
+  and rejects conflicting settings. Capacity compression uses a second scale-based
+  merge before falling back to equal-weight grouping.
+- Define NumPy query shapes and Float64 array outputs, Polars struct schemas,
+  length-based CDF broadcasting, missing-state errors and binary precision checks.
+- Preserve full modern state through copying, pickle, TDIG v3 and Polars structs;
+  reject older-format exports that cannot represent it.
+
 ### Fixed
-- Copy modern Python NumPy query and centroid outputs directly into NumPy-owned memory, avoiding intermediate Python float/list allocations while preserving exact values and independent writable/resizable arrays.
-- Reject Polars digest structs that combine delta with an incompatible scale or singleton policy before querying or exporting them, returning a configuration error instead of panicking during serialization.
-- Resolve development paths from Make's working directory, quote environment paths and locate hooks through Git so setup works in linked worktrees, checkouts with spaces and subprocess launches with inherited PWD.
 
-### Compatibility-preserving refresh
-- Isolate platform pytest collection with a real temporary configuration and resolved root directory, avoiding Windows null-device and short-path discovery failures without changing test assertions or expected counts.
-- Preserve LF checkout bytes for the 13 checksum-bound original implementation, Python wrapper, tests and benchmark files, including when Git uses `core.autocrlf=true`; keep the raw-byte checks and numerical code unchanged.
-- Preserve modern centroid information when the K2Norm normalizer is nonpositive; add weighted, merge, wire and Python/Polars regressions without changing the original compatibility engine.
-- Reuse the actual GNU x86_64 platform wheel in the seven-cell installed-artifact gate; create and check its source archive separately without recompiling the extension. Keep other platform artifact-installation limits explicit.
-- Restore the original `tdigest_rs.TDigest` API and pinned calculations as the default, including `delta`, dtype/state behavior and original reconstruction quirks; expose the modern engine explicitly as `gr_tdigest`.
-- Ship the original `tdigest_core` Rust package with public fields/methods and independent exact-output/API regressions. Its nested path is explicit; original repository-root path dependencies are not silently redirected.
-- Bring in reviewed modern weighted-mass, endpoint, finite-mean, subnormal-query, transactional scaling and wire-validation fixes. f32 centroid mass is stored as f64 (12 to 16 bytes); extended V3 states are distinguished and older formats reject lossy export.
-- Keep distribution `tdigest-rs`, original Python import paths and the existing Java namespace; report public versions from the correct distribution. Root version `2.0.0` remains provisional, with no publication implied.
-- Declare CPython 3.10–3.12 / NumPy 1.26.4–2.x support bounds and an optional exact Polars 1.34.0 extra; add real-wheel and source-archive gates, genuine published 0.1.0 pickle fixtures, and version-identity regressions.
-- Preserve current upstream action SHA pins, required-check graph, release environment, Python/platform matrix and GNU-only allocator rules. Scope Linux packaging tools to Linux, retain platform path handling, and replace obsolete Hatch/release-manifest commands for the new layout.
-- Remove the test-only compatibility shadow module and private multi-registry publishing commands. Document same-distribution upgrade, shared-namespace co-installation, original Rust path and platform validation limits.
-- Record fresh canonical Linux validation, direct/source-rebuilt 2,036-instance runtime gates, actual same-distribution upgrade/removal/reinstall and numerical audits for upstream daad315; retain historical-private and unrun-platform limits.
+- Correct weighted medians and quantiles, fractional and tiny-mass boundaries,
+  exact-point handling, residual mass retention and cancellation during compression.
+- Preserve the receiver when modern updates, iterable merges or scaling fail.
+- Honor weights in modern Python construction and give copied state independent ownership.
+- Fix Java deserialization ownership and translate catchable native panics into
+  Java exceptions.
 
-## Historical replacement-project development notes
+### Compatibility and delivery
 
-The entries below were imported by the earlier PR snapshot. They describe that
-project's development history, not releases of G-Research/tdigest-rs or the
-current upstream publication policy.
+- Provide the original `tdigest_rs` Python and `tdigest_core` Rust interfaces
+  with pinned in-range calculations and historical behavior, plus explicit overflow errors.
+- Support standard CPython 3.10–3.15 and optional Polars with tested 1.x/2.x
+  versions; preserve an already installed compatible Polars version.
+- Ship Python type declarations, standalone native JAR loading, Scala/Kotlin/Spark
+  examples, and Java 11 bytecode with JDK 11/17/21/25 coverage.
+- Support verified JVM toolchains, configured dependency sources, offline builds
+  with prepared caches, and checkout paths containing spaces or using worktrees.
+- Expand original-engine, numerical, cross-language and installed-artifact checks.
+
+### Performance and documentation
+
+- Document historical default-setting accuracy results and storage/value tradeoffs in one report linked from the README.
+- Copy compatible NumPy buffers in bulk and release the GIL during independent
+  modern construction.
+- Count capacity-search trial clusters without allocating or averaging discarded
+  centroids; retain the final compression path and existing numerical decisions.
+- Integrate the completed 0.3.0 review series and capacity-search optimization
+  into the release tree for master and the upstream contribution.
+- Consolidate the 0.3.0 changes and migration advice into release notes; remove
+  the historical follow-up report directory and its added qualification tooling
+  and checklist. Executable library tests and frozen reference inputs remain.
+
+## Imported development history
+
+The entries below describe the separate `ingolfured/gr-tdigest` development
+project. They are not published G-Research `tdigest-rs` releases; the published
+upstream baseline for this contribution is 0.1.0.
 
 ## [0.2.4] - 2026-02-16
 
@@ -65,7 +131,7 @@ current upstream publication policy.
 - CI (`.github/workflows/ci.yml`) now runs `Lint` and `Build and test` as parallel jobs for faster feedback.
 - CI now caches uv and Gradle artifacts in addition to Rust caches to reduce rebuild time.
 - Release workflows now verify that release tags point to commits reachable from `origin/master`.
-- Cargo release now runs `cargo publish --dry-run --locked --package tdigest-rs` before publish.
+- Cargo release now runs `cargo publish --dry-run --locked --package gr-tdigest` before publish.
 - Maven release now runs a preflight `publishToMavenLocal` before repository publish.
 - PyPI release now runs `twine check` on built distributions before publish.
 - `README.md` and `CONTRIBUTING.md` now reference repository protection setup guidance.

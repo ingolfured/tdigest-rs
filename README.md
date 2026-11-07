@@ -1,67 +1,80 @@
 # tdigest-rs
 
-This candidate preserves the original `tdigest_rs` Python API and calculations,
-and adds a separate modern engine through `gr_tdigest`. Existing applications
-keep their imports, `delta` argument, array dtypes and original state behavior.
-The modern API is an explicit choice; it does not silently replace those answers.
+A t-digest summarizes observations for approximate percentile queries and can
+merge summaries from separate batches. The proposed 1.0.0 release keeps the
+original G-Research engine and adds a modern engine with CDF queries, fractional
+weights and portable TDIG state. Start with the [maintainer review guide](REVIEW_GUIDE.md)
+for the before/after comparison, speed measurements and test evidence.
+
+## Choose a Python API
+
+Existing applications use the original engine, including its uint32 weights,
+immutable merge/update and historical pickle behavior.
 
 ```python
 import numpy as np
-from tdigest_rs import TDigest as OriginalTDigest
-from gr_tdigest import TDigest as ModernTDigest
+from tdigest_rs import TDigest
 
-values = np.array([1.0, 2.0, 3.0], dtype=np.float64)
-original = OriginalTDigest.from_array(values, delta=300.0)
-modern = ModernTDigest.from_array(values, max_size=1000, scale="k2")
+original = TDigest.from_array(np.array([0., 1., 2., 3.]), delta=300)
+print(original.median())
 ```
 
-Install the distribution as `tdigest-rs` for NumPy use, or `tdigest-rs[polars]`
-for the modern Polars expressions. The declared runtime range is CPython
-3.10–3.12 with NumPy `>=1.26.4,<3`. The optional Polars extra pins the tested
-plugin version `1.34.0`. These are candidate support bounds, not a claim that
-this branch's wheels have passed every platform gate.
+New applications can opt into the modern engine. Its capacity, scale and use
+of atomic centroids affect numerical answers and storage.
 
-Do not co-install this distribution with the private `gr-tdigest` distribution:
-both own `tdigest_rs` and `gr_tdigest` files. The intended migration is an upgrade
-of the existing `tdigest-rs` distribution. An environment containing the private
-distribution needs an explicit package transition; install order is not a safe
-ownership policy.
+```python
+from gr_tdigest import TDigest
 
-The original standalone Rust package is `tdigest_core` in `src/upstream`. It
-preserves the original public fields and methods and the pinned calculations.
-The modern root package is provisionally `tdigest-rs` version `2.0.0`, with Rust
-library name `gr_tdigest`. A Rust consumer using the repository root as a path
-dependency must select the nested original package explicitly. The provisional
-root version is not a release or registry-ownership decision.
+modern = TDigest.from_array([0., 1., 2., 3.], max_size=1000)
+print(modern.quantile(0.5), modern.cdf(1.5))
+```
 
-Read [the review guide](docs/review-refresh.md) for the compatibility boundary,
-modern tradeoffs and remaining rollout gates. The modern API and numerical
-contracts are in [api_design.md](api_design.md) and
-[tdigest_design.md](tdigest_design.md). The unchanged original test-suite
-provenance is in [compat/tdigest-rs-upstream](compat/tdigest-rs-upstream/PROVENANCE.md).
+The distribution name is `tdigest-rs`. Install `tdigest-rs[polars]` for Polars
+expressions. Supported runtimes are standard CPython 3.10–3.15. For array
+shapes, weight types, merge behavior and serialization, see the
+[Python API](bindings/python/OBJECT_API.md) and [Polars API](bindings/python/POLARS_API.md).
+The [rollout policy](ROLLOUT.md) describes continued legacy support, later
+deprecation and eventual removal in a future major release.
 
-For local Linux development:
+## Rust, CLI and Java
+
+The modern Rust crate exposes checked construction and merge operations.
+The original `tdigest_core` crate lives in `src/upstream` and retains its
+public means and uint32 weights. See its [provenance](src/upstream/PROVENANCE.md).
+
+The Rust CLI can build a digest from a CSV column and query the saved file.
+
+```sh
+cargo run --release --bin tdigest -- build --input numbers.csv --input-format csv --input-column value --to-digest model.tdig
+cargo run --release --bin tdigest -- quantile --from-digest model.tdig --p 0.5,0.99 --no-header
+```
+
+The Java API uses `com.gresearch.tdigest` and targets Java 11 bytecode.
+See [JDK selection, native loading and offline builds](bindings/java/README.md)
+and the [Scala, Kotlin and Spark examples](bindings/java/examples/README.md).
+
+## Build and test
+
+Use Rust 1.95.0, Python 3.12 for development and a supported JDK.
 
 ```sh
 make setup
 make build
 make test
+make quality-regression
 make python-support-test
 ```
 
-Setup supports linked Git worktrees. For paths containing spaces, set
-`CARGO_TARGET_DIR` to a directory without spaces because the bundled jemalloc
-build rejects spaces in its installation prefix. Keep `target` as a symlink
-to that directory for the CLI and Java development tools.
+For checkout paths containing spaces, set `CARGO_TARGET_DIR` to a directory
+without spaces for the jemalloc build. `make test` runs the
+[91 original upstream cases](tests/upstream_legacy/README.md) separately.
+The [quality suite](tests/quality/README.md) checks frozen numerical outcomes,
+including known limits. Compare the [recorded accuracy and storage results](tests/quality/ACCURACY.md)
+with the [published-package timing comparison](docs/upstream-1.0.0/performance.md)
+when selecting an engine and a storage budget.
 
-The installed-wheel gate builds one release Linux wheel and checks it outside
-the checkout on six Python/NumPy combinations plus a Polars-free baseline.
-The upstream CI platform matrix remains configured separately; a local Linux
-wheel is not a manylinux, musllinux, macOS or Windows validation result.
+## Project information
 
-Publishing follows the existing upstream workflows and environments described
-in [PUBLISH.md](PUBLISH.md). No package publication is part of this candidate.
-
-Polars digest structs with delta require K2Norm scale and singleton policy Off, as binary digests do. Incompatible structs return a configuration error when read for queries or serialization.
-
-Modern NumPy query and centroid arrays are independent writable, resizable Float64 snapshots. Direct copying into NumPy storage avoids temporary Python float/list allocations; list, tuple and scalar result behavior is preserved. This carries the conversion change from [personal PR9](https://github.com/ingolfured/gr-tdigest/pull/9); the original `tdigest_rs` interface is unchanged.
+[Release notes](RELEASE_NOTES_1.0.0.md) · [Source snapshot](UPSTREAM_SNAPSHOT.md) ·
+[Publishing](PUBLISH.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) ·
+[Code of conduct](CODE_OF_CONDUCT.md) · [Security](SECURITY.md) · [Apache-2.0 license](LICENSE)

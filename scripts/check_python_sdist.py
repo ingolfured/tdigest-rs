@@ -67,11 +67,61 @@ def verify_sdist_contents(sdist: Path, root: Path) -> None:
             "README.md",
             "bindings/python/PYTHON_README.md",
             "bindings/python/gr_tdigest/__init__.py",
+            "bindings/python/gr_tdigest/_polars.py",
+            "bindings/python/gr_tdigest/_shared.py",
             "bindings/python/tdigest_rs/__init__.py",
             "bindings/python/tdigest_rs/lib.py",
             "bindings/python/tdigest_rs/tdigest_rs.py",
             "src/tdigest/tdigest.rs",
             "src/upstream_py.rs",
+            "scripts/check_build_tools.py",
+            "scripts/consumer_contract_probe.py",
+            "bindings/python/OBJECT_API.md",
+            "bindings/python/POLARS_API.md",
+            "bindings/python/gr_tdigest/__init__.pyi",
+            "bindings/python/gr_tdigest/_gr_tdigest.pyi",
+            "bindings/python/gr_tdigest/py.typed",
+            "bindings/java/gradlew",
+            "bindings/java/gradlew.bat",
+            "bindings/java/gradle/wrapper/gradle-wrapper.jar",
+            "bindings/java/gradle/wrapper/gradle-wrapper.properties",
+            "bindings/java/examples/README.md",
+            "bindings/java/examples/scala/build.sbt",
+            "bindings/java/examples/scala/project/build.properties",
+            "bindings/java/examples/scala/src/main/scala/Example.scala",
+            "bindings/java/examples/kotlin/build.gradle",
+            "bindings/java/examples/kotlin/settings.gradle",
+            "bindings/java/examples/kotlin/src/main/kotlin/Example.kt",
+            "bindings/python/tests/test_consumer_contracts.py",
+        ):
+            require_same(relative, relative)
+        # Include everything needed to run the accuracy tests offline.
+        for relative in (
+            "pytest.ini",
+            "scripts/check_upstream_tests.py",
+            "scripts/test_upstream_legacy.py",
+            "tests/upstream_legacy/manifest.json",
+            "tests/upstream_legacy/PROVENANCE.md",
+            "tests/upstream_legacy/bindings/python/tests/__init__.py",
+            "tests/upstream_legacy/bindings/python/tests/conftest.py",
+            "tests/upstream_legacy/bindings/python/tests/constants.py",
+            "tests/upstream_legacy/bindings/python/tests/test_distributions.py",
+            "tests/upstream_legacy/bindings/python/tests/test_tdigest.py",
+            "tests/upstream_legacy/bindings/python/tests/utils.py",
+            "tests/upstream_legacy/bindings/python/benchmarks/run.py",
+            "tests/quality/__init__.py",
+            "tests/quality/conftest.py",
+            "tests/quality/measurements.py",
+            "tests/quality/test_accuracy.py",
+            "scripts/fetch_quality_data.py",
+            "tests/quality/test_reference.py",
+            "tests/quality/test_weighted_quality.py",
+            "tests/quality/baseline-fast.json.gz",
+            "tests/quality/baseline-extended.json.gz",
+            "tests/quality/known-limits.json",
+            "tests/quality/data/manifest.json",
+            "tests/quality/data/bike.csv.gz",
+            "tests/quality/data/energy.csv.gz",
         ):
             require_same(relative, relative)
         require_same("PYTHON_README.md", "bindings/python/PYTHON_README.md")
@@ -82,6 +132,11 @@ def verify_sdist_contents(sdist: Path, root: Path) -> None:
             raise RuntimeError("sdist has an unexpected active Python source directory")
         for relative in (
             "gr_tdigest/__init__.py",
+            "gr_tdigest/_polars.py",
+            "gr_tdigest/_shared.py",
+            "gr_tdigest/__init__.pyi",
+            "gr_tdigest/_gr_tdigest.pyi",
+            "gr_tdigest/py.typed",
             "tdigest_rs/__init__.py",
             "tdigest_rs/lib.py",
             "tdigest_rs/tdigest_rs.py",
@@ -109,6 +164,6 @@ def verify_sdist_contents(sdist: Path, root: Path) -> None:
                 raise RuntimeError("sdist active original core has the wrong library path")
         else:
             core_dir = "src/upstream"  # Older snapshots used a private path module.
-        for name in ("lib.rs", "core.rs", "scale.rs", "traits.rs", "LICENSE"):
+        for name in ("lib.rs", "core.rs", "scale.rs", "traits.rs", "checked.rs", "LICENSE"):
             require_same(core_dir + "/" + name, "src/upstream/" + name)
     print("Source archive contains required active source bytes and no duplicate paths or Python caches.", flush=True)

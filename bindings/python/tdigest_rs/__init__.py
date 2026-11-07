@@ -1,4 +1,4 @@
-"""The original tdigest-rs Python interface, with its original Rust calculations."""
+"""The original tdigest-rs Python interface, backed by tdigest-rs's Rust core."""
 
 from .lib import DEFAULT_DELTA, TDigest
 from gr_tdigest import __version__

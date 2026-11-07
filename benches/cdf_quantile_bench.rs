@@ -24,6 +24,7 @@ fn build_digest(
         .max_size(max_size)
         .scale(scale)
         .build()
+        .unwrap()
         .merge_sorted(data)
         .expect("finite benchmark data")
 }
