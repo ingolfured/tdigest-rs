@@ -33,7 +33,14 @@ def delta_digest(values, route):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("delta", "capacity"))
+    states = parser.add_mutually_exclusive_group()
+    states.add_argument("--save-centroids", type=Path, help="Save each delta digest's means and weights for replay.")
+    states.add_argument("--query-centroids", type=Path, help="Query saved centroids with the installed delta API.")
     args = parser.parse_args()
+    if (args.save_centroids or args.query_centroids) and args.mode != "delta":
+        parser.error("Centroid replay compares delta queries.")
+    if args.save_centroids:
+        args.save_centroids.mkdir(parents=True, exist_ok=True)
     writer = csv.writer(sys.stdout)
     writer.writerow(
         ["column", "precision", "order", "route", "centroids", "mean_rank_error", "tail_rank_error", "mean_value_error"]
@@ -46,7 +53,20 @@ def main():
             exact = Exact(values.tolist())
             for order, data in (("forward", values), ("reverse", values[::-1].copy())):
                 for route in ("bulk", "left40", "balanced40"):
-                    digest = delta_digest(data, route) if args.mode == "delta" else build(data, precision, 1000, route)
+                    name = f"{column.replace('/', '_')}-{precision}-{order}-{route}.npz"
+                    if args.query_centroids:
+                        with np.load(args.query_centroids / name) as saved:
+                            means, weights = saved["means"], saved["weights"]
+                        # Keep the supplied centroids separate, then verify the reconstructed state.
+                        digest = TDigest.from_means_weights(means, weights, delta=400 * len(means))
+                        if digest.means.tobytes() != means.tobytes() or digest.weights.tobytes() != weights.tobytes():
+                            raise ValueError(f"Reconstruction changed the saved centroids in {name}")
+                    else:
+                        digest = (
+                            delta_digest(data, route) if args.mode == "delta" else build(data, precision, 1000, route)
+                        )
+                    if args.save_centroids:
+                        np.savez(args.save_centroids / name, means=digest.means, weights=digest.weights)
                     estimates = [digest.quantile(q) for q in Q]
                     errors = [exact.rank_error(q, x) for q, x in zip(Q, estimates)]
                     tail = max(e for q, e in zip(Q, errors) if q <= 0.01 or q >= 0.99)

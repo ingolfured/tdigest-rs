@@ -54,6 +54,10 @@ The [operation benchmark](../../scripts/benchmark_upstream.py) measures construc
 
 The million-value construction speedup was **3.75× for Float64** and **3.63× for Float32**. Across the complete matrix, the PR had a lower median in **11 of 28** shared delta cases, including empty-input rejection. Some query medians differed by less than a nanosecond. The [individual round timings](operation-timings.csv) also include capacity-mode queries and operations added in 1.0.
 
+The 32-value build spends much of its time in the Python adapter. In a follow-up on the same finite array, the full 1.0 call took 3.73 µs. Calling the native constructor directly took 1.30 µs and produced the same means and weights. The corresponding 0.1.0 times were 1.22 µs and 0.94 µs. The 1.0 adapter checks dtype, scans for nonfinite values and resolves constructor options on each call. Those fixed costs matter more on a 32-value array.
+
+The 40-way sequential test uses the same delta for every input and output. This takes a different path from the original threaded benchmark. To return a new digest on each of the 39 merges, the 1.0 binding clones the native inputs and checks the merged state. Repeating that work on the growing accumulator adds cost. The timing covers cloning, validation and compression together, so their individual shares are unknown. [Python merge paths](../../bindings/python/tdigest_rs/tdigest_rs.py) · [Native merge implementation](../../src/py.rs)
+
 The K2 merge optimization has a different baseline. With 40 prebuilt Float64 digests of 1,000 values each, capacity 1,000, sequential merging took **5.65 ms** in the PR and **18.79 ms** in the [earlier capacity implementation](https://github.com/ingolfured/tdigest-rs/commit/fa692858f6d36e94ef59c34b02349bc0f1575729). Both produced the same TDIG bytes. Those timings are medians of seven alternating rounds, twelve operations per round, on one CPU with NumPy seed 4242.
 
 ## Accuracy on recorded data
@@ -68,6 +72,14 @@ Rank error is the distance between the requested percentile and the interval of 
 | Capacity 1,000, K2 | 108 better | 108 better | 108 better |
 
 Mean rank error across profiles fell from **0.46645 percentage points** to **0.04612** with delta 300 and **0.00172** with capacity 1,000. Tail probes cover the bottom and top 1%. Differences up to 1e-12 count as ties. The cases share datasets and are weighted equally. Capacities are different storage budgets. The [per-case results](recorded-accuracy.csv) give centroid counts and errors for all three configurations. The [earlier storage-matched study](../../tests/quality/ACCURACY.md) also covers synthetic distributions and cases where the original engine had lower value error.
+
+### Where 0.1.0 was more accurate
+
+All six higher mean rank errors at delta 300 were on **outdoor temperature after 40 partial digests were merged**. In each case 1.0 kept fewer centroids (238–254, compared with 251–268 on 0.1.0). To distinguish compression from the query formula, we gave the published wheel the 1.0 means and weights, verified that it retained every byte, and queried the same 135 probabilities. **In all six cases, the old query on the new centroids already had higher error than the old query on the old centroids.** Switching to the 1.0 query on those same centroids reduced the error slightly in all six. The losses came from the merged centroid distribution. Both count and placement changed, so their individual contributions remain unknown.
+
+For example, in the Float64 forward sequential merge, the exact 48.4375th percentile was 6.6833 °C. The original digest returned 6.6894 °C. Both query formulas returned 6.7003 °C on the 1.0 centroids. Many observations are close together there, so a small temperature difference crosses several ranks.
+
+Mean **value** error was higher in eight cases. Two were reverse-order sequential merges of bicycle rental counts. Replaying the old query on the new centroids made the error worse in both, and the new query recovered part of that loss. The other six were outdoor temperature. In four, changing the centroids already worsened mean value error. In two, the old query on the new centroids improved it, but the change in interpolation reversed that gain. For the forward Float64 balanced merge, the exact 99.99th percentile was 25.9684 °C. On the same centroids the old query returned 26.0018 °C and 1.0 returned the observed value 26.0333 °C. That answer scores better on rank and worse against a linearly interpolated reference in degrees. The replay columns in the [per-case results](recorded-accuracy.csv) show both error measures for every case.
 
 ## Reproduction
 
@@ -93,7 +105,8 @@ done
 
 compare=docs/upstream-1.0.0/compare_recorded.py
 "$OLD_PY" -I "$compare" delta > published-delta.csv
-"$PR_PY" -I "$compare" delta > pr-delta.csv
+"$PR_PY" -I "$compare" delta --save-centroids build/accuracy-centroids > pr-delta.csv
+"$OLD_PY" -I "$compare" delta --query-centroids build/accuracy-centroids > published-query-on-pr-centroids.csv
 "$PR_PY" -I "$compare" capacity > pr-capacity.csv
 ```
 

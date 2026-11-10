@@ -48,6 +48,7 @@ pickle reconstruction.
 
 ### Performance and documentation
 
+- Explain recorded-data accuracy losses by replaying the 0.1.0 query on the exact 1.0 centroid means and weights.
 - Compare builds and merges against 0.1.0 with byte-identical centroid means and weights, and isolate the cost of merging at a different delta.
 - Record wheel-to-wheel accuracy and timing comparisons with published 0.1.0, including the original threaded benchmark and the seven Python compatibility cases.
 - Document historical default-setting accuracy results and storage/value tradeoffs in one report linked from the README.
