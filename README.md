@@ -126,7 +126,9 @@ packager respect `CARGO_TARGET_DIR` directly.
 ## Accuracy and compatibility
 
 The [original Python suite](tests/upstream_legacy/README.md) runs as part of
-`make test`. The [accuracy tests](tests/quality/README.md) compare estimates
+`make test`. The [1.0 vs 0.1.0 benchmark results](docs/upstream-1.0.0/comparison.md)
+cover large-array builds, merges, the original threaded benchmark and quantile
+accuracy on recorded data. The [accuracy tests](tests/quality/README.md) compare estimates
 with sorted input across precisions, compression settings and merge orders.
 The [recorded comparison with the original engine](tests/quality/ACCURACY.md)
 includes rank error, value error, storage costs and known limits.

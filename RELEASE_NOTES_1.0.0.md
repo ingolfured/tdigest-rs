@@ -1,157 +1,59 @@
-# 1.0.0 release notes
-
-**Status: unreleased.** This proposes the next major upstream release after
-published 0.1.0 (upstream source metadata 0.2.0). The implementation comes from
-the completed personal-repository 0.3.0 snapshot; modern API migration notes
-below compare with that project's earlier 0.2.x development line.
-
-The original Python import and delta calling convention continue on a single Rust engine. See [the migration guide](ROLLOUT.md).
-
-1.0.0 is a substantial correctness, compatibility and usability update to
-tdigest-rs. It improves weighted statistics and saved state, makes invalid
-operations fail safely, and brings the Python, Polars and JVM interfaces into
-closer agreement with the Rust core. It also includes API and schema changes
-that existing modern-engine applications need to account for when upgrading.
-
-The modern Rust crate, Python package and JVM artifact use version 1.0.0.
-The standalone `tdigest_core` crate is removed from the workspace.
+# What’s new in tdigest-rs 1.0
 
 ## Native Polars expressions
 
-Use `tdigest` in a lazy `group_by().agg()` to build a digest for each group.
-Query the results with `quantile` and `cdf`, or merge digests across partitions
-with `merge_tdigests`. The [Polars guide](bindings/python/POLARS_API.md)
-shows how to compute percentile ranks after joining digests back to the input.
+Which requests were slow for their own service? Build one digest per service,
+join it back to the requests, and use the CDF to get each latency’s percentile
+rank. The whole calculation runs in a Polars lazy query.
 
-## More reliable weighted statistics
+```python
+import polars as pl
+import tdigest_rs as td
 
-Weighted medians and quantiles now consistently account for observation weights,
-including fractional weights. Fixes cover interpolation near the tails, exact
-single-value summaries, very small total weights, and compression that previously
-lost a trailing contribution at small capacities. More careful summation also
-improves calculations when large positive and negative values cancel.
+requests = pl.LazyFrame({
+    "service": ["search", "search", "checkout", "checkout"],
+    "latency_ms": [12.0, 48.0, 35.0, 90.0],
+})
+digests = requests.group_by("service").agg(
+    td.tdigest("latency_ms", max_size=200).alias("digest")
+)
+ranked = requests.join(digests, on="service").select(
+    "service", "latency_ms",
+    td.cdf("digest", pl.col("latency_ms")).alias("percentile_rank"),
+)
+print(ranked.collect())
+```
 
-Modern summaries retain weights, total weight and weighted sums in Float64,
-even when means are stored in Float32. This prevents weights from being rounded
-away merely because Float32 storage was selected. It increases storage for
-Float32 centroids; it cannot restore information already lost in an older digest.
+Use `quantile` for the reverse question, such as the p99 latency per service.
+Digests can also be merged across partitions and stored as binary columns.
+Install `tdigest-rs[polars]` for these expressions. Polars is optional for
+NumPy users. [Polars expression guide](bindings/python/POLARS_API.md)
 
-## Safer updates and saved state
+## Accuracy and speed compared with 0.1.0
 
-Construction, reconstruction, merging, precision conversion and positive scaling
-check that the resulting digest is valid. Unsupported arithmetic and inconsistent
-saved state produce errors. A failed modern update, merge or scaling operation
-leaves the existing digest unchanged, including an iterable merge whose later
-input is invalid.
-
-Modern Python copies, pickle restoration and TDIG binary round trips preserve
-independent full state: weights, extrema, weighted sum, compression settings and
-the distinction between exact points and compressed groups. Rebuilding from
-`means` and `weights` alone still constructs weighted observations; it is not a
-full-state copy.
-
-TDIG v3 retains the added configuration and weight information. Existing v1/v2
-data remains readable, but older formats cannot express every modern state.
-Exports that would lose unsupported state are rejected. Older readers may also
-reject newly used v3 flags, so check readers before exchanging new saved data.
-
-## Original G-Research compatibility
-
-Import `TDigest` from `tdigest_rs` for both modes. The original calling convention
-uses `delta=` (default 300). It accepts Float32 and Float64 NumPy arrays, ignores
-NaNs, retains infinite endpoints and returns a new digest from merge and update.
-Pass `max_size=` for capacity-based compression, strict finite inputs, fractional
-weights, CDF, in-place updates and TDIG serialization. Supply one sizing parameter
-per constructor. Both modes use the same Rust core for finite data.
-
-Compression, interpolation and restored-pickle queries use modern numerical
-results. For example, the 10th percentile of `[1.0, 2.0]` changes from 0.7 to
-1.0, and the median of `[0, 10]` with weights `[90, 10]` changes from 1 to 0.
-Published 0.1.0 pickles carry centroid means and weights. Loading one reconstructs
-a digest from those observations.
-
-## Python and Polars improvements
-
-Modern Python construction now honors supplied weights. Copies own independent
-state, and installed type declarations and method documentation make the API
-easier to use from editors and type checkers.
-
-Compatible NumPy input and output buffers use bulk copies. Independent modern
-constructors release the Python interpreter lock during native construction,
-allowing a caller's thread pool to build separate digests concurrently. Input
-conversion still holds the lock; sharing one mutable digest between threads is
-not supported.
-
-Polars is optional. Numerical Python use does not require it, and installing
-`tdigest-rs[polars]` retains an already installed compatible Polars version.
-Compatibility checks cover selected Polars 1.x releases and 2.0.0. CDF operations
-now match digests and probes by row count, preserve List-shaped results, and keep
-valid empty digests distinct from missing rows.
-
-## Faster capacity searches
-
-When compression exceeds the centroid capacity, trial passes now count clusters
-without allocating temporary centroid vectors or computing means that would be
-discarded. The selected final pass retains its existing numerical arithmetic.
-This reduces work for builds and merges that need capacity tuning; paths that
-skip that search do not receive the same benefit.
-
-## JVM delivery
-
-Java gains completed weighted/delta builders and fluent operations. Deserialized
-objects own independent native handles, fixing premature cleanup of restored
-state. Catchable Rust panics are translated to Java exceptions. Packaged JARs
-load their native library outside a development checkout and provide clearer
-loading diagnostics. Scala, Kotlin and separate-executor Spark examples cover
-use of the shared Java artifact.
-
-JVM builds support configured toolchain/dependency sources and offline operation
-after dependencies have been staged. They target Java 11 bytecode.
-
-## Upgrading from 0.2.x
-
-| Area | What to check in your application |
+| Using the existing Python API with `delta=` | What we measured |
 | --- | --- |
-| Modern Rust API | Builders, seeded construction, merges and precision conversions return checked `Result` values. Handle errors, for example with `builder().build()?`. The configuration name is `delta`, replacing `legacy_delta`. |
-| Defaults and delta | For capacity mode in Python, pass `max_size=1000` explicitly. Omitting both sizing arguments selects `delta=300`. Modern delta mode uses K2Norm with singleton policy Off; incompatible explicit settings are rejected. |
-| NumPy query outputs | Scalar and zero-dimensional probes return scalars. One-dimensional arrays return independent writable Float64 arrays, including single-element inputs. Lists and tuples retain their containers. Flatten and reshape multidimensional probes in your application. |
-| Polars schemas | New structs include compression settings and centroid kind; weights are Float64 in both mean precisions. Review explicit schemas and persisted struct columns. Older six-field structs are read using their historical defaults. |
-| Polars missing rows and CDF | Missing digest rows are errors. Supply a genuine empty digest when that is intended. CDF broadcasting follows row counts, and List probes retain List output. |
-| Binary decoding | Give column-based Polars `from_bytes` an explicit `precision="f32"` or `"f64"`. This checks the encoded precision; it does not cast the digest. |
-| Saved state | Use full-state copies or TDIG v3 for faithful modern restoration. Delta and other newly represented settings may require v3. Check compatibility with older consumers before writing new state. |
-| Invalid operations | Expect errors for malformed state, unsupported numeric ranges, or merges with differing precision or compression settings, including empty contributors. |
+| Quantile accuracy | Lower mean rank error in 102 of 108 cases on bike-rental and household-energy data. Six cases had higher error. |
+| Building a digest | Faster at every tested size from 1,000 to 1,000,000 values in both precisions. A million Float64 values took 29.63 ms, down from 110.99 ms (3.75×). |
+| Original threaded build-and-merge benchmark | Median runtime rose from 2.561 s to 4.003 s (56% longer). Small builds and sequential merges were also slower in the individual operation benchmarks. |
 
-See the [Python/NumPy guide](bindings/python/OBJECT_API.md),
-[Polars guide](bindings/python/POLARS_API.md),
-[Rust API contract](api_design.md) and [Java guide](bindings/java/README.md)
-for detailed behavior and examples.
+The comparison includes both wheels, individual timings, per-dataset errors
+and commands to reproduce the runs. An earlier study also compares accuracy at
+matched storage. [Benchmark results](docs/upstream-1.0.0/comparison.md) ·
+[Matched-storage study](compat/quality-20261020/RESULTS.md)
 
-## Runtime and build support
+For callers choosing `max_size=`, the K2 capacity search now counts candidate
+clusters without allocating intermediate centroids. Against the earlier K2
+implementation, merging 40 digests sequentially fell from 18.79 ms to 5.65 ms
+and produced identical digest bytes. [K2 benchmark details](docs/upstream-1.0.0/comparison.md#which-operations-got-faster)
 
-- Python: standard CPython 3.10–3.15. NumPy requirements depend on the Python
-  version; Python 3.13 and later require NumPy 2.x. See the
-  [package requirements](bindings/python/pyproject.toml).
-- Polars: optional, with a declared minimum of 1.0.0. The installed-package checks
-  cover 1.0.0, 1.20.0, 1.38.1, 1.44.2 and 2.0.0. An open dependency range does not
-  establish compatibility with every future version.
-- JVM: build/runtime coverage for JDK 11, 17, 21 and 25, targeting Java 11 bytecode.
-- Rust source builds: the repository pins Rust 1.95.0.
-- Linux wheel compatibility is recorded in each wheel’s platform tag. The source-archive test builds a manylinux_2_28 wheel.
+## Python, Rust and JVM features
 
-## Accuracy and validation
+- **Python and NumPy.** Use `max_size=` to set the centroid capacity, query the CDF at an array of values, or update a digest in place. Float32 means can be stored compactly while weights and sums use Float64. Existing callers can continue using `delta=` or its default of 300. [Python object API](bindings/python/OBJECT_API.md)
+- **Portable digests.** TDIG v3 carries precision, compression settings, weights, extrema and centroid kinds between Python, Polars, Rust and Java. V1 and v2 remain readable. Use v3 when a digest needs settings the older formats cannot represent. [Wire format and compatibility](tdigest_design.md)
+- **Rust and the CLI.** Build, merge and query digests in Rust, or build one from a CSV column with the CLI and reuse it for later quantile and CDF queries. Checked operations report invalid inputs and incompatible merges. [CLI example](README.md#rust-cli) · [Rust API](api_design.md)
+- **Java and other JVM languages.** A JAR with native library loading provides weighted construction, merging, quantiles and CDF queries. It targets Java 11 bytecode and includes examples for Scala, Kotlin and Spark. [Java guide](bindings/java/README.md)
 
-The test suite now includes independent original-engine reference outputs,
-weighted numerical controls, recorded-data accuracy cases, cross-language saved
-state checks and installed-package tests. Source archives and standalone JARs
-are checked as consumer artifacts as well as testing the checkout.
-
-T-digest remains an approximation. Accuracy depends on the data, summary size,
-scale and merge pattern; known difficult cases remain, particularly with small
-summaries. Modern does not win every accuracy measure against the original
-engine. The [comparison guide](comparison_design.md) explains those tradeoffs,
-and the [quality test guide](tests/quality/README.md) describes the reproducible
-checks. Historical development timings are not a general speed or memory
-guarantee for 1.0.0.
-
-Publication and final release validation are tracked in the
-[publishing guide](PUBLISH.md).
+Python supports standard CPython 3.10–3.15. Polars tests cover selected 1.x
+versions and 2.0.0. For existing consumers, the upgrade guide shows the original
+API in use and where numerical estimates change. [Upgrading from 0.1.0](ROLLOUT.md)

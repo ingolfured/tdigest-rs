@@ -48,6 +48,7 @@ pickle reconstruction.
 
 ### Performance and documentation
 
+- Record wheel-to-wheel accuracy and timing comparisons with published 0.1.0, including the original threaded benchmark and the seven Python compatibility cases.
 - Document historical default-setting accuracy results and storage/value tradeoffs in one report linked from the README.
 - Copy compatible NumPy buffers in bulk and release the GIL during independent
   modern construction.

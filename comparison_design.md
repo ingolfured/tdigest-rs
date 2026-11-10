@@ -1,6 +1,6 @@
 # Historical engine comparison
 
-The release now exposes delta and capacity modes from one Rust engine. See [Python compatibility](ROLLOUT.md) for current behavior.
+The [1.0 vs 0.1.0 wheel comparison](docs/upstream-1.0.0/comparison.md) measures both constructor modes on recorded data and reruns the original Python benchmark. The [upgrade guide](ROLLOUT.md) covers the existing Python API.
 
 ## Modern versus original GR: measured accuracy (CI, 21 October 2026)
 
