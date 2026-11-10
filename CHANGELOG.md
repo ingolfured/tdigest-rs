@@ -48,6 +48,7 @@ pickle reconstruction.
 
 ### Performance and documentation
 
+- Compare builds and merges against 0.1.0 with byte-identical centroid means and weights, and isolate the cost of merging at a different delta.
 - Record wheel-to-wheel accuracy and timing comparisons with published 0.1.0, including the original threaded benchmark and the seven Python compatibility cases.
 - Document historical default-setting accuracy results and storage/value tradeoffs in one report linked from the README.
 - Copy compatible NumPy buffers in bulk and release the GIL during independent

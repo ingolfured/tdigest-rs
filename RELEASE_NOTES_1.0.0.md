@@ -34,8 +34,8 @@ NumPy users. [Polars expression guide](bindings/python/POLARS_API.md)
 | Using the existing Python API with `delta=` | What we measured |
 | --- | --- |
 | Quantile accuracy | Lower mean rank error in 102 of 108 cases on bike-rental and household-energy data. Six cases had higher error. |
-| Building a digest | Faster at every tested size from 1,000 to 1,000,000 values in both precisions. A million Float64 values took 29.63 ms, down from 110.99 ms (3.75×). |
-| Original threaded build-and-merge benchmark | Median runtime rose from 2.561 s to 4.003 s (56% longer). Small builds and sequential merges were also slower in the individual operation benchmarks. |
+| Building a digest | Faster at every tested size from 1,000 to 1,000,000 values in both precisions. On a separate million-value Float64 build that produced 146 byte-identical centroids, runtime fell from 109.18 ms to 30.21 ms (3.61×). |
+| Original threaded build-and-merge benchmark | Median runtime rose from 2.561 s to 4.003 s (56% longer). A separate build-and-merge workload with byte-identical centroids took 43% less time with one worker and 32% longer with 32 workers. |
 
 The comparison includes both wheels, individual timings, per-dataset errors
 and commands to reproduce the runs. An earlier study also compares accuracy at
