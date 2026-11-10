@@ -1,4 +1,4 @@
-# Upgrading from tdigest-rs 0.1.0
+# Upgrading from 0.1.0
 
 Keep `from tdigest_rs import TDigest` and your existing `delta=` calls.
 Omitting the sizing argument still selects `delta=300`. All **91 original
@@ -52,7 +52,7 @@ Each row shows what happens if you switch the same Python input to
 `max_size=`. Keeping `delta=` or omitting the sizing argument preserves the
 original behavior in all seven cases. [Original test cases](tests/upstream_legacy/bindings/python/tests/test_tdigest.py)
 
-| Input or operation | Existing calls (`delta=` or default) | Opt-in `max_size=` |
+| Input or operation | Existing calls (`delta=` or default) | With `max_size=` |
 | --- | --- | --- |
 | Three NaNs | Skips all three and returns an empty digest. | Rejects NaN during construction. |
 | `[10, 20, NaN]` | Keeps 10 and 20. | Rejects the array because it contains a NaN. |

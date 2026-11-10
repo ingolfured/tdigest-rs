@@ -1,6 +1,6 @@
 # tdigest-rs
 
-A t-digest summarizes a distribution so you can estimate quantiles, medians and
+A digest summarizes a distribution so you can estimate quantiles, medians and
 cumulative probabilities without retaining every observation. This project
 provides native Polars expressions for grouped aggregation and CDF queries in
 lazy DataFrames, alongside a Rust library and CLI, Python objects and Java bindings.
@@ -14,7 +14,7 @@ pip install 'tdigest-rs[polars]'
 ```
 
 Import `TDigest` from `tdigest_rs`. Pass `delta=` for the original Python
-calling convention, or `max_size=` for capacity-based compression, fractional
+calling convention, or `max_size=` for compression with a fixed capacity, fractional
 weights, CDF queries and portable binary state. Omitting both selects the
 original default of `delta=300`. Both modes use the same Rust implementation.
 The [1.0 migration guide](ROLLOUT.md) describes the numerical changes and how
@@ -24,7 +24,7 @@ previously saved Python digests are loaded.
 
 ### Polars
 
-Compute each request’s percentile within its service. Build one digest per
+Compute each request's percentile within its service. Build one digest per
 service, join it back to the requests, then evaluate the CDF at each latency.
 
 ```python
@@ -98,10 +98,10 @@ public class Example {
 
 ## Language guides
 
-- [Python and NumPy](bindings/python/OBJECT_API.md) covers precision, weights, updates and serialization.
-- [Polars](bindings/python/POLARS_API.md) covers expressions, grouped aggregation and binary columns.
-- [Java](bindings/java/README.md) covers the JAR, native loading and toolchain setup.
-- [Rust API contract](api_design.md) and [implementation notes](tdigest_design.md) describe compression, merging and the TDIG format.
+* [Python and NumPy](bindings/python/OBJECT_API.md) covers precision, weights, updates and serialization.
+* [Polars](bindings/python/POLARS_API.md) covers expressions, grouped aggregation and binary columns.
+* [Java](bindings/java/README.md) covers the JAR, native loading and toolchain setup.
+* [Rust API contract](api_design.md) and [implementation notes](tdigest_design.md) describe compression, merging and the TDIG format.
 
 ## Development
 
@@ -127,14 +127,14 @@ packager respect `CARGO_TARGET_DIR` directly.
 
 The [original Python suite](tests/upstream_legacy/README.md) runs as part of
 `make test`. The [1.0 vs 0.1.0 benchmark results](docs/upstream-1.0.0/comparison.md)
-cover large-array builds, merges, the original threaded benchmark and quantile
+cover builds from large arrays, merges, the original threaded benchmark and quantile
 accuracy on recorded data. The [accuracy tests](tests/quality/README.md) compare estimates
 with sorted input across precisions, compression settings and merge orders.
 The [recorded comparison with the original engine](tests/quality/ACCURACY.md)
 includes rank error, value error, storage costs and known limits.
 
 The historical comparison on recorded data measured lower mean rank error in
-279 of 324 matched-storage cases and lower tail rank error in 295 of 324.
+279 of 324 cases at matched storage and lower tail rank error in 295 of 324.
 The [full comparison](comparison_design.md) includes the workloads where the
 original engine was more accurate.
 

@@ -1,9 +1,9 @@
-# What’s new in tdigest-rs 1.0
+# What's new in 1.0
 
 ## Native Polars expressions
 
 Which requests were slow for their own service? Build one digest per service,
-join it back to the requests, and use the CDF to get each latency’s percentile
+join it back to the requests, and use the CDF to get each latency's percentile
 rank. The whole calculation runs in a Polars lazy query.
 
 ```python
@@ -33,14 +33,14 @@ NumPy users. [Polars expression guide](bindings/python/POLARS_API.md)
 
 | Using the existing Python API with `delta=` | What we measured |
 | --- | --- |
-| Quantile accuracy | Lower mean rank error in 102 of 108 cases on bike-rental and household-energy data. The six losses all came from merged outdoor-temperature summaries. Replaying the old query on the 1.0 centroids isolated the loss to compression. |
-| Building a digest | Faster at every tested size from 1,000 to 1,000,000 values in both precisions. On a separate million-value Float64 build that produced 146 byte-identical centroids, runtime fell from 109.18 ms to 30.21 ms (3.61×). |
-| Original threaded build-and-merge benchmark | Median runtime rose from 2.561 s to 4.003 s (56% longer). A separate build-and-merge workload with byte-identical centroids took 43% less time with one worker and 32% longer with 32 workers. |
+| Quantile accuracy | Lower mean rank error in 102 of 108 cases on bike rental and household energy data. The six losses all came from merged outdoor temperature summaries. Replaying the old query on the 1.0 centroids isolated the loss to compression. |
+| Building a digest | Faster at every tested size from 1,000 to 1,000,000 values in both precisions. Building from one million shuffled Float64 values took 30.21 ms in 1.0 and 109.18 ms in 0.1.0 (3.61× faster). All 146 centroids matched byte for byte. |
+| Original threaded benchmark for building and merging digests | Median runtime rose from 2.561 s to 4.003 s (56% longer). A separate workload that builds and merges digests with identical centroids took 43% less time with one worker and 32% longer with 32 workers. |
 
-The comparison includes both wheels, individual timings, per-dataset errors
+The comparison includes both wheels, individual timings, errors by dataset
 and commands to reproduce the runs. An earlier study also compares accuracy at
 matched storage. [Benchmark results](docs/upstream-1.0.0/comparison.md) ·
-[Matched-storage study](compat/quality-20261020/RESULTS.md)
+[Study at matched storage](compat/quality-20261020/RESULTS.md)
 
 For callers choosing `max_size=`, the K2 capacity search now counts candidate
 clusters without allocating intermediate centroids. Against the earlier K2
@@ -49,11 +49,11 @@ and produced identical digest bytes. [K2 benchmark details](docs/upstream-1.0.0/
 
 ## Python, Rust and JVM features
 
-- **Python and NumPy.** Use `max_size=` to set the centroid capacity, query the CDF at an array of values, or update a digest in place. Float32 means can be stored compactly while weights and sums use Float64. Existing callers can continue using `delta=` or its default of 300. [Python object API](bindings/python/OBJECT_API.md)
-- **Portable digests.** TDIG v3 carries precision, compression settings, weights, extrema and centroid kinds between Python, Polars, Rust and Java. V1 and v2 remain readable. Use v3 when a digest needs settings the older formats cannot represent. [Wire format and compatibility](tdigest_design.md)
-- **Rust and the CLI.** Build, merge and query digests in Rust, or build one from a CSV column with the CLI and reuse it for later quantile and CDF queries. Checked operations report invalid inputs and incompatible merges. [CLI example](README.md#rust-cli) · [Rust API](api_design.md)
-- **Java and other JVM languages.** A JAR with native library loading provides weighted construction, merging, quantiles and CDF queries. It targets Java 11 bytecode and includes examples for Scala, Kotlin and Spark. [Java guide](bindings/java/README.md)
+* **Python and NumPy.** Use `max_size=` to set the centroid capacity, query the CDF at an array of values, or update a digest in place. Float32 means can be stored compactly while weights and sums use Float64. Existing callers can continue using `delta=` or its default of 300. [Python object API](bindings/python/OBJECT_API.md)
+* **Portable digests.** TDIG v3 carries precision, compression settings, weights, extrema and centroid kinds between Python, Polars, Rust and Java. V1 and v2 remain readable. Use v3 when a digest needs settings the older formats cannot represent. [Wire format and compatibility](tdigest_design.md)
+* **Rust and the CLI.** Build, merge and query digests in Rust, or build one from a CSV column with the CLI and reuse it for later quantile and CDF queries. Checked operations report invalid inputs and incompatible merges. [CLI example](README.md#rust-cli) · [Rust API](api_design.md)
+* **Java and other JVM languages.** A JAR with native library loading provides weighted construction, merging, quantiles and CDF queries. It targets Java 11 bytecode and includes examples for Scala, Kotlin and Spark. [Java guide](bindings/java/README.md)
 
-Python supports standard CPython 3.10–3.15. Polars tests cover selected 1.x
+Python supports standard CPython 3.10 through 3.15. Polars tests cover selected 1.x
 versions and 2.0.0. For existing consumers, the upgrade guide shows the original
 API in use and where numerical estimates change. [Upgrading from 0.1.0](ROLLOUT.md)
