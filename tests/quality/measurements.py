@@ -107,7 +107,7 @@ class Exact:
         return iqr or (self.values[-1] - self.values[0]) or 1.0
 
 
-def score(digest, exact: Exact, modern: bool) -> dict:
+def score(digest, exact: Exact) -> dict:
     predicted = [float(digest.quantile(q)) for q in Q]
     if not all(map(math.isfinite, predicted)):
         raise AssertionError("nonfinite quantile")
@@ -116,7 +116,7 @@ def score(digest, exact: Exact, modern: bool) -> dict:
     )
     bounds = sum(x < exact.values[0] - tolerance or x > exact.values[-1] + tolerance for x in predicted)
     inversions = sum(a > b + tolerance for a, b in zip(predicted, predicted[1:]))
-    if modern and (bounds or inversions):
+    if bounds or inversions:
         raise AssertionError("modern quantile bounds/monotonicity failure")
     ranks = [exact.rank_error(q, x) for q, x in zip(Q, predicted)]
     errors = [abs(x - exact.quantile(q)) for q, x in zip(Q, predicted)]
@@ -133,19 +133,16 @@ def score(digest, exact: Exact, modern: bool) -> dict:
         value_iqr_max=max(errors) / exact.value_scale,
     )
     result.update(bounds_violations=bounds, monotonicity_violations=inversions)
-    if modern:
-        probes = sorted(set(exact.quantile(q) for q in Q))
-        cdf = [float(digest.cdf(x)) for x in probes]
-        if not all(math.isfinite(v) and 0 <= v <= 1 for v in cdf):
-            raise AssertionError("invalid CDF")
-        if any(a > b + 1e-12 for a, b in zip(cdf, cdf[1:])):
-            raise AssertionError("nonmonotone CDF")
-        cdf_errors = [abs(v - exact.cdf(x)) for x, v in zip(probes, cdf)]
-        result.update(
-            cdf_mean=math.fsum(cdf_errors) / len(cdf_errors), cdf_max=max(cdf_errors), cdf_probe_count=len(probes)
-        )
-    else:
-        result.update(cdf_mean=None, cdf_max=None, cdf_probe_count=0)
+    probes = sorted(set(exact.quantile(q) for q in Q))
+    cdf = [float(digest.cdf(x)) for x in probes]
+    if not all(math.isfinite(v) and 0 <= v <= 1 for v in cdf):
+        raise AssertionError("invalid CDF")
+    if any(a > b + 1e-12 for a, b in zip(cdf, cdf[1:])):
+        raise AssertionError("nonmonotone CDF")
+    cdf_errors = [abs(v - exact.cdf(x)) for x, v in zip(probes, cdf)]
+    result.update(
+        cdf_mean=math.fsum(cdf_errors) / len(cdf_errors), cdf_max=max(cdf_errors), cdf_probe_count=len(probes)
+    )
     return result
 
 
@@ -205,13 +202,13 @@ def build(values, precision: str, budget: float, path: str):
     return parts[0]
 
 
-def invariants(digest, values, precision: str, modern: bool):
+def invariants(digest, values, precision: str):
     means = list(map(float, digest.means))
     weights = list(map(float, digest.weights))
     if not means or len(means) != len(weights) or not all(math.isfinite(x) for x in means):
         raise AssertionError("invalid centroids")
     inversions = sum(a > b for a, b in zip(means, means[1:]))
-    if modern and any(a >= b for a, b in zip(means, means[1:])):
+    if any(a >= b for a, b in zip(means, means[1:])):
         raise AssertionError("modern centroid means not strictly increasing")
     if not all(math.isfinite(w) and w > 0 for w in weights):
         raise AssertionError("invalid centroid weight")
@@ -223,14 +220,13 @@ def invariants(digest, values, precision: str, modern: bool):
     scale = max(1.0, math.fsum(abs(float(x)) for x in values))
     moment_relative_abs = abs(moment - expected) / scale
     moment_limit = 2e-6 if precision == "f32" else 2e-12
-    if modern and moment_relative_abs > moment_limit:
+    if moment_relative_abs > moment_limit:
         raise AssertionError(f"weighted contribution drift: {moment_relative_abs}")
-    if modern:
-        if digest.inner_kind() != precision:
-            raise AssertionError("wrong actual storage precision")
-        restored = TDigest.from_bytes(digest.to_bytes())
-        if restored.to_bytes() != digest.to_bytes():
-            raise AssertionError("state roundtrip changed")
+    if digest.inner_kind() != precision:
+        raise AssertionError("wrong actual storage precision")
+    restored = TDigest.from_bytes(digest.to_bytes())
+    if restored.to_bytes() != digest.to_bytes():
+        raise AssertionError("state roundtrip changed")
     return {
         "mass": mass,
         "moment_abs_error": abs(moment - expected),
@@ -250,26 +246,9 @@ def summarize(rows):
     groups = {}
     for kind in ("all", "real", "synthetic"):
         selected = [r for r in rows if kind == "all" or r["kind"] == kind]
-        # Poor modern results remain in win/loss tables; removing accuracy-limit
-        # failures would bias the comparison in favor of this implementation.
-        eligible = [r for r in selected if r.get("comparison_eligible") and "modern" in r and "original" in r]
-        comparison = {}
-        for metric in METRICS:
-            counts = dict(modern_better=0, tied=0, original_better=0)
-            for row in eligible:
-                a, b = row["modern"][metric], row["original"][metric]
-                tolerance = 1e-12
-                key = "tied" if abs(a - b) <= tolerance else "modern_better" if a < b else "original_better"
-                counts[key] += 1
-            comparison[metric] = counts
         groups[kind] = {
-            "pairs": len(selected),
-            "eligible_pairs": len(eligible),
-            "errors": sum("error" in r for r in selected),
-            "accuracy_limit_failures": sum(bool(r.get("accuracy_limits")) for r in selected),
-            "original_moment_limit_failures": sum(
-                r.get("original_state", {}).get("moment_limit_exceeded", False) for r in selected
-            ),
-            "metrics": comparison,
+            "profiles": len(selected),
+            "errors": sum("error" in row for row in selected),
+            "accuracy_limit_failures": sum(bool(row.get("accuracy_limits")) for row in selected),
         }
     return groups

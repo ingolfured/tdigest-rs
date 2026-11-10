@@ -1,4 +1,4 @@
-"""Authenticated loopback Maven fixture for public candidate qualification.
+"""Local Maven repository for testing authenticated dependency resolution.
 
 Serves staged candidate artifacts and caches public Maven Central dependencies.
 Credentials are intentionally public fixture values, never production secrets.

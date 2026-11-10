@@ -33,7 +33,6 @@ DEFAULT_MAX_SIZE: int = 1000
 #: input and mutation semantics are exposed by the shipped `tdigest_rs` package.
 DEFAULT_DELTA: float = 300.0
 
-_DEFAULT_MAX_SIZE = DEFAULT_MAX_SIZE  # backwards-compatible alias for internal callers
 _UNSET = object()
 
 
@@ -127,16 +126,16 @@ def _resolve_size_mode(max_size_raw: Any, delta_raw: Any) -> tuple[int, Optional
 
     if has_max_size and has_delta:
         raise ValueError(
-            f"Specify either max_size or delta (or neither for default max_size={_DEFAULT_MAX_SIZE}), not both."
+            f"Specify either max_size or delta (or neither for default max_size={DEFAULT_MAX_SIZE}), not both."
         )
 
     if has_max_size:
         return _validate_max_size(max_size_raw), None
 
     if has_delta:
-        return _DEFAULT_MAX_SIZE, _validate_delta(delta_raw)
+        return DEFAULT_MAX_SIZE, _validate_delta(delta_raw)
 
-    return _DEFAULT_MAX_SIZE, None
+    return DEFAULT_MAX_SIZE, None
 
 
 def _validate_pin_per_side(pin_per_side: Optional[int], max_size: int) -> Optional[int]:

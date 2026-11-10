@@ -97,9 +97,8 @@ def main():
         "protocol": {
             "matrices": MATRICES,
             "cohort": args.cohort,
-            "diagnostic_criteria": "reuse0.1rank_max/CDF_max for capacity<=32,0.05above32; diagnostic extension, not an owner-approved new acceptance policy",
+            "diagnostic_criteria": "rank_max and cdf_max thresholds: 0.1 at capacity <= 32, otherwise 0.05",
             "reference": "unchanged exact observed-data scoring/invariants from tests/quality/measurements.py",
-            "original": "only established data at K2capacity200/1000; actual logical-byte budget,90%-100% eligibility, no accuracy-based selection; no fabricated original CDF",
             "counts": "profiles share data and are not independent statistical trials",
         },
         "input_status": "NOT_VERIFIED",
@@ -132,12 +131,12 @@ def main():
                                 )
                                 try:
                                     digest = q.build(data, precision, cap, route)
-                                    row["modern"] = q.score(digest, exact, True)
+                                    row["modern"] = q.score(digest, exact)
                                     row["modern_state"] = dict(
                                         centroids=len(digest),
                                         field_bytes=len(digest) * (data.dtype.itemsize + 9),
                                         wire_bytes=len(digest.to_bytes()),
-                                        **q.invariants(digest, data, precision, True),
+                                        **q.invariants(digest, data, precision),
                                     )
                                     bound = 0.1 if cap <= 32 else 0.05
                                     row["diagnostic_failures"] = [

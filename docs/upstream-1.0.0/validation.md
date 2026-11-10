@@ -1,13 +1,6 @@
-# 1.0.0 validation record
+# Historical validation record, 6 November 2026
 
-Local checks completed on 2026-11-06 against the upstream `tdigest-rs` identity.
-The implementation/artifacts came from adaptation commit
-`0c94d899cfd2a63d19ab158084cc38dc1273a575`, based on development master
-`0eaa79411d1ca46cd0cf7294b03b6aafaf1a120c`. Subsequent changes add the evidence,
-complete CI coverage and correct the new benchmark/upgrade harnesses; they do
-not change the numerical implementation. Actions must validate the final PR
-commit independently. Current run links and final commit are recorded in
-[PR #38](https://github.com/G-Research/tdigest-rs/pull/38).
+These checks ran on a two-engine build derived from `0c94d899cfd2a63d19ab158084cc38dc1273a575`. The numerical parity and performance results below describe that build. See the [migration guide](../../ROLLOUT.md) for the current single-engine behavior.
 
 ## Completed local checks
 

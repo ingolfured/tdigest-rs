@@ -4,39 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-- Consolidate Python construction under `tdigest_rs`: `delta=` (default 300) retains the original calling convention and `max_size=` selects the capacity API. Both use modern Rust arithmetic. Remove the separate Python namespace and original Rust engine. Historical pickle states remain readable.
+The K2 capacity search reuses rank boundaries for integral weights and avoids allocating trial centroid vectors.
 
-- Consolidate engine and release guidance, correct the exact-point underflow
-  note and preserve the Windows wrapper's CRLF bytes on fresh checkouts.
-
-- Reuse exact integer-weight K2 rank boundaries during capacity search. Repeated
-  40-way merges avoid recomputing their logarithms in every trial.
-
-- Update the runtime-matrix installer for stable CPython 3.15 and reject prerelease
-  interpreters explicitly. Run all twelve cross-platform Python interface cells
-  against the actual release wheels, avoiding duplicate native compilation.
-
-- Update the retired macOS 14 ARM runner to macOS 15 while retaining both Mac
-  architectures, and explicitly stage pinned Rust before the full-project CI gate.
-
-- Add reproducible installed-wheel comparisons and real published-package upgrade
-  checks; preserve the original rejection of empty-array construction in their
-  workload definitions. Retain the development project's Java 11/17/21/25 gates
-  and standalone native-override packaging check in upstream Actions.
-- Record fresh 0.1.0/1.0.0 performance and artifact validation, including slower
-  queries/modern merges, unequal storage budgets and the ten known accuracy limits.
-
-- Isolate the byte-identical original 91-case suite
-  under `tests/upstream_legacy/` with inventory, checksum and separate result gates.
-
-- Replace the upstream contribution snapshot with the completed personal-repository
-  0.3.0 tree at `0eaa79411d1ca46cd0cf7294b03b6aafaf1a120c`, including the final
-  accuracy report and capacity-search optimization. Preserve the `tdigest-rs`
-  distribution, `com.gresearch.tdigest` JVM namespace, upstream governance files
-  and pinned release workflow.
-
-The planned upstream release is **1.0.0**. Read the [1.0.0 release notes](RELEASE_NOTES_1.0.0.md)
-for the imported development changes, upgrade instructions and supported runtimes.
+Python retains the `tdigest_rs` import. Both `delta=` (default 300) and
+`max_size=` now use one Rust core. The original 91 Python tests run unchanged.
+See the [1.0 migration guide](ROLLOUT.md) for changes to numerical results and
+pickle reconstruction.
 
 ### Changed
 
@@ -174,9 +147,7 @@ upstream baseline for this contribution is 0.1.0.
 - `Cargo.toml` now includes crate publish metadata (description/license/repository/homepage/documentation/readme/keywords/categories) for crates.io readiness.
 - `bindings/java/build.gradle` now supports repository-configured Maven publishing via environment variables, optional in-memory PGP signing, and publishes sources/javadoc jars with SCM/license metadata.
 - `README.md` now documents GitHub release workflow setup for PyPI, Cargo, and Maven publishing.
-- `AGENTS.md` now requires moving `## [Unreleased]
-
-- Consolidate Python construction under `tdigest_rs`: `delta=` (default 300) retains the original calling convention and `max_size=` selects the capacity API. Both use modern Rust arithmetic. Remove the separate Python namespace and original Rust engine. Historical pickle states remain readable.` notes into a versioned section before pushing release tags.
+- `AGENTS.md` now requires moving `## [Unreleased]` notes into a versioned section before pushing release tags.
 
 ## [0.2.0] - 2026-02-14
 

@@ -1,4 +1,6 @@
-# Installed-package performance: 0.1.0 → 1.0.0
+# Historical performance comparison
+
+These measurements compare the two-engine development revision below with the published 0.1.0 wheel. The current delta adapter uses a different implementation.
 
 Measured 2026-11-06. These are fresh local measurements, separate from the historical accuracy report. The numerical implementation was built from upstream adaptation commit `0c94d899cfd2a63d19ab158084cc38dc1273a575`, based on development master `0eaa79411d1ca46cd0cf7294b03b6aafaf1a120c`. The benchmark harness subsequently corrected its empty-input and in-place-merge handling; the version accompanying this report produced these results. The package implementation did not change.
 

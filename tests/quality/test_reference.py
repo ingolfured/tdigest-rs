@@ -57,33 +57,22 @@ class Fake:
 
 
 def test_bad_predictor_negative_control_is_detected_in_separate_metrics():
-    metrics = quality.score(Fake(), Exact([0, 0, 0, 10]), True)
+    metrics = quality.score(Fake(), Exact([0, 0, 0, 10]))
     assert metrics["rank_max"] == 0.25
     assert metrics["value_abs_max"] == 10
     assert metrics["median_rank"] == 0
     assert metrics["cdf_max"] == 0.875
 
 
-def test_original_cdf_is_unavailable_and_never_fabricated():
-    result = quality.score(Fake(), Exact([0, 0, 0, 10]), False)
-    assert result["cdf_max"] is None
-    assert result["cdf_mean"] is None
-    assert result["cdf_probe_count"] == 0
-
-
-def test_accuracy_failure_is_retained_in_win_loss_comparison():
-    row = {
-        "kind": "real",
-        "comparison_eligible": True,
-        "error": "quality regression",
-        "accuracy_limits": ["rank_max"],
-        "modern": dict.fromkeys(quality.METRICS, 0.2),
-        "original": dict.fromkeys(quality.METRICS, 0.1),
-    }
-    summary = quality.summarize([row])["real"]
-    assert summary["eligible_pairs"] == 1
-    assert summary["accuracy_limit_failures"] == 1
-    assert summary["metrics"]["rank_mean"]["original_better"] == 1
+def test_accuracy_summary_counts_errors_and_limits_by_dataset():
+    rows = [
+        {"kind": "real", "accuracy_limits": ["rank_max"]},
+        {"kind": "synthetic", "error": "invalid centroid mass"},
+    ]
+    summary = quality.summarize(rows)
+    assert summary["real"] == {"profiles": 1, "errors": 0, "accuracy_limit_failures": 1}
+    assert summary["synthetic"] == {"profiles": 1, "errors": 1, "accuracy_limit_failures": 0}
+    assert summary["all"] == {"profiles": 2, "errors": 1, "accuracy_limit_failures": 1}
 
 
 def test_baseline_limits_are_small_and_metric_specific():

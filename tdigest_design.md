@@ -13,8 +13,7 @@ SHA256, validates extraction paths/links, and installs into a digest-keyed cache
 by atomic rename. Configured-source failure has no fallback. Offline mode refuses
 network downloads and adds `--offline` to Gradle/Cargo. Gradle's internal Maven
 repository replaces MavenCentral exclusively. Native JAR resources follow the
-actual `CARGO_TARGET_DIR`. No digest arithmetic or original compatibility source
-changes are involved.
+actual `CARGO_TARGET_DIR`.
 
 
 This document is the **current-state implementation design** for the Rust TDigest core.
@@ -225,8 +224,6 @@ scale that merges every input. The same guard applies when K2Norm is selected
 with max-size mode; its later cap/policy stages still run. Positive-domain
 arithmetic is unchanged, including the `+infinity` normalizer reached when a
 tiny positive delta overflows `n/delta` and the scale factor becomes zero.
-This changes the modern engine only; the former upstream
-calculation path remains pinned.
 
 
 ### 4.4 Stage 4: cap
@@ -503,7 +500,7 @@ The release gate builds the verified source archive once with Python 3.10, then 
 
 ## Quality measurement and failure visibility
 
-The parametrized tests in `tests/quality/test_accuracy.py` use shared independent sorted-data references, pinned recorded observations and deterministic distribution grids. They test real f32/f64 storage, three budgets, input reversal and40-way sequential/balanced merges. They match original parameters by observed logical field bytes without consulting accuracy, record all search candidates and retain poor modern outcomes in comparison totals. The earlier exponential quality-score helper is not an acceptance metric.
+The accuracy tests compare Float32 and Float64 digests against sorted observations. The extended matrix covers three capacities, both input orders and 40-way sequential and balanced merges.
 
 Fast profiles run in normal pytest discovery and `make test`; the extended matrix is marked slow and collected with `--quality-extended`. Known accuracy-limit cases become expected failures only after invariants, frozen-metric tolerances and the exact finding inventory have been checked. New regressions fail normally. Optional pytest reports retain all measured outcomes, and candidate baseline generation requires a complete matrix and an explicit output directory without replacing the checked-in baselines.
 
@@ -513,9 +510,9 @@ JVM test tool selection is shared through `bindings/java/bootstrap.py::java_envi
 
 ## Consumer candidate numerical safeguards
 
-The consumer candidate validates externally reconstructed mass, finite metadata, ordered finite means, positive weights and extrema before accepting structs or TDIG. Empty state requires zero aggregates and NaN extrema. Count agreement uses a centroid-count-dependent floating summation roundoff bound; data sum is retained independently of compressed means.
+The decoder validates externally reconstructed mass, finite metadata, ordered finite means, positive weights and extrema before accepting structs or TDIG. Empty state requires zero aggregates and NaN extrema. Count agreement uses a centroid-count-dependent floating summation roundoff bound; data sum is retained independently of compressed means.
 
-Capacity 1/2 with Use compresses all input mass rather than reserving edges with zero interior capacity. Equal-weight bucketization reserves its final bucket for all residual contributions. Compensated modern aggregate/cluster moments improve finite cancellation; atomic quantile boundaries use a directly accumulated prefix. These changes do not touch the original engine. Unsupported mixed-observation weighted products that underflow to zero return an error. A single exact Atomic point retains sufficient information to represent its distribution even when its rounded Float64 moment is subnormal or zero. Its mean query uses the retained point value, and merges or transforms recover a newly representable moment from that value and total mass. This rule does not restore information lost from mixed centroids. Exact-boundary targets remain frozen; a failed control may improve to a verified exact pass without editing the reference.
+Capacity 1/2 with Use compresses all input mass rather than reserving edges with zero interior capacity. Equal-weight bucketization reserves its final bucket for all residual contributions. Compensated modern aggregate/cluster moments improve finite cancellation; atomic quantile boundaries use a directly accumulated prefix. Unsupported mixed-observation weighted products that underflow to zero return an error. A single exact Atomic point retains sufficient information to represent its distribution even when its rounded Float64 moment is subnormal or zero. Its mean query uses the retained point value, and merges or transforms recover a newly representable moment from that value and total mass. This rule does not restore information lost from mixed centroids. Exact-boundary targets remain frozen; a failed control may improve to a verified exact pass without editing the reference.
 
 Checked Rust `try_merge_digests` and `try_cast_precision` validate state/configuration and output. Public in-place merge/merge_many use checked preparation and return Result before committing. The public `merge_digests` and `cast_precision` also return checked Results. Unchecked recompression/conversion helpers are private. Python/JVM/Polars use checked paths. Collapsed means during an explicit precision conversion coalesce as Mixed, preserving mass and distinguishing them from an exact point.
 
@@ -530,8 +527,7 @@ choosing the configuration from an unrelated empty digest.
 Cluster averaging retains the established finite same-sign addition order, because
 an unnecessary final-bit change can alter subsequent cluster boundaries. Mixed-sign
 cancellation and intermediate overflow still use the compensated accumulator.
-The full unchanged comparison suite verifies both numerical safeguards and the
-absence of newly introduced per-profile regressions.
+
 
 Training conversion to Float32 rejects nonfinite results and nonzero values rounded
 to zero in the shared Python/JNI frontend and Polars additions. Ordinary rounding

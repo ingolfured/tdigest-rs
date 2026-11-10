@@ -1,6 +1,6 @@
 # Historical engine comparison
 
-The release now exposes delta and capacity modes from one Rust engine. See [Python compatibility](compat/python-modes.md) for current behavior.
+The release now exposes delta and capacity modes from one Rust engine. See [Python compatibility](ROLLOUT.md) for current behavior.
 
 ## Modern versus original GR: measured accuracy (CI, 21 October 2026)
 

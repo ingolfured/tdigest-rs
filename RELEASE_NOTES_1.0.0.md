@@ -16,6 +16,13 @@ that existing modern-engine applications need to account for when upgrading.
 The modern Rust crate, Python package and JVM artifact use version 1.0.0.
 The standalone `tdigest_core` crate is removed from the workspace.
 
+## Native Polars expressions
+
+Use `tdigest` in a lazy `group_by().agg()` to build a digest for each group.
+Query the results with `quantile` and `cdf`, or merge digests across partitions
+with `merge_tdigests`. The [Polars guide](bindings/python/POLARS_API.md)
+shows how to compute percentile ranks after joining digests back to the input.
+
 ## More reliable weighted statistics
 
 Weighted medians and quantiles now consistently account for observation weights,
@@ -106,7 +113,7 @@ after dependencies have been staged. They target Java 11 bytecode.
 | Area | What to check in your application |
 | --- | --- |
 | Modern Rust API | Builders, seeded construction, merges and precision conversions return checked `Result` values. Handle errors, for example with `builder().build()?`. The configuration name is `delta`, replacing `legacy_delta`. |
-| Defaults and delta | The modern default capacity is consistently 1,000. Set it explicitly if your application relied on an older Python default. Modern delta mode uses K2Norm with singleton policy Off; incompatible explicit settings are rejected. |
+| Defaults and delta | For capacity mode in Python, pass `max_size=1000` explicitly. Omitting both sizing arguments selects `delta=300`. Modern delta mode uses K2Norm with singleton policy Off; incompatible explicit settings are rejected. |
 | NumPy query outputs | Scalar and zero-dimensional probes return scalars. One-dimensional arrays return independent writable Float64 arrays, including single-element inputs. Lists and tuples retain their containers. Flatten and reshape multidimensional probes in your application. |
 | Polars schemas | New structs include compression settings and centroid kind; weights are Float64 in both mean precisions. Review explicit schemas and persisted struct columns. Older six-field structs are read using their historical defaults. |
 | Polars missing rows and CDF | Missing digest rows are errors. Supply a genuine empty digest when that is intended. CDF broadcasting follows row counts, and List probes retain List output. |
@@ -129,7 +136,7 @@ for detailed behavior and examples.
   establish compatibility with every future version.
 - JVM: build/runtime coverage for JDK 11, 17, 21 and 25, targeting Java 11 bytecode.
 - Rust source builds: the repository pins Rust 1.95.0.
-- Linux Python wheels: target glibc 2.28 or later.
+- Linux wheel compatibility is recorded in each wheel’s platform tag. The source-archive test builds a manylinux_2_28 wheel.
 
 ## Accuracy and validation
 

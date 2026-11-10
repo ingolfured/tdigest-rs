@@ -231,9 +231,9 @@ Surface mapping:
 
 ## Empirical accuracy contract
 
-Quality acceptance uses separate rank, percentile-value and midpoint-CDF measurements against sorted observed data, with tie intervals and actual precision casts. The original API remains numerically unchanged and has no fabricated CDF comparison. The fast suite runs in `make test`; extended results and explicit unresolved boundary controls are documented in `tests/quality/README.md`. A passing known-outcome regression check must not be presented as passing accuracy. These are measured operating envelopes, not formal guarantees or universal superiority over the original engine.
+Accuracy tests compare rank error, value error and midpoint CDF with sorted input. Run `make test` for the fast suite and `make quality-extended` for the full matrix. See [accuracy tests](tests/quality/README.md) for the regression thresholds and known limits.
 
-## Consumer candidate migration and strict operations
+## State validation and migration
 
 Modern Rust `TDigestBuilder::build()` and seeded `TDigest::new(...)` return
 `Result<TDigest<_>, TdError>`. Invalid capacity, delta/configuration, centroid
@@ -254,11 +254,11 @@ Positive transformations prepare and validate independent state before commit; f
 
 Polars rejects missing digest rows, checks training representability, and requires a binary precision hint. CDF broadcasting follows input lengths; per-row List expressions retain List output, while Python sequences provide a flat probe vector.
 
-Modern callers migrate to the new API and dependency defaults, while successful in-range original `tdigest_rs` calculations remain identical to the pinned oracle. The new modern default stays 1,000; historical modern callers migrate explicitly. New NumPy query outputs are Float64 one-dimensional arrays (including one element); zero-dimensional probes return scalars, list/tuple preserve containers, and multidimensional input is explicitly rejected. Native docstrings, `py.typed` and stubs ship in the actual wheel.
+New NumPy query outputs are Float64 one-dimensional arrays (including one element); zero-dimensional probes return scalars, list/tuple preserve containers, and multidimensional input is explicitly rejected. Native docstrings, `py.typed` and stubs ship in the actual wheel.
 
 Modern missing digests and mixed capacities are rejected. Empty contributors also undergo configuration validation. Polars broadcasts by shape, supports a scalar probe across digest rows, and never substitutes healthy state for aligned empties. Missing and valid empty state are distinct. Python iterable merge prepares private state before committing; add/scale overflow and unsupported product underflow cannot corrupt the receiver.
 
-The JVM candidate exposes array merge-all, weighted builder construction and modern delta/K2Norm configuration. Java object restoration registers the restored object itself with Cleaner; temporary referents never own restored handles. JNI catches catchable Rust panics, uses the system allocator, and reports controlled native loading paths and payload identity. Independent handles are supported; shared mutable handles are not thread-safe. Actual external and internal qualification is recorded in the candidate manifest/coverage report.
+The Java API exposes array merge-all, weighted builder construction and modern delta/K2Norm configuration. Java object restoration registers the restored object itself with Cleaner; temporary referents never own restored handles. JNI catches catchable Rust panics, uses the system allocator, and reports controlled native loading paths and payload identity. Independent handles are supported; shared mutable handles are not thread-safe.
 
 The public Spark consumer check uses explicit byte-state serialization for Kryo,
 or Java object serialization, across separate executor processes. It verifies
@@ -282,11 +282,9 @@ receivers unchanged. The sum getter remains the rounded Float64 weighted moment.
 
 The separate `make quality-budgets` diagnostic covers explicit modern capacities
 200/1000, smaller capacities, alternate named scales and additional data shapes.
-Its sampled rank/CDF criteria extend the existing diagnostic envelope and are not
-a new owner-approved universal guarantee. Rank, value, CDF and tail results stay
-separate. Known small-summary failures remain release-acceptance issues; no
-implicit scale selection, new API default or original-engine change is made.
-Python training currently requires capacity >= 10; checked modern Rust allows
+It reports sampled rank, value, tail and CDF errors separately.
+
+Python capacity mode accepts sizes from 10 to 20,000; checked modern Rust allows
 positive capacities including 1. These limits are stated separately.
 
 A build-time `TDIGEST_NATIVE_FILE` override may have an arbitrary basename; the
@@ -306,7 +304,7 @@ Kotlin example compilation tracks its source and application classpath so increm
 
 The installed package includes native method docstrings, public type stubs and py.typed metadata. The object and Polars guides describe defaults, shapes, mutation, ownership and errors separately.
 
-## Source-bound delivery gates
+## Build and package checks
 
 Build checks reject an incompatible selected Rust/Cargo toolchain before native compilation. Installed-wheel qualification records exact runtime cells and the source-archive build. A separate wider budget diagnostic reports accuracy failures without waiving them; benchmarks retain throughput, latency and memory separately.
 
@@ -320,10 +318,4 @@ valid modern state retain finite CDF/quantile results at extreme finite values.
 Trimmed means use normalized moments if direct moment accumulation overflows.
 Empty-digest and NaN-probe semantics remain as documented above.
 
-The original compatibility interface deliberately rejects unsupported totals
-above `u32::MAX` rather than widening its storage or changing ordinary rounding.
-Its pinned kernels and independent golden fixtures remain unchanged; a separate
-Rust adapter checks mass before calls and finite outputs/conserved mass after
-calls. This covers construction, immutable merge, quantile, median and trimmed
-mean in Rust and Python. An overflow error replaces historical wrapping/panicking
-behavior; explicit nonfinite observations retain the existing compatibility API.
+The Python delta adapter raises `ValueError` when the total mass exceeds the uint32 range. It ignores NaNs and retains infinite endpoints.

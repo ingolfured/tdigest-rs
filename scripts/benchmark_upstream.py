@@ -43,7 +43,7 @@ def worker(engine: str) -> dict:
     def describe(digest, data):
         means, weights = digest.means, digest.weights
         mean_bytes = data.dtype.itemsize
-        width = mean_bytes + (9 if engine == "modern" else 4)
+        width = mean_bytes + (4 if engine == "published" else 9)
         state = hashlib.sha256(means.tobytes() + weights.tobytes()).hexdigest()
         errors = []
         ordered = np.sort(data)
@@ -85,7 +85,7 @@ def worker(engine: str) -> dict:
         precision = "f32" if dtype == np.float32 else "f64"
         for n in (0, 1, 32, 1000, 10000, 100000, 1000000):
             data = values(n, dtype)
-            if n == 0 and engine == "legacy":
+            if n == 0 and engine != "modern":
 
                 def reject_empty():
                     try:
@@ -136,7 +136,7 @@ def worker(engine: str) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--worker", choices=("legacy", "modern"))
+    parser.add_argument("--worker", choices=("published", "legacy", "modern"))
     parser.add_argument("--baseline-python", type=Path)
     parser.add_argument("--candidate-python", type=Path)
     parser.add_argument("--baseline-wheel", type=Path)
@@ -167,7 +167,9 @@ def main() -> None:
             order = tuple(reversed(order))
         for label in order:
             python = args.baseline_python if label == "published_legacy" else args.candidate_python
-            engine = "modern" if label == "candidate_modern" else "legacy"
+            engine = {"published_legacy": "published", "candidate_legacy": "legacy", "candidate_modern": "modern"}[
+                label
+            ]
             command = [str(python.absolute()), "-I", str(Path(__file__).resolve()), "--worker", engine]
             completed = subprocess.run(command, cwd=output, env=env, text=True, capture_output=True, check=True)
             record = {"round": round_index + 1, "label": label, **json.loads(completed.stdout)}
@@ -211,8 +213,6 @@ def main() -> None:
         },
     }
     (output / "summary.json").write_text(json.dumps(report, indent=2) + "\n")
-    if not same:
-        raise SystemExit("baseline/candidate legacy states differ; investigate before publishing comparisons")
 
 
 if __name__ == "__main__":

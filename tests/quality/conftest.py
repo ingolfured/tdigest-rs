@@ -200,10 +200,10 @@ def quality_row(quality_profile, quality_runs):
             centroids=len(modern),
             field_bytes=modern_bytes,
             wire_bytes=len(modern.to_bytes()),
-            **quality.invariants(modern, values, row["precision"], True),
+            **quality.invariants(modern, values, row["precision"]),
         )
         exact = quality.Exact(values.tolist())
-        row["modern"] = quality.score(modern, exact, True)
+        row["modern"] = quality.score(modern, exact)
         bound = 0.1 if row["max_size"] <= 32 else 0.05
         row["accuracy_limits"] = [metric for metric in ("rank_max", "cdf_max") if row["modern"][metric] > bound]
     except Exception as error:

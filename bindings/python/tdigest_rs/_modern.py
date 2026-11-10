@@ -4,7 +4,6 @@ import base64
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any, Callable, Dict, Optional, cast
 
-# --- native import (fail loudly so tests don't silently pass with None) ---
 try:
     from ._native import TDigest as _NativeTDigest, __version__ as __native_version__
 
@@ -55,7 +54,6 @@ ScaleFamily.__module__ = __package__
 SingletonPolicy.__module__ = __package__
 
 
-# --- Python-side shim: TDigest.from_array() argument normalization ------------
 _native_from_array_raw: Any = getattr(_NativeTDigest, "from_array", None)
 if _native_from_array_raw is None:  # pragma: no cover
     raise AttributeError("Native TDigest is missing 'from_array'")

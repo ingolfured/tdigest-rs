@@ -180,8 +180,7 @@ fn output_for_values(py: Python<'_>, kind: ContainerKind, values: Vec<f64>) -> P
 ///
 /// Construct with from_array or from_means_weights. Updates mutate this object;
 /// merge returns it for chaining. Queries do not mutate state. Use copy.copy or
-/// to_bytes/from_bytes for independent full-state copies. This is a separate
-/// engine from the pinned original tdigest_rs.TDigest.
+/// to_bytes/from_bytes for independent full-state copies.
 pub struct PyTDigest {
     inner: FrontendDigest,
 }
@@ -198,7 +197,7 @@ impl PyTDigest {
 impl PyTDigest {
     #[staticmethod]
     #[pyo3(signature = (values, max_size=1000, scale=None, f32_mode=false, singleton_policy=None, pin_per_side=None, delta=None))]
-    /// Build modern state from finite scalar/one-dimensional observations. Does not select original arithmetic; delta chooses modern K2Norm/Off mode.
+    /// Build from finite scalar or one-dimensional observations. An explicit delta selects K2Norm compression with singleton protection off.
     pub fn from_array(
         py: Python<'_>,
         values: Py<PyAny>,

@@ -6,39 +6,25 @@ large uint32 weights, distinct construction/merge deltas, and pickle protocols 4
 The generator verifies the wheel SHA256 and checks that the installed wrapper and
 native extension are byte-identical to its members. Inputs are synthetic.
 
-The vendored source pin `8d9cf1fe82c5c9254e5dc9593f01717e317f4333` advertises
-**0.2.0**; no published wheel for that version was found in the official PyPI and
-GitHub release metadata when these fixtures were collected. The published 0.1.0
-wrapper also lacks the later `update()` method. This migration gate complements
-the pinned-source API and numerical tests; it does not replace them. Exact wheel,
-fixture, generator, and native-extension hashes are in [PROVENANCE.json](PROVENANCE.json).
+The source revision used for the upstream test suite identifies itself as 0.2.0.
+The pickle fixtures come from the published 0.1.0 wheel. [PROVENANCE.json](PROVENANCE.json)
+records the wheel, generator and fixture hashes.
 
-## Preserved behavior
+## Loading a published pickle
 
-Assertions compare the replacement with `pickle.loads` performed by the old
-installed package: centroid bytes/dtypes, uint32 weights, length, median,
-quantiles, and trimmed means. They do not assume pickling was lossless upstream.
-The old state contains means and weights only; reconstruction uses default
-`delta=300`. In the delta-5000 cases this already reduces 1833 centroids to 134
-inside the old package. For example, its f64 median changes from `0.46875` to
-`0.8301359097633136`. The replacement matches the old **restored** results exactly.
-This inherited behavior must not be described as a new upgrade regression.
+The saved fields are centroid means and uint32 weights. Loading reconstructs a
+digest from those weighted observations using the default delta of 300. The
+migration test compares the reconstructed state and quantiles with the shared
+core and checks that the original precision and total mass survive. Earlier
+query values are retained in the fixture as historical measurements.
 
-The forward migration passed all 32 cases in a clean installation of an optimized
-candidate wheel with NumPy 2.3.4, outside the checkout with `python -I`; public and
-native import paths were verified inside that environment. The recorded wheel
-predates a separate modern singleton-mean fix. Its hash identifies the historical
-artifact; the installed-wheel gate must be rerun for the final binary.
+For example, in one Float64 fixture created with delta 5000, even the original
+loader compressed 1833 saved centroids to 134. Applications that need to
+reproduce a previous calculation should retain the original inputs and version.
 
-## Rollback boundary
-
-Pickles re-saved by that candidate using protocol 4 restored exactly in the old
-package with NumPy 1.26.4 (16/16 cases). Protocol 5 failed for all 16 cases with
-`ModuleNotFoundError: No module named 'numpy._core.numeric'`: NumPy 2 writes a
-module path absent in the tested NumPy 1 environment. This is a dependency/state
-compatibility limit, not a numerical difference. Do not promise this rollback;
-retain old state or explicitly use a tested interoperable serialization policy.
-The existing original wrapper is unchanged.
+Pickles can also depend on the NumPy version. In the recorded rollback test,
+NumPy 1.26.4 could not load protocol 5 pickles referring to
+`numpy._core.numeric` written by NumPy 2.
 
 ## Reproduce and review
 

@@ -1,5 +1,4 @@
-//! Compensated f64 summation for modern aggregate statistics only.
-//! The independently preserved original engine never uses this helper.
+//! Compensated f64 summation for digest mass and weighted sums.
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Sum {

@@ -1,11 +1,11 @@
-# Modern Polars API: consumer candidate
+# Polars expression API
 
 Install `tdigest-rs` normally when Polars is already installed. Its expressions
 use that existing Polars runtime. The optional `tdigest-rs[polars]` extra installs
 Polars if needed and requires only `polars>=1.0.0`, without an upper cap; it also
 retains an existing compatible version. There is no need to pick a separate
 package or native build for Polars 1.x versus 2.x. Development stays pinned to
-1.44.2. Original `tdigest_rs` objects remain a separate API.
+1.44.2.
 
 `make python-support-test` installs the same compiled wheel in isolated cells
 for Polars 1.0.0, 1.20.0, 1.38.1, 1.44.2 and 2.0.0 across CPython 3.10–3.15.
@@ -26,8 +26,7 @@ reject nested reductions such as `to_bytes(tdigest("x"))` inside one `agg`.
 On CPython 3.15, Polars 1.44.2 has an upstream Series namespace dispatch
 limitation: `series.struct.field(...)` can return `None` even for ordinary
 structs. Use `frame.select(pl.col("d").struct.field("count"))` for field
-extraction on that combination. The expression API and plugin are exercised
-by the compatibility gate; this package does not patch Polars namespace methods.
+extraction on that combination. The installed-wheel tests cover this combination.
 
 ```python
 import polars as pl

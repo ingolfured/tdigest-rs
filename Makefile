@@ -55,9 +55,6 @@ PY_PKG_DIR      := $(PY_DIR)/tdigest_rs
 PY_TESTS_DIR    := $(PY_DIR)/tests
 
 # Upstream tdigest-rs review compatibility snapshot
-COMPAT_PY_DIR     := tests/upstream_legacy/bindings/python
-COMPAT_TESTS_DIR  := $(COMPAT_PY_DIR)/tests
-COMPAT_BENCH      := $(COMPAT_PY_DIR)/benchmarks/run.py
 COMPAT_RUNNER_DIR := compat/tdigest-rs-strict-python
 STRICT_COMPAT_BENCH := $(COMPAT_RUNNER_DIR)/benchmarks/run.py
 

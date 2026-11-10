@@ -177,7 +177,7 @@ public final class TDigest implements AutoCloseable, Serializable {
       return this;
     }
 
-    /** Modern K2Norm/Off delta mode. It does not select the original engine. */
+    /** Selects K2Norm compression with singleton protection off. */
     public Builder delta(double value) {
       if (!Double.isFinite(value) || value <= 0.0) throw new IllegalArgumentException("delta must be finite and > 0");
       this.delta = value;

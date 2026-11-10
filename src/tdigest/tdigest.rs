@@ -238,7 +238,7 @@ impl<F: FloatLike + FloatCore> TDigestBuilder<F> {
         self
     }
 
-    /// Select modern K2Norm/Off delta mode; this never selects the original engine.
+    /// Select K2Norm compression with singleton protection off.
     #[inline]
     pub fn delta(mut self, delta: f64) -> Self {
         self.delta = Some(delta);

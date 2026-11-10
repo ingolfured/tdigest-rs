@@ -1,4 +1,4 @@
-# Modern Python and NumPy API: consumer candidate
+# Python and NumPy API
 
 Import `TDigest` from `tdigest_rs` for both modes. The original calling convention
 uses `delta=` (default 300). It accepts Float32 and Float64 NumPy arrays, ignores
@@ -13,7 +13,9 @@ results. For example, the 10th percentile of `[1.0, 2.0]` changes from 0.7 to
 Published 0.1.0 pickles carry centroid means and weights. Loading one reconstructs
 a digest from those observations.
 
-## Construction and settings
+## Capacity-based digests
+
+The remaining sections describe digests constructed with `max_size=`.
 
 ```python
 from tdigest_rs import TDigest
@@ -35,9 +37,7 @@ a compression/storage setting, not observation count. The Python convenience
 constructor accepts capacities 10–20,000. Explicit 200 and 1,000 remain supported.
 The lower-level Rust builder supports smaller capacities, covered separately.
 
-`delta` mode selects modern K2Norm/Off, bypassing the size cap. Do not also pass
-an explicit `max_size`, incompatible scale or singleton policy. Protected edges
-and singleton Use/Off have distinct meanings; none selects the original engine.
+Use the `scale`, `singleton_policy` and `pin_per_side` settings with capacity-based construction.
 
 `from_means_weights(means, weights, ...)` constructs **weighted observations**.
 It cannot restore compressed extrema, original sums or point/mixed identity.
@@ -48,7 +48,7 @@ For a full-state copy use `copy.copy`, `copy.deepcopy`, pickle or TDIG bytes.
 `cdf(x)`, `quantile(q)`, `median()` and `trimmed_mean(lower, upper)` do not mutate
 the digest. `median()` is `quantile(0.5)`. CDF at a tied value is the mass below
 plus half the mass at that value, divided by total mass. Quantile endpoints are
-the observed extrema. General interpolation follows the modern reference tests.
+the observed extrema.
 
 | Probe input | Modern result |
 |---|---|
@@ -63,7 +63,7 @@ preservation. Integer NumPy probes always produce floating probabilities.
 
 Quantile probabilities must be finite and in `[0,1]`, including rejection of
 NaN. CDF of NaN is NaN. For nonempty state, CDF at negative/positive infinity is
-zero/one. Empty queries return NaN. No data imputation is performed.
+zero/one. Empty queries return NaN.
 
 ## Updates, ownership and transforms
 
@@ -92,7 +92,7 @@ is rejected. Scale operations likewise reject unrepresentable products. Finite
 individual inputs do not guarantee a representable aggregate: overflowing mass
 or weighted sum is rejected. A nonzero weighted product rounding to zero is also
 rejected. No promise is made that every increment is distinguishable beside an
-arbitrarily large Float64 total. See the coverage report for unresolved limits.
+arbitrarily large Float64 total. See the [accuracy tests](../../tests/quality/README.md) for measured limits.
 
 `means` and `weights` return independent Float64 arrays. `count` means total mass;
 `len(d)` means centroid count. `sum`, `min`, `max`, `max_size`, `scale`, `delta`
@@ -110,9 +110,8 @@ V3 extensions are not automatically readable by every older v3 reader.
 `to_dict()` contains a readable snapshot plus `wire_b64_v3`. Binary state is
 authoritative when present: editing readable fields does not change restored
 state. A dictionary with only means/weights constructs observations, not a
-lossless restoration. The original `tdigest_rs` dictionary/pickle loader remains
-unchanged and has different, historically lossy restoration semantics.
+lossless restoration. For delta-mode dictionaries and pickles, see the [migration guide](../../ROLLOUT.md).
 
 The wheel ships `py.typed` and class/expression stubs. `help(TDigest)` and native
 method docstrings describe the actual installed class. For Polars expressions,
-use the separate [Polars guide](POLARS_API.md) and install the pinned extra.
+use the separate [Polars guide](POLARS_API.md) and install `tdigest-rs[polars]`.
