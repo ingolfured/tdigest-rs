@@ -58,26 +58,19 @@ These datasets provide regression coverage, not a guarantee for every input.
 
 The Rust tests in `tests/numerical_foundation.rs` cover small capacities, lost
 weight, cancellation and fractional-weight medians as part of `make test`.
-A known limitation remains: the mean of the smallest positive f64 value with
-weight 0.1 rounds to zero.
+An isolated exact point retains its mean even when its weighted sum rounds
+to zero. See the [underflow tests](../exact_point_underflow.rs).
 
 The existing package tests check that source archives include these Python
-tests, their saved reference results and the compressed input data. Tests use
-the included data and never download it.
+tests, their saved reference results and the compressed input data.
 
 Quality runs verify that the source and installed native binary remain unchanged during measurement. Changed inputs invalidate the retained report, fail pytest teardown and prevent candidate baseline generation. Historical comparisons in [the recorded results](../../compat/quality-20261020/RESULTS.md) retain their original source identities and known accuracy limits.
 
-## Wider capacity/scale diagnostics
+## Wider capacity and scale diagnostics
 
-`make quality-budgets` is a separate slower4140-profile measurement:3276on the
-established full-data corpus plus864on12additional deterministic shapes. It tests
-K2capacities16/32/64/128/200/512/1000and selectedQuad/K1sizes, actualf32/f64,
-input reversal and40-way merge paths. Modern/original comparisons atK2/200and1000
-reuse the actual logical-byte budget search. Original CDF remains unavailable.
-
-The current source has114failed diagnostic profiles across the complete matrix,
-including newly exposed small-capacity/shape failures. The runner exits nonzero;
-these are not waived, skipped or disguised as completed accuracy fixes. The old
-756-profile frozen baseline and its ten-case inventory are unchanged. Profiles
-share data and are not independent trials. See the consumer accuracy report for
-per-metric tradeoffs, original win/loss counts and reproduction instructions.
+`make quality-budgets` measures 4,140 profiles across precisions, capacities,
+scale functions, input order and 40-way merges. The historical study reported
+114 profiles outside its accuracy limits. This optional diagnostic exits
+nonzero on those findings. The frozen regression gate independently checks
+756 profiles and records ten known limits.
+[Historical setup, error tables and reproduction instructions](https://github.com/ingolfured/gr-tdigest/blob/5801881075c6e31fec746c8c62c6a25782b6c13f/compat/consumer-20261020/accuracy-investigation/REPORT.md)

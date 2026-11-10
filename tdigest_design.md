@@ -483,7 +483,7 @@ output regression tests.
 
 Modern Python NumPy outputs use PyArray1::from_slice to copy f64 results directly into NumPy-owned memory. List and tuple outputs retain their existing container paths. The direct copy preserves dtype, shape, independent writable storage, OWNDATA and resizing. Moving Rust vectors into NumPy was considered but excluded because Rust-owned ndarray buffers cannot be resized.
 
-The measured NumPy output change and its remaining inconclusive observations are documented in `compat/performance/numpy-output-20261015`. It changes conversion overhead only; core query arithmetic and both public interfaces retain their results.
+The measured NumPy output change and its remaining inconclusive observations are documented in the [historical NumPy output measurements](https://github.com/ingolfured/gr-tdigest/blob/5801881075c6e31fec746c8c62c6a25782b6c13f/compat/performance/numpy-output-20261015/README.md). It changes conversion overhead only; core query arithmetic and both public interfaces retain their results.
 
 ## Modern Python construction and the GIL
 
@@ -544,7 +544,7 @@ is a CI regression; ordinary Java tests alone previously missed this path.
 
 ## Capacity-search implementation
 
-Trial capacity searches count k-limit clusters using the same ordered weight additions and scale comparisons as the emitting pass. They do not construct temporary centroid means or allocate discarded output vectors. The selected final pass still uses the existing full compression path. This changes work performed during search, not its numerical decisions or storage settings.
+Trial capacity searches count k-limit clusters using the same ordered weight additions and scale comparisons as the emitting pass. They do not construct temporary centroid means or allocate discarded output vectors. The selected final pass still uses the existing full compression path. For K2 cores with integral weights totaling less than 2^53, every trial visits the same prefix ranks regardless of how it groups centroids. The search computes each boundary log-odds once and applies the trial scale before subtracting the two scaled boundaries. Other weights and scale families use the original count pass. The selected scale still goes through the full merge.
 
 ## Standalone JNI payload selection
 

@@ -20,4 +20,4 @@ src/upstream/scale.rs text eol=lf
 src/upstream/traits.rs text eol=lf
 
 # The Windows launcher intentionally uses CRLF.
-bindings/java/gradlew.bat text eol=crlf whitespace=cr-at-eol
+bindings/java/gradlew.bat -text whitespace=cr-at-eol

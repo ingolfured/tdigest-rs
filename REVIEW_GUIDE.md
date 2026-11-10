@@ -13,7 +13,7 @@ performed by the preparation work.
 | --- | --- | --- |
 | Installation and existing import | `tdigest-rs`; `tdigest_rs.TDigest` | Same distribution/import and original engine; modern is a separate explicit import |
 | Original numerical behavior | Original Float32/Float64 arithmetic, uint32 weights, historical copy/pickle semantics | Same pinned in-range calculations and wrapper; checked overflow is rejected explicitly |
-| Modern capabilities | Not exposed by the original API | Weighted/fractional mass, CDF, checked updates, k-way merges and portable full-state TDIG serialization |
+| Modern capabilities | Not exposed by the original API | Fractional mass, CDF, checked updates, Rust k-way merge and portable TDIG state |
 | Rust API | `tdigest_core` | Original package retained at 0.2.0; modern checked API also available |
 | Python runtimes | Published wheel predates the current runtime matrix | CPython 3.10–3.15 ABI3; explicit NumPy combinations, optional Polars 1.x/2.x and Polars-free installations |
 | Java/JNI | No Java surface in upstream main | `com.gresearch.tdigest`, Java 11 bytecode, independent native ownership, standalone artifact and Scala/Kotlin/Spark examples |
@@ -29,8 +29,8 @@ current regression checks.
 ## Source and adaptation audit
 
 The source tree is pinned in [UPSTREAM_SNAPSHOT.md](UPSTREAM_SNAPSHOT.md).
-The modern numerical core, Rust/Python numerical adapter and Polars implementation
-are unchanged from that tree. Upstream adaptations cover distribution metadata,
+The original PR copies the modern numerical core and adapters from that tree.
+The proposed follow-up `01529bf` optimizes exact integer-weight K2 capacity trials. Upstream adaptations cover distribution metadata,
 the established contribution's Java namespace, platform build policy, release/CI
 integration, isolated original tests and review documentation.
 
@@ -47,6 +47,10 @@ precisions, construction, 40-digest merges and queries. In that workload:
   centroid/weight bytes; median and quantile queries regress.
 - Modern opt-in provides additional capabilities, but its tested 40×1,000 merge
   workload is about 73–80× slower than published legacy and uses more storage.
+- On the follow-up branch, both Python merge methods still fold the 40 inputs
+  pairwise. Caching repeated boundary logarithms reduces their 40×1,000 times
+  from 18.48–19.49 ms to 5.49–5.55 ms across Float32/64 on matched Linux release
+  builds. The original timings above describe the PR before this optimization.
 - The extended regression gate passes with **10 known statistical failures**
   still visible as expected failures, not accuracy passes.
 
@@ -85,4 +89,4 @@ mechanism remain intact.
 At preparation time, upstream's CI workflow is disabled for inactivity and the
 connected account has read-only upstream access. A maintainer must re-enable and
 run that workflow. Fork results cannot satisfy the upstream required review or
-app-backed check. The PR must remain draft until those external gates are resolved.
+app-backed check.
