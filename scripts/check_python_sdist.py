@@ -66,21 +66,22 @@ def verify_sdist_contents(sdist: Path, root: Path) -> None:
         for relative in (
             "README.md",
             "bindings/python/PYTHON_README.md",
-            "bindings/python/gr_tdigest/__init__.py",
-            "bindings/python/gr_tdigest/_polars.py",
-            "bindings/python/gr_tdigest/_shared.py",
             "bindings/python/tdigest_rs/__init__.py",
+            "bindings/python/tdigest_rs/_modern.py",
+            "bindings/python/tdigest_rs/_modern.pyi",
+            "bindings/python/tdigest_rs/_polars.py",
+            "bindings/python/tdigest_rs/_shared.py",
             "bindings/python/tdigest_rs/lib.py",
+            "bindings/python/tdigest_rs/lib.pyi",
             "bindings/python/tdigest_rs/tdigest_rs.py",
             "src/tdigest/tdigest.rs",
-            "src/upstream_py.rs",
             "scripts/check_build_tools.py",
             "scripts/consumer_contract_probe.py",
             "bindings/python/OBJECT_API.md",
             "bindings/python/POLARS_API.md",
-            "bindings/python/gr_tdigest/__init__.pyi",
-            "bindings/python/gr_tdigest/_gr_tdigest.pyi",
-            "bindings/python/gr_tdigest/py.typed",
+            "bindings/python/tdigest_rs/__init__.pyi",
+            "bindings/python/tdigest_rs/_native.pyi",
+            "bindings/python/tdigest_rs/py.typed",
             "bindings/java/gradlew",
             "bindings/java/gradlew.bat",
             "bindings/java/gradle/wrapper/gradle-wrapper.jar",
@@ -131,14 +132,16 @@ def verify_sdist_contents(sdist: Path, root: Path) -> None:
         if normalized_build.get("python-source", ".") != ".":
             raise RuntimeError("sdist has an unexpected active Python source directory")
         for relative in (
-            "gr_tdigest/__init__.py",
-            "gr_tdigest/_polars.py",
-            "gr_tdigest/_shared.py",
-            "gr_tdigest/__init__.pyi",
-            "gr_tdigest/_gr_tdigest.pyi",
-            "gr_tdigest/py.typed",
             "tdigest_rs/__init__.py",
+            "tdigest_rs/_modern.py",
+            "tdigest_rs/_modern.pyi",
+            "tdigest_rs/_polars.py",
+            "tdigest_rs/_shared.py",
+            "tdigest_rs/__init__.pyi",
+            "tdigest_rs/_native.pyi",
+            "tdigest_rs/py.typed",
             "tdigest_rs/lib.py",
+            "tdigest_rs/lib.pyi",
             "tdigest_rs/tdigest_rs.py",
         ):
             require_same(relative, "bindings/python/" + relative)
@@ -149,21 +152,6 @@ def verify_sdist_contents(sdist: Path, root: Path) -> None:
             raise RuntimeError("sdist changed the active root Rust library path")
         require_same(archive_library, source_library)
         for source in sorted((root / "src").rglob("*.rs")):
-            if not source.is_relative_to(root / "src/upstream"):
-                relative = source.relative_to(root).as_posix()
-                require_same(relative, relative)
-        if "tdigest_core" in source_manifest.get("dependencies", {}):
-            dependency = manifests["Cargo.toml"].get("dependencies", {}).get("tdigest_core", {})
-            if not isinstance(dependency, dict) or not isinstance(dependency.get("path"), str):
-                raise RuntimeError("sdist missing the local tdigest_core dependency path")
-            core_dir = canonical_relative(dependency["path"])
-            core_manifest = manifests.get(core_dir + "/Cargo.toml", {})
-            if core_manifest.get("package", {}).get("name") != "tdigest_core":
-                raise RuntimeError("sdist active original core has the wrong package identity")
-            if core_manifest.get("lib", {}).get("path") != "lib.rs":
-                raise RuntimeError("sdist active original core has the wrong library path")
-        else:
-            core_dir = "src/upstream"  # Older snapshots used a private path module.
-        for name in ("lib.rs", "core.rs", "scale.rs", "traits.rs", "checked.rs", "LICENSE"):
-            require_same(core_dir + "/" + name, "src/upstream/" + name)
+            relative = source.relative_to(root).as_posix()
+            require_same(relative, relative)
     print("Source archive contains required active source bytes and no duplicate paths or Python caches.", flush=True)

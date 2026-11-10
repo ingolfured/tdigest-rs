@@ -1,10 +1,10 @@
 //! Regressions for weighted tails and retained extrema in the modern core.
 
-use gr_tdigest::tdigest::centroids::Centroid;
-use gr_tdigest::tdigest::precision::FloatLike;
-use gr_tdigest::tdigest::singleton_policy::SingletonPolicy;
-use gr_tdigest::tdigest::{DigestStats, ScaleFamily, TDigest};
 use ordered_float::FloatCore;
+use tdigest_rs::tdigest::centroids::Centroid;
+use tdigest_rs::tdigest::precision::FloatLike;
+use tdigest_rs::tdigest::singleton_policy::SingletonPolicy;
+use tdigest_rs::tdigest::{DigestStats, ScaleFamily, TDigest};
 
 fn close(actual: f64, expected: f64) {
     assert!(

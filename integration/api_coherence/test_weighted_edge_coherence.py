@@ -7,7 +7,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-import gr_tdigest as td
+from tdigest_rs import _modern as td
 
 
 PROBES = [-1.0, 0.0, 0.01, 1.0, 10.0, 30.0, 48.0, 49.0, 75.0, 99.0, 100.0]

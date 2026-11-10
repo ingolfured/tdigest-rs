@@ -1,30 +1,19 @@
 # Review guide: tdigest-rs 1.0.0
 
-This PR brings the completed development implementation into G-Research's
-distribution as the next major release. It preserves `tdigest_rs` for existing
-applications and exposes the modern engine explicitly through `gr_tdigest`.
-The [rollout policy](ROLLOUT.md) defers deprecation to a later release and removal
-to a future major release after notice. No publication or upstream merge is
-performed by the preparation work.
+Import `TDigest` from `tdigest_rs` for both modes. The original calling convention
+uses `delta=` (default 300). It accepts Float32 and Float64 NumPy arrays, ignores
+NaNs, retains infinite endpoints and returns a new digest from merge and update.
+Pass `max_size=` for capacity-based compression, strict finite inputs, fractional
+weights, CDF, in-place updates and TDIG serialization. Supply one sizing parameter
+per constructor. Both modes use the same Rust core for finite data.
 
-## Before and after
+Compression, interpolation and restored-pickle queries use modern numerical
+results. For example, the 10th percentile of `[1.0, 2.0]` changes from 0.7 to
+1.0, and the median of `[0, 10]` with weights `[90, 10]` changes from 1 to 0.
+Published 0.1.0 pickles carry centroid means and weights. Loading one reconstructs
+a digest from those observations.
 
-| Area | Published 0.1.0 / original upstream | Proposed 1.0.0 |
-| --- | --- | --- |
-| Installation and existing import | `tdigest-rs`; `tdigest_rs.TDigest` | Same distribution/import and original engine; modern is a separate explicit import |
-| Original numerical behavior | Original Float32/Float64 arithmetic, uint32 weights, historical copy/pickle semantics | Same pinned in-range calculations and wrapper; checked overflow is rejected explicitly |
-| Modern capabilities | Not exposed by the original API | Fractional mass, CDF, checked updates, Rust k-way merge and portable TDIG state |
-| Rust API | `tdigest_core` | Original package retained at 0.2.0; modern checked API also available |
-| Python runtimes | Published wheel predates the current runtime matrix | CPython 3.10–3.15 ABI3; explicit NumPy combinations, optional Polars 1.x/2.x and Polars-free installations |
-| Java/JNI | No Java surface in upstream main | `com.gresearch.tdigest`, Java 11 bytecode, independent native ownership, standalone artifact and Scala/Kotlin/Spark examples |
-| Original tests | Six test/support files, 91 parametrized cases | Exact bytes in `tests/upstream_legacy/`; inventory/hash checks and separately reported required runs |
-| Additional verification | Original test assertions | Exact fixtures, published-state migration, overflow/state validation, cross-language coherence, runtime/wheel/source-archive and accuracy regression gates |
-
-Modern is not a drop-in numerical replacement. The old and modern settings are
-not equal memory or accuracy budgets. The [release notes](RELEASE_NOTES_1.0.0.md)
-explain modern API/schema changes; [accuracy results](tests/quality/ACCURACY.md)
-retain the known statistical tradeoffs and distinguish historical evidence from
-current regression checks.
+Run `make compat-test` for the 91 original cases and `make test` for the full suite. The original standalone Rust crate and separate Python import have been removed.
 
 ## Source and adaptation audit
 
@@ -34,7 +23,9 @@ The proposed follow-up `01529bf` optimizes exact integer-weight K2 capacity tria
 the established contribution's Java namespace, platform build policy, release/CI
 integration, isolated original tests and review documentation.
 
-## Validation and performance evidence
+## Historical validation and performance evidence
+
+The measurements below came from the earlier two-engine snapshot. They do not measure the unified implementation.
 
 The [validation record](docs/upstream-1.0.0/validation.md) identifies tested
 commits/artifact hashes and completed local checks, including all 91 original

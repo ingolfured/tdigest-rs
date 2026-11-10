@@ -64,8 +64,8 @@ dev = [
 manifest-path = "../../Cargo.toml"
 features = ["python"]
 bindings = "pyo3"
-module-name = "gr_tdigest._gr_tdigest"
-python-packages = ["gr_tdigest", "tdigest_rs"]
+module-name = "tdigest_rs._native"
+python-packages = ["tdigest_rs"]
 # Unqualified exclusion patterns apply to both wheels and source distributions.
 exclude = ["**/__pycache__/**", "**/*.pyc", "**/*.pyo"]
 strip = true
@@ -76,8 +76,7 @@ strip = true
 [tool.ruff]
 line-length = 120
 target-version = "py310"
-# Keep the byte-for-byte upstream wrapper out of automatic formatting.
-extend-exclude = ["tdigest_rs/lib.py","target","dist","build",".venv",".maturin",".pytest_cache",".ruff_cache"]
+extend-exclude = ["target","dist","build",".venv",".maturin",".pytest_cache",".ruff_cache"]
 
 # ------------------------------------------------------------
 # Mypy

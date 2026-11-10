@@ -6,7 +6,7 @@ import pickle
 import numpy as np
 import pytest
 
-import gr_tdigest as modern
+from tdigest_rs import _modern as modern
 
 
 @pytest.mark.parametrize("precision", ["f32", "f64"])

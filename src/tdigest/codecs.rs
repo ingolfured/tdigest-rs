@@ -18,7 +18,7 @@
 //! # Example
 //! ```rust
 //! use polars::prelude::*;
-//! use gr_tdigest::tdigest::TDigest;
+//! use tdigest_rs::tdigest::TDigest;
 //!
 //! // build a digest (details elided) and round-trip via a Series:
 //! let td: TDigest<f64> = TDigest::builder().max_size(256).build().unwrap();

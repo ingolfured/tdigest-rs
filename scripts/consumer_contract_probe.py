@@ -13,7 +13,7 @@ from pathlib import Path
 import pickle
 import sys
 
-import gr_tdigest as gr
+import tdigest_rs as gr
 import numpy as np
 
 
@@ -64,7 +64,7 @@ def main():
     check("wire_roundtrip", lambda: equal(gr.TDigest.from_bytes(weighted.to_bytes()).to_bytes(), weighted.to_bytes()))
     check(
         "fractional_v1_rejected",
-        lambda: reject(lambda: gr.TDigest.from_means_weights([1.0], [0.5]).to_bytes(version=1)),
+        lambda: reject(lambda: gr.TDigest.from_means_weights([1.0], [0.5], max_size=1000).to_bytes(version=1)),
     )
     check("missing_merge_rejected", lambda: reject(lambda: gr.TDigest.merge_all([weighted, None])))
     check(
@@ -89,18 +89,18 @@ def main():
     check("scale_failure_atomic", scale_atomic)
 
     def f32_mass():
-        d = gr.TDigest.from_means_weights([1.0], [16777216.0], precision="f32")
+        d = gr.TDigest.from_means_weights([1.0], [16777216.0], max_size=1000, precision="f32")
         d.add_weighted([1.0], [1.0])
         equal(sum(d.weights), 16777217.0)
 
     check("f32_means_f64_mass", f32_mass)
-    native = Path(importlib.import_module("gr_tdigest._gr_tdigest").__file__)
+    native = Path(importlib.import_module("tdigest_rs._native").__file__)
     result = {
         "source_sha": args.source_sha,
         "python": sys.version,
         "numpy": np.__version__,
         "distribution_version": gr.__version__,
-        "engine": "modern gr_tdigest",
+        "engine": "modern tdigest_rs",
         "module": gr.__file__,
         "native_sha256": hashlib.sha256(native.read_bytes()).hexdigest(),
         "scope": "bounded Python probes only; no Polars/JVM/ABI/cluster qualification",

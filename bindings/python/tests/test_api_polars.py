@@ -4,7 +4,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from gr_tdigest import (
+from tdigest_rs import (
     ScaleFamily,
     add_weighted_values,
     add_values,

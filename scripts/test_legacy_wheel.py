@@ -13,14 +13,15 @@ import tempfile
 from zipfile import ZipFile
 
 from check_python_sdist import verify_sdist_contents
-from check_upstream_sources import verify_sources
 from check_upstream_tests import verify_tests
 
 
 def verify_wheel_contents(wheel: Path) -> None:
     """Reject generated Python caches before installing the release artifact."""
     with ZipFile(wheel) as archive:
-        required = {"gr_tdigest/_polars.py", "gr_tdigest/_shared.py"}
+        required = {"tdigest_rs/_polars.py", "tdigest_rs/_shared.py"}
+        if any(name.startswith("gr_tdigest/") for name in archive.namelist()):
+            raise RuntimeError("wheel contains the retired gr_tdigest namespace")
         missing = required.difference(archive.namelist())
         if missing:
             raise RuntimeError("wheel omits Python adapter modules: " + ", ".join(sorted(missing)))
@@ -35,7 +36,6 @@ def verify_wheel_contents(wheel: Path) -> None:
 
 
 def verify_upstream_snapshot(root: Path) -> None:
-    verify_sources(root)
     verify_tests(root)
 
 
@@ -159,7 +159,7 @@ def main() -> None:
             python,
             "-I",
             "-c",
-            "import pathlib, sys, tdigest_rs, gr_tdigest._gr_tdigest as native; "
+            "import pathlib, sys, tdigest_rs, tdigest_rs._native as native; "
             "prefix = pathlib.Path(sys.prefix).resolve(); "
             "assert pathlib.Path(tdigest_rs.__file__).resolve().is_relative_to(prefix); "
             "assert pathlib.Path(native.__file__).resolve().is_relative_to(prefix); "

@@ -10,7 +10,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-import gr_tdigest as gr
+from tdigest_rs import _modern as gr
 
 
 def digest(values, **kwargs):

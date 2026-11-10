@@ -46,14 +46,8 @@ use jemallocator::Jemalloc;
 #[global_allocator]
 static ALLOC: Jemalloc = Jemalloc;
 
-#[cfg(any(test, feature = "python"))]
-mod compact_storage;
 #[cfg(feature = "python")]
 mod py;
-#[cfg(feature = "python")]
-use tdigest_core as upstream;
-#[cfg(feature = "python")]
-mod upstream_py;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 #[cfg(feature = "python")]
@@ -62,8 +56,8 @@ use pyo3::types::PyModuleMethods;
 /// CPython module entry point.
 #[cfg(feature = "python")]
 #[pymodule]
-#[pyo3(name = "_gr_tdigest")] // ← confirm desired import name
-fn _gr_tdigest(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+#[pyo3(name = "_native")]
+fn _native(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     crate::py::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())

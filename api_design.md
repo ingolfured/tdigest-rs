@@ -76,32 +76,24 @@ Notes:
 - Any null value (where representable) is an error.
 - Adding an empty vector/list is a no-op success.
 
-### 4.1.1 Existing Python interface
+### 4.1.1 Python construction modes
 
-`tdigest_rs.TDigest` preserves the original public API and numerical behavior,
-not merely approximate accuracy or passing upstream tolerances. It uses the
-pinned original Rust arithmetic and unmodified Python wrapper. Existing calls,
-dtype inference, uint32 weights, immutable merge/update, dictionary state, and
-copy/pickle reconstruction retain their upstream behavior, including quirks except for overflow. A checked boundary rejects total mass
-above `u32::MAX`, nonfinite arithmetic results from finite observations, and
-clusters lost to overflow. Python maps these failures to `ValueError`; successful
-in-range calculations still use the unchanged pinned kernels.
-Keep the independent upstream oracle and exact fixtures unchanged. The modern engine is explicitly selected
-through `gr_tdigest`; matching delta alone does not make its answers identical. The original interface has no new delta
-property, cdf method, or wire-state format. Focused regression tests cover immutable merge/update, dtype, copy/pickle, and the original dictionary state.
-The unchanged 91-case upstream suite, 70 exact original-output cases, and pinned-source checksums are required by `make test` and installed-wheel CI.
+Import `TDigest` from `tdigest_rs` for both modes. The original calling convention
+uses `delta=` (default 300). It accepts Float32 and Float64 NumPy arrays, ignores
+NaNs, retains infinite endpoints and returns a new digest from merge and update.
+Pass `max_size=` for capacity-based compression, strict finite inputs, fractional
+weights, CDF, in-place updates and TDIG serialization. Supply one sizing parameter
+per constructor. Both modes use the same Rust core for finite data.
 
-### 4.1.2 Original Rust interface
+Compression, interpolation and restored-pickle queries use modern numerical
+results. For example, the 10th percentile of `[1.0, 2.0]` changes from 0.7 to
+1.0, and the median of `[0, 10]` with weights `[90, 10]` changes from 1 to 0.
+Published 0.1.0 pickles carry centroid means and weights. Loading one reconstructs
+a digest from those observations.
 
-The `tdigest_core` workspace package exposes the original root `TDigest<T>` for
-f32/f64 with public `means: Vec<T>` and `weights: Vec<u32>` fields. Its seven
-methods and `anyhow::Result` signatures retain the pinned original semantics,
-including permissive probes and inherited malformed-input behavior, with the
-same checked overflow boundary as Python. Directly constructed public fields
-are checked on queries and merges too. The modern
-`tdigest-rs` API remains separate. New Rust checks cover both precisions and the
-same independently generated original-output fixture as the Python gate; the
-pinned upstream revision did not contain a Rust test suite.
+### 4.1.2 Rust interface
+
+The workspace exposes the checked Rust implementation from the root package.
 
 ### 4.1.3 Python runtime and installation
 
@@ -134,7 +126,7 @@ Modern NumPy training inputs are copied into owned Rust vectors. Compatible alig
 
 ### 4.1.4 Modern Python constructor concurrency
 
-`gr_tdigest.TDigest.from_array` and `from_means_weights` convert their Python inputs to owned Rust vectors before releasing the GIL for native construction. Each call builds a private digest and retains existing validation and numerical order. Independent calls may overlap in a caller-managed pool; input conversion remains serialized by the GIL. This does not add a shared-object mutation guarantee or change the original `tdigest_rs` interface.
+`tdigest_rs.TDigest.from_array` and `from_means_weights` convert their Python inputs to owned Rust vectors before releasing the GIL for native construction. Each call builds a private digest and retains existing validation and numerical order. Independent calls may overlap in a caller-managed pool; input conversion remains serialized by the GIL. This does not add a shared-object mutation guarantee or change the original `tdigest_rs` interface.
 
 ### 4.2 Queries
 
@@ -226,7 +218,7 @@ Surface mapping:
   - `src/py.rs`
   - `src/jni.rs`
   - `src/polars_expr.rs`
-  - `bindings/python/gr_tdigest/__init__.py`
+  - `bindings/python/tdigest_rs/__init__.py`
 - Expose explicit precision-cast APIs across surfaces.
 
 ## 7. Acceptance criteria

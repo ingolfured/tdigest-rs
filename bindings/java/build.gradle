@@ -88,8 +88,8 @@ tasks.register('cargoBuild', Exec) {
 }
 
 /* -------- Copy native into JAR resources (canonical name only) -------- */
-/* Library base name must match System.loadLibrary("gr_tdigest") */
-def libBase = "gr_tdigest"
+/* Library base name must match System.loadLibrary("tdigest_rs") */
+def libBase = "tdigest_rs"
 def os = org.gradle.internal.os.OperatingSystem.current()
 def libFile = os.isWindows() ? "${libBase}.dll"
            : os.isMacOsX()   ? "lib${libBase}.dylib"

@@ -5,7 +5,7 @@ import gc
 import numpy as np
 import pytest
 
-from gr_tdigest import TDigest
+from tdigest_rs._modern import TDigest
 
 
 @pytest.mark.parametrize("f32_mode", [False, True])

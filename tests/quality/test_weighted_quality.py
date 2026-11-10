@@ -4,7 +4,7 @@ from fractions import Fraction
 import math
 import numpy as np
 import pytest
-from gr_tdigest import TDigest
+from tdigest_rs._modern import TDigest
 
 
 @pytest.mark.parametrize("precision", ["f32", "f64"])

@@ -10,8 +10,7 @@ development history into the upstream PR.
 ## Upstream adaptations
 
 - The release distribution and root Cargo package are `tdigest-rs`, version 1.0.0.
-  Python still provides both `tdigest_rs` (original engine) and `gr_tdigest`
-  (modern engine). The original `tdigest_core` package remains version 0.2.0.
+  The single Python package is `tdigest_rs`, with delta and capacity modes on the shared Rust core.
 - Java uses `com.gresearch.tdigest`, matching the existing upstream contribution;
   native JNI symbols, consumer examples and tests use that same namespace.
   Maven coordinates are `com.gresearch.tdigest:tdigest-rs`.
@@ -28,12 +27,7 @@ development history into the upstream PR.
   metadata use the upstream identity. Historical source and measurement links
   continue to identify the revision they actually measured.
 
-At PR head `fa69285` the modern core and bindings match the development snapshot.
-The proposed follow-up `01529bf` changes `src/tdigest/compressor.rs` and
-`src/tdigest/scale.rs` to reuse integer-weight K2 rank boundaries. The original
-arithmetic and public bindings still match the snapshot. The JNI adaptation changes
-names rather than numerical operations. Frozen reference inputs and the untouched
-original Python compatibility suite are preserved.
+Historical snapshot `fa69285` shipped the original engine alongside the modern core. The unified release keeps the original test suite and removes the original crate.
 
 ## Review and release
 

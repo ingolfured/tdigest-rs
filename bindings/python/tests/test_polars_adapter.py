@@ -4,7 +4,7 @@ import ast
 import inspect
 from pathlib import Path
 
-import gr_tdigest as gr
+from tdigest_rs import _modern as gr
 
 
 def test_tdigest_type_stub_matches_runtime_call_signature():

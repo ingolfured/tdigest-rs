@@ -6,12 +6,12 @@ from typing import Any, Callable, Dict, Optional, cast
 
 # --- native import (fail loudly so tests don't silently pass with None) ---
 try:
-    from ._gr_tdigest import TDigest as _NativeTDigest, __version__ as __native_version__
+    from ._native import TDigest as _NativeTDigest, __version__ as __native_version__
 
     __version__ = __native_version__
 except ModuleNotFoundError as exc:  # pragma: no cover
     raise ImportError(
-        "Failed to import the compiled extension '_gr_tdigest'. Build it with: `uv run maturin develop -r -F python`."
+        "Failed to import the compiled extension '_native'. Build it with: `uv run maturin develop -r -F python`."
     ) from exc
 
 # Fallback for editable/dev installs where importlib.metadata might not see the wheel
@@ -51,8 +51,8 @@ from ._shared import (
 )
 
 # Keep the public enum identity stable for introspection and existing pickles.
-ScaleFamily.__module__ = __name__
-SingletonPolicy.__module__ = __name__
+ScaleFamily.__module__ = __package__
+SingletonPolicy.__module__ = __package__
 
 
 # --- Python-side shim: TDigest.from_array() argument normalization ------------

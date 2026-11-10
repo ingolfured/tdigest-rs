@@ -1,9 +1,9 @@
 //! A known exact point needs no division of an unrepresentably small moment.
-use gr_tdigest::tdigest::frontends::{DigestConfig, DigestPrecision, FrontendDigest};
-use gr_tdigest::tdigest::scale::ScaleFamily;
-use gr_tdigest::tdigest::singleton_policy::SingletonPolicy;
-use gr_tdigest::tdigest::wire::{decode_digest, WireDecodedDigest};
-use gr_tdigest::tdigest::TDigest;
+use tdigest_rs::tdigest::frontends::{DigestConfig, DigestPrecision, FrontendDigest};
+use tdigest_rs::tdigest::scale::ScaleFamily;
+use tdigest_rs::tdigest::singleton_policy::SingletonPolicy;
+use tdigest_rs::tdigest::wire::{decode_digest, WireDecodedDigest};
+use tdigest_rs::tdigest::TDigest;
 
 fn config() -> DigestConfig {
     DigestConfig {

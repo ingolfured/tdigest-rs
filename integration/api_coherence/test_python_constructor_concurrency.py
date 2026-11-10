@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import pytest
 
-from gr_tdigest import TDigest
+from tdigest_rs._modern import TDigest
 
 
 def container(values, kind):

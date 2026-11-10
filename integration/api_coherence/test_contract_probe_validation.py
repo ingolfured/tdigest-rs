@@ -25,7 +25,7 @@ import pytest
 
 class TestProbeValidation:
     def test_python(self, cfg):
-        import gr_tdigest as td
+        from tdigest_rs import _modern as td
         d = td.TDigest.from_array(
             [0.0, 1.0, 2.0, 3.0],
             max_size=cfg["max_size"],
@@ -85,7 +85,7 @@ class TestProbeValidation:
 
     def test_polars_cdf_nan_and_null_probe(self, cfg):
         import polars as pl
-        import gr_tdigest as td
+        from tdigest_rs import _modern as td
         from polars.exceptions import ComputeError
 
         df = pl.DataFrame({"x": [0.0, 1.0, 2.0, 3.0]}).with_columns(pl.col("x").cast(pl.Float64))
@@ -125,7 +125,7 @@ class TestProbeValidation:
 
 class TestInfinityProbeBehavior:
     def test_python(self, cfg):
-        import gr_tdigest as td
+        from tdigest_rs import _modern as td
         d = td.TDigest.from_array(
             [0.0, 1.0, 2.0, 3.0],
             max_size=cfg["max_size"],
@@ -174,7 +174,7 @@ class TestInfinityProbeBehavior:
 
     def test_polars(self, cfg):
         import polars as pl
-        import gr_tdigest as td
+        from tdigest_rs import _modern as td
 
         df = pl.DataFrame({"x": [0.0, 1.0, 2.0, 3.0]}).with_columns(pl.col("x").cast(pl.Float64))
         df = df.with_columns(probe=pl.Series([float("-inf"), float("+inf"), float("-inf"), float("+inf")], dtype=pl.Float64))

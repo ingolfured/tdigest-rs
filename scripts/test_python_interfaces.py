@@ -44,9 +44,9 @@ def main() -> None:
                 sys.executable,
                 "-I",
                 "-c",
-                "from importlib.metadata import version; import tdigest_rs, gr_tdigest; "
+                "from importlib.metadata import version; import tdigest_rs; "
                 "assert tdigest_rs.TDigest.__module__ == 'tdigest_rs.lib'; "
-                "assert tdigest_rs.__version__ == gr_tdigest.__version__ == version('tdigest-rs')",
+                "assert tdigest_rs.__version__ == version('tdigest-rs')",
             ],
             cwd=work,
             env=env,

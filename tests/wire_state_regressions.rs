@@ -1,12 +1,12 @@
 //! Format-specific export limits and configuration preservation.
 
-use gr_tdigest::tdigest::precision::FloatLike;
-use gr_tdigest::tdigest::singleton_policy::SingletonPolicy;
-use gr_tdigest::tdigest::wire::{
+use ordered_float::FloatCore;
+use tdigest_rs::tdigest::precision::FloatLike;
+use tdigest_rs::tdigest::singleton_policy::SingletonPolicy;
+use tdigest_rs::tdigest::wire::{
     decode_digest, encode_digest_with_version, WireDecodedDigest, WireVersion,
 };
-use gr_tdigest::tdigest::{ScaleFamily, TDigest};
-use ordered_float::FloatCore;
+use tdigest_rs::tdigest::{ScaleFamily, TDigest};
 
 #[test]
 fn v1_requires_representable_integer_weights_and_total() {

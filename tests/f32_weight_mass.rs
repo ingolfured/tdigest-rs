@@ -1,11 +1,11 @@
 //! Mean precision must not silently discard distribution mass.
 
-use gr_tdigest::tdigest::centroids::Centroid;
-use gr_tdigest::tdigest::singleton_policy::SingletonPolicy;
-use gr_tdigest::tdigest::wire::{
+use tdigest_rs::tdigest::centroids::Centroid;
+use tdigest_rs::tdigest::singleton_policy::SingletonPolicy;
+use tdigest_rs::tdigest::wire::{
     decode_digest, encode_digest_with_version, WireDecodedDigest, WireVersion,
 };
-use gr_tdigest::tdigest::TDigest;
+use tdigest_rs::tdigest::TDigest;
 
 fn weights(td: &TDigest<f32>) -> Vec<f64> {
     td.centroids().iter().map(|c| c.weight_f64()).collect()
@@ -217,7 +217,7 @@ fn centroid_layout_retains_compact_means_with_explicit_mass_cost() {
 
 #[test]
 fn wide_weight_capability_composes_with_delta_and_pin_extensions() {
-    use gr_tdigest::tdigest::ScaleFamily;
+    use tdigest_rs::tdigest::ScaleFamily;
     let delta = TDigest::<f32>::builder()
         .scale(ScaleFamily::K2Norm)
         .singleton_policy(SingletonPolicy::Off)
@@ -301,7 +301,7 @@ fn fractional_atomic_boundary_has_no_phantom_interpolation_span() {
 #[test]
 fn public_weight_getter_does_not_narrow_f32_mean_mass() {
     let centroid =
-        gr_tdigest::tdigest::centroids::Centroid::<f32>::new_atomic_f64(1.0, 16_777_217.0);
+        tdigest_rs::tdigest::centroids::Centroid::<f32>::new_atomic_f64(1.0, 16_777_217.0);
     let mass: f64 = centroid.weight();
     assert_eq!(mass, 16_777_217.0);
     assert_eq!(mass, centroid.weight_f64());

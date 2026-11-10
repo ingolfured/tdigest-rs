@@ -43,7 +43,7 @@ def main():
     spark_home, jar = args.spark_home.resolve(), args.jar.resolve()
     source = Path(__file__).with_name("TDigestSparkCheck.scala")
     with zipfile.ZipFile(jar) as archive:
-        native = [name for name in archive.namelist() if name.endswith("libgr_tdigest.so")]
+        native = [name for name in archive.namelist() if name.endswith("libtdigest_rs.so")]
         if len(native) != 1:
             parser.error("expected one Linux native payload in the candidate JAR")
         native_hash = hashlib.sha256(archive.read(native[0])).hexdigest()

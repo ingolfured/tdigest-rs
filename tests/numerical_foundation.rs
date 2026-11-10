@@ -1,5 +1,5 @@
 //! Regression controls for mass, first moments and atomic quantile boundaries.
-use gr_tdigest::tdigest::{singleton_policy::SingletonPolicy, TDigest};
+use tdigest_rs::tdigest::{singleton_policy::SingletonPolicy, TDigest};
 
 macro_rules! precision_controls {
     ($module:ident, $float:ty) => {

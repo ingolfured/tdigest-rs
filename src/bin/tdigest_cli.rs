@@ -8,13 +8,13 @@ use std::path::{Path, PathBuf};
 use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
 use serde_json::Value;
 
-use gr_tdigest::tdigest::frontends::{
+use tdigest_rs::tdigest::frontends::{
     ensure_finite_training_values, parse_scale_str, parse_singleton_policy_str,
     validate_quantile_probe, DigestConfig, DigestPrecision, FrontendDigest,
 };
-use gr_tdigest::tdigest::singleton_policy::SingletonPolicy;
-use gr_tdigest::tdigest::wire::WireVersion;
-use gr_tdigest::tdigest::ScaleFamily;
+use tdigest_rs::tdigest::singleton_policy::SingletonPolicy;
+use tdigest_rs::tdigest::wire::WireVersion;
+use tdigest_rs::tdigest::ScaleFamily;
 
 #[derive(Debug, Clone, ValueEnum)]
 enum ScaleOpt {

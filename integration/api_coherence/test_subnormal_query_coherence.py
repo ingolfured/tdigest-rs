@@ -6,7 +6,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-import gr_tdigest as td
+from tdigest_rs import _modern as td
 
 
 @pytest.mark.parametrize("precision", ["f32", "f64"])

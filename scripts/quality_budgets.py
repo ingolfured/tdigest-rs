@@ -13,7 +13,7 @@ from statistics import NormalDist
 import sys
 
 import numpy as np
-import gr_tdigest._gr_tdigest as native
+import tdigest_rs._native as native
 
 # Load only the explicit reference file, so -I can keep package imports isolated
 # to the installed wheel without adding the checkout to sys.path.
@@ -65,21 +65,11 @@ def summarize(rows):
     for cohort, scale, cap in sorted({(r["cohort"], r["scale"], r["max_size"]) for r in rows}):
         selected = [r for r in rows if (r["cohort"], r["scale"], r["max_size"]) == (cohort, scale, cap)]
         scored = [r for r in selected if "modern" in r]
-        eligible = [r for r in selected if r.get("comparison_eligible") and "original" in r]
         result[f"{cohort}/{scale}/{cap}"] = {
             "profiles": len(selected),
             "errors": sum("error" in r for r in selected),
             "diagnostic_failed_profiles": sum(bool(r.get("diagnostic_failures")) for r in selected),
             "worst_errors": {metric: max((r["modern"][metric] for r in scored), default=None) for metric in q.GATED},
-            "matched_original_profiles": len(eligible),
-            "original_comparisons": {
-                metric: {
-                    "modern_better": sum(r["modern"][metric] < r["original"][metric] - 1e-12 for r in eligible),
-                    "tied": sum(abs(r["modern"][metric] - r["original"][metric]) <= 1e-12 for r in eligible),
-                    "original_better": sum(r["original"][metric] < r["modern"][metric] - 1e-12 for r in eligible),
-                }
-                for metric in q.METRICS
-            },
         }
     return result
 
@@ -141,7 +131,7 @@ def main():
                                     input_sha256=hashlib.sha256(data.tobytes()).hexdigest(),
                                 )
                                 try:
-                                    digest = q.build(data, precision, cap, "modern", route)
+                                    digest = q.build(data, precision, cap, route)
                                     row["modern"] = q.score(digest, exact, True)
                                     row["modern_state"] = dict(
                                         centroids=len(digest),
@@ -153,21 +143,6 @@ def main():
                                     row["diagnostic_failures"] = [
                                         m for m in ["rank_max", "cdf_max"] if row["modern"][m] > bound
                                     ]
-                                    if cohort == "capacity" and scale == "k2" and cap in [200, 1000]:
-                                        original, delta, size, trace = q.match_original(
-                                            data, precision, row["modern_state"]["field_bytes"], route
-                                        )
-                                        row["original"] = q.score(original, exact, False)
-                                        row["original_state"] = dict(
-                                            centroids=len(original),
-                                            field_bytes=size,
-                                            delta=delta,
-                                            selection_trace=trace,
-                                            **q.invariants(original, data, precision, False),
-                                        )
-                                        row["comparison_eligible"] = (
-                                            0.9 <= size / row["modern_state"]["field_bytes"] <= 1
-                                        )
                                 except Exception as error:
                                     row["error"] = f"{type(error).__name__}: {error}"
                                 receipt["rows"].append(row)

@@ -73,19 +73,19 @@ assert '.'.join(map(str, sys.version_info[:2])) == expected['python']
 assert sys.implementation.name == 'cpython' and sys.version_info.releaselevel == 'final', sys.version
 prefix = pathlib.Path(sys.prefix).resolve()
 names = ('tdigest_rs', 'tdigest_rs.lib', 'tdigest_rs.tdigest_rs',
-         'gr_tdigest', 'gr_tdigest._gr_tdigest')
+         'tdigest_rs._modern', 'tdigest_rs._native')
+assert importlib.util.find_spec('gr_tdigest') is None
 modules = {name: importlib.import_module(name) for name in names}
 paths = {name: pathlib.Path(module.__file__).resolve() for name, module in modules.items()}
 assert all(path.is_relative_to(prefix) for path in paths.values()), paths
 assert paths['tdigest_rs.tdigest_rs'].name == 'tdigest_rs.py', paths
 assert modules['tdigest_rs'].TDigest.__module__ == 'tdigest_rs.lib'
 import inspect
-package = paths['gr_tdigest'].parent
-assert all((package / name).is_file() for name in ('py.typed', '__init__.pyi', '_gr_tdigest.pyi'))
-assert 'Modern distribution' in modules['gr_tdigest'].TDigest.__doc__
-assert 'weights' in inspect.signature(modules['gr_tdigest'].TDigest.from_array).parameters
-assert 'Midpoint CDF' in modules['gr_tdigest'].TDigest.cdf.__doc__
-native_hash = hashlib.sha256(paths['gr_tdigest._gr_tdigest'].read_bytes()).hexdigest()
+package = paths['tdigest_rs'].parent
+assert all((package / name).is_file() for name in ('py.typed', '__init__.pyi', '_native.pyi'))
+assert 'max_size' in inspect.signature(modules['tdigest_rs'].TDigest.from_array).parameters
+assert 'Midpoint CDF' in modules['tdigest_rs'].TDigest.from_array([1], max_size=32).cdf.__doc__
+native_hash = hashlib.sha256(paths['tdigest_rs._native'].read_bytes()).hexdigest()
 assert native_hash == expected['native_sha256'], native_hash
 dist = metadata.distribution(expected['distribution'])
 assert dist.version == expected['version'], dist.version
@@ -141,7 +141,7 @@ def inspect_wheel(wheel: Path) -> dict:
             and polars_requirements[0].replace(" ", "").replace("'", '"') == 'polars>=1.0.0;extra=="polars"',
             f"Polars must only be the tested optional extra, got {polars_requirements}",
         )
-        native_sha = hashlib.sha256(archive.read("gr_tdigest/_gr_tdigest.abi3.so")).hexdigest()
+        native_sha = hashlib.sha256(archive.read("tdigest_rs/_native.abi3.so")).hexdigest()
     return {
         "wheel": str(wheel),
         "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),

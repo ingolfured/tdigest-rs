@@ -5,9 +5,7 @@ published 0.1.0 (upstream source metadata 0.2.0). The implementation comes from
 the completed personal-repository 0.3.0 snapshot; modern API migration notes
 below compare with that project's earlier 0.2.x development line.
 
-The old API remains supported, without new deprecation warnings or an implicit
-engine switch. Deprecation is deferred to a later release and removal to a future
-major release after notice. See [the staged rollout policy](ROLLOUT.md).
+The original Python import and delta calling convention continue on a single Rust engine. See [the migration guide](ROLLOUT.md).
 
 1.0.0 is a substantial correctness, compatibility and usability update to
 tdigest-rs. It improves weighted statistics and saved state, makes invalid
@@ -16,7 +14,7 @@ closer agreement with the Rust core. It also includes API and schema changes
 that existing modern-engine applications need to account for when upgrading.
 
 The modern Rust crate, Python package and JVM artifact use version 1.0.0.
-The separate original G-Research Rust crate, `tdigest_core`, remains at 0.2.0.
+The standalone `tdigest_core` crate is removed from the workspace.
 
 ## More reliable weighted statistics
 
@@ -52,15 +50,18 @@ reject newly used v3 flags, so check readers before exchanging new saved data.
 
 ## Original G-Research compatibility
 
-The Python `tdigest_rs` and Rust `tdigest_core` interfaces use the pinned original
-engine. They preserve its supported calculations and API behavior, including
-its historical copy/pickle behavior. Overflowing uint32 totals and invalid
-arithmetic results from finite inputs now raise errors instead of wrapping,
-panicking or producing corrupted summaries.
+Import `TDigest` from `tdigest_rs` for both modes. The original calling convention
+uses `delta=` (default 300). It accepts Float32 and Float64 NumPy arrays, ignores
+NaNs, retains infinite endpoints and returns a new digest from merge and update.
+Pass `max_size=` for capacity-based compression, strict finite inputs, fractional
+weights, CDF, in-place updates and TDIG serialization. Supply one sizing parameter
+per constructor. Both modes use the same Rust core for finite data.
 
-Use `gr_tdigest` for the modern Python engine. Setting `delta` on a modern digest
-does not switch to the original engine or promise identical results. The two
-interfaces deliberately retain different behavior.
+Compression, interpolation and restored-pickle queries use modern numerical
+results. For example, the 10th percentile of `[1.0, 2.0]` changes from 0.7 to
+1.0, and the median of `[0, 10]` with weights `[90, 10]` changes from 1 to 0.
+Published 0.1.0 pickles carry centroid means and weights. Loading one reconstructs
+a digest from those observations.
 
 ## Python and Polars improvements
 

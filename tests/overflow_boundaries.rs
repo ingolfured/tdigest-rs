@@ -1,5 +1,5 @@
-use gr_tdigest::tdigest::{precision::FloatLike, TDigest};
 use ordered_float::FloatCore;
+use tdigest_rs::tdigest::{precision::FloatLike, TDigest};
 
 #[test]
 fn rounded_coalescing_at_maximum_mass_does_not_panic() {

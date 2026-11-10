@@ -1,5 +1,7 @@
 //! Checks on independently supplied state, including the serialization boundaries.
-use gr_tdigest::tdigest::{
+use ordered_float::FloatCore;
+use polars::prelude::*;
+use tdigest_rs::tdigest::{
     centroids::Centroid,
     codecs::WireOf,
     precision::FloatLike,
@@ -7,8 +9,6 @@ use gr_tdigest::tdigest::{
     wire::{decode_digest, WireVersion},
     DigestStats, TDigest,
 };
-use ordered_float::FloatCore;
-use polars::prelude::*;
 
 fn reject_contradictory_stats<F: FloatLike + FloatCore>() {
     for atomic in [true, false] {
@@ -258,7 +258,7 @@ fn precision_roundtrips_preserve_authoritative_sums_after_rounding() {
 
 #[test]
 fn supported_updates_merges_and_casts_keep_valid_state() {
-    use gr_tdigest::tdigest::ScaleFamily;
+    use tdigest_rs::tdigest::ScaleFamily;
     for scale in [
         ScaleFamily::Quad,
         ScaleFamily::K1,

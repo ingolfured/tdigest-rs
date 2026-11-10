@@ -1,6 +1,46 @@
-"""The original tdigest-rs Python interface, backed by tdigest-rs's Rust core."""
+"""T-digests with delta compatibility and modern capacity-based construction."""
 
+from ._modern import (
+    DEFAULT_MAX_SIZE,
+    ScaleFamily,
+    SingletonPolicy,
+    __version__,
+    add_values,
+    add_weighted_values,
+    cast_precision,
+    cdf,
+    from_bytes,
+    infer_column_precision,
+    median,
+    merge_tdigests,
+    quantile,
+    scale_values,
+    scale_weights,
+    tdigest,
+    to_bytes,
+    wire_precision,
+)
 from .lib import DEFAULT_DELTA, TDigest
-from gr_tdigest import __version__
 
-__all__ = ["DEFAULT_DELTA", "TDigest", "__version__"]
+__all__ = [
+    "DEFAULT_DELTA",
+    "DEFAULT_MAX_SIZE",
+    "TDigest",
+    "ScaleFamily",
+    "SingletonPolicy",
+    "__version__",
+    "add_values",
+    "add_weighted_values",
+    "cast_precision",
+    "cdf",
+    "from_bytes",
+    "infer_column_precision",
+    "median",
+    "merge_tdigests",
+    "quantile",
+    "scale_values",
+    "scale_weights",
+    "tdigest",
+    "to_bytes",
+    "wire_precision",
+]

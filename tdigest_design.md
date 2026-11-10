@@ -79,7 +79,7 @@ remains 96 bytes. This costs four bytes per allocated f32 centroid (one third mo
 centroid storage), and its speed/cache impact must be measured. Means and extrema
 retain their chosen precision. Public modern Rust `weight()` and `weight_f64()` both expose authoritative Float64 mass, including for Float32 means.
 Python weights remain Float64 arrays and Java weighted inputs remain double[].
-The separate original `tdigest_rs` implementation retains its uint32 weights.
+The delta adapter exposes uint32 weights.
 
 ## 3. How new values are merged
 
@@ -225,7 +225,7 @@ scale that merges every input. The same guard applies when K2Norm is selected
 with max-size mode; its later cap/policy stages still run. Positive-domain
 arithmetic is unchanged, including the `+infinity` normalizer reached when a
 tiny positive delta overflows `n/delta` and the scale factor becomes zero.
-This changes the modern engine only; the original `tdigest_rs`/`tdigest_core`
+This changes the modern engine only; the former upstream
 calculation path remains pinned.
 
 
@@ -468,18 +468,20 @@ Adapters (`src/py.rs`, `src/jni.rs`, `src/polars_expr.rs`) should remain thin ar
 3. Doc split discipline.
 - Keep target behavior only in `api_design.md` and current internals only here.
 
-## Original G-Research numerical compatibility
+## Python delta compatibility
 
-`tdigest_rs.TDigest` uses the pinned `tdigest_core` workspace package at
-`src/upstream` through `src/upstream_py.rs`. The original Rust package and Python
-wrapper share these source files; a private crate alias preserves the adapter
-path without duplicating arithmetic. Both f32 arithmetic and u32 centroid weights are retained.
-The Python wrapper is unchanged from upstream, including its cached arrays and
-default-delta reconstruction during copy/pickle. This deliberate separate path
-preserves existing application outputs; `gr_tdigest`, Polars, Java, and the CLI
-continue using the modern shared core. Numerical fixes there must not silently
-change the original interface. See the vendored source provenance and exact
-output regression tests.
+Import `TDigest` from `tdigest_rs` for both modes. The original calling convention
+uses `delta=` (default 300). It accepts Float32 and Float64 NumPy arrays, ignores
+NaNs, retains infinite endpoints and returns a new digest from merge and update.
+Pass `max_size=` for capacity-based compression, strict finite inputs, fractional
+weights, CDF, in-place updates and TDIG serialization. Supply one sizing parameter
+per constructor. Both modes use the same Rust core for finite data.
+
+Compression, interpolation and restored-pickle queries use modern numerical
+results. For example, the 10th percentile of `[1.0, 2.0]` changes from 0.7 to
+1.0, and the median of `[0, 10]` with weights `[90, 10]` changes from 1 to 0.
+Published 0.1.0 pickles carry centroid means and weights. Loading one reconstructs
+a digest from those observations.
 
 Modern Python NumPy outputs use PyArray1::from_slice to copy f64 results directly into NumPy-owned memory. List and tuple outputs retain their existing container paths. The direct copy preserves dtype, shape, independent writable storage, OWNDATA and resizing. Moving Rust vectors into NumPy was considered but excluded because Rust-owned ndarray buffers cannot be resized.
 
@@ -487,15 +489,15 @@ The measured NumPy output change and its remaining inconclusive observations are
 
 ## Modern Python construction and the GIL
 
-The raw constructor calls the unchanged `FrontendDigest::from_values` inside `Python::allow_threads` once input conversion and configuration resolution are complete. The weighted constructor creates an unexposed empty digest, then releases the GIL around its unchanged `add_weighted_f64` call. Both closures work with owned vectors and Rust state only; error translation and returning the new Python object occur with the GIL held. Existing object methods and pinned original arithmetic retain their existing paths.
+The raw constructor calls the unchanged `FrontendDigest::from_values` inside `Python::allow_threads` once input conversion and configuration resolution are complete. The weighted constructor creates an unexposed empty digest, then releases the GIL around its unchanged `add_weighted_f64` call. Both closures work with owned vectors and Rust state only; error translation and returning the new Python object occur with the GIL held.
 
 Modern Python training uses `training_array_values` for constructors and updates. Aligned native-endian contiguous one-dimensional NumPy f32/f64 arrays are borrowed read-only while copying into an owned f64 vector; the borrow ends before the constructor releases the GIL. Other layouts/dtypes use the existing NumPy/Python conversion. Query conversion remains unchanged.
 
 ## Python runtime compatibility
 
-The Python package keeps Polars expression conversion, lazy imports, plugin registration and precision inference in `gr_tdigest/_polars.py`. `gr_tdigest/_shared.py` holds argument normalization and wire-header inspection shared with the numerical wrapper. The package initializer re-exports the existing API and retains numerical object adaptation; neither internal module imports the package initializer. Native plugin lookup stays relative to the installed package directory. Enum identities remain at the public package path for pickle compatibility.
+The Python package keeps Polars expression conversion, lazy imports, plugin registration and precision inference in `tdigest_rs/_polars.py`. `tdigest_rs/_shared.py` holds argument normalization and wire-header inspection shared with the numerical wrapper. The package initializer re-exports the existing API and retains numerical object adaptation; neither internal module imports the package initializer. Native plugin lookup stays relative to the installed package directory. Enum identities remain at the public package path for pickle compatibility.
 
-The extension targets the CPython3.10 stable ABI and advertises standard CPython3.10–3.15. The binding stack uses PyO3 0.29.3, rust-numpy 0.29, pyo3-polars 0.28 and Polars Rust0.55 with Python Polars 1.44.2 and 2.0.0. Development pins 1.44.2; the optional integration accepts >=1.0.0 without an upper cap. An installed-wheel matrix covers the 1.0 floor, representative 1.x releases and 2.0, verifying both base and extra installs preserve the preinstalled Polars version. Rust1.95 is pinned because the updated Polars dependency tree requires it. PyO3 attachment/cast and Polars iterator API migrations do not change digest arithmetic. The original upstream numerical sources, wrapper and91 tests remain checksum-bound.
+The extension targets the CPython3.10 stable ABI and advertises standard CPython3.10–3.15. The binding stack uses PyO3 0.29.3, rust-numpy 0.29, pyo3-polars 0.28 and Polars Rust0.55 with Python Polars 1.44.2 and 2.0.0. Development pins 1.44.2; the optional integration accepts >=1.0.0 without an upper cap. An installed-wheel matrix covers the 1.0 floor, representative 1.x releases and 2.0, verifying both base and extra installs preserve the preinstalled Polars version. Rust1.95 is pinned because the updated Polars dependency tree requires it. PyO3 attachment/cast and Polars iterator API migrations do not change digest arithmetic. The 91 upstream tests remain checksum-bound.
 
 The release gate builds the verified source archive once with Python 3.10, then installs that unchanged ABI3 wheel into isolated Python 3.10–3.15 runtimes, including a Polars-free installation on every version. It reuses Cargo dependency artifacts and runs alongside the main build and unit tests in CI. Standard CPython is the supported runtime; free-threaded and PyPy builds require separate artifacts and are not covered by these claims.
 
@@ -505,7 +507,7 @@ The parametrized tests in `tests/quality/test_accuracy.py` use shared independen
 
 Fast profiles run in normal pytest discovery and `make test`; the extended matrix is marked slow and collected with `--quality-extended`. Known accuracy-limit cases become expected failures only after invariants, frozen-metric tolerances and the exact finding inventory have been checked. New regressions fail normally. Optional pytest reports retain all measured outcomes, and candidate baseline generation requires a complete matrix and an explicit output directory without replacing the checked-in baselines.
 
-Exact rational weighted controls cover probability semantics across extreme mass scales. Rust numerical-foundation regressions cover tiny-capacity mass, residual contributions, cancellation and fractional atomic boundaries. The quality pytest lifecycle verifies source and installed native-binary hashes before finalizing reports or generating candidate baselines; changed inputs invalidate the receipt and fail the run. This verifies input stability, not universal Modern accuracy superiority. The independent original arithmetic, wrapper, oracle and 91 original tests stay untouched.
+Exact rational weighted controls cover probability semantics across extreme mass scales. Rust numerical-foundation regressions cover tiny-capacity mass, residual contributions, cancellation and fractional atomic boundaries. The quality pytest lifecycle verifies source and installed native-binary hashes before finalizing reports or generating candidate baselines; changed inputs invalidate the receipt and fail the run. This verifies input stability, not universal Modern accuracy superiority. The historical oracle and 91 original tests stay untouched.
 
 JVM test tool selection is shared through `bindings/java/bootstrap.py::java_environment`: Gradle and direct coherence subprocesses use the same verified JDK and child environment, including when host Java commands are unavailable.
 
@@ -576,13 +578,7 @@ CDF broadcasting follows row counts instead of nonempty digest contents. Scalar 
 
 ## Complete overflow boundaries
 
-The original `tdigest_core` entry points now route through `checked.rs`. It uses
-checked uint32 total accumulation before the pinned kernels and rejects nonfinite
-outputs or discarded cluster mass produced from finite observations. The original
-numerical kernels and Python wrapper remain checksum-pinned; the checksum gate
-reverses only the explicitly enumerated import routing in `lib.rs`. Source archive
-verification includes the guard module. In-range exact-output fixtures still run.
-The Python native adapter translates these checked errors to `ValueError`.
+The delta adapter checks uint32 mass and represents infinite endpoint mass separately from the finite Rust digest.
 
 Modern normalization uses a compensated run-mass fallback when naive coalescing
 overflows. Normalization and compression propagate `Result` to the public checked
@@ -593,7 +589,7 @@ committed after a failure. Trimmed means additionally accumulate normalized mass
 and moments, using those only when the historical direct moment is nonfinite.
 This preserves ordinary query results while recovering finite extreme averages.
 
-`tests/overflow_boundaries.rs`, original Rust overflow tests, and the language
+`tests/overflow_boundaries.rs` and the language
 coherence overflow matrix cover integer limits, overflowed moments, coalescing,
 creation/merge/scaling rollback, and finite extreme CDF/quantile queries. These
 checks concern arithmetic safety; they do not promise exact statistics or remove

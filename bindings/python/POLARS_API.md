@@ -31,7 +31,7 @@ by the compatibility gate; this package does not patch Polars namespace methods.
 
 ```python
 import polars as pl
-import gr_tdigest as gr
+import tdigest_rs as gr
 rows = pl.DataFrame({"g": ["a", "a", "b", "b"], "x": [0., 10., 100., 200.]})
 groups = rows.lazy().group_by("g").agg(gr.tdigest("x", max_size=1000).alias("d"))
 result = rows.lazy().join(groups, on="g").with_columns(gr.cdf("d", pl.col("x")).alias("p")).collect()

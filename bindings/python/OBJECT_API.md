@@ -1,25 +1,34 @@
 # Modern Python and NumPy API: consumer candidate
 
-This guide describes the development candidate, not an approved release. Import
-`gr_tdigest` for the modern engine. Import `tdigest_rs` for the pinned original
-G-Research engine. A modern `delta` argument does not switch engines.
+Import `TDigest` from `tdigest_rs` for both modes. The original calling convention
+uses `delta=` (default 300). It accepts Float32 and Float64 NumPy arrays, ignores
+NaNs, retains infinite endpoints and returns a new digest from merge and update.
+Pass `max_size=` for capacity-based compression, strict finite inputs, fractional
+weights, CDF, in-place updates and TDIG serialization. Supply one sizing parameter
+per constructor. Both modes use the same Rust core for finite data.
+
+Compression, interpolation and restored-pickle queries use modern numerical
+results. For example, the 10th percentile of `[1.0, 2.0]` changes from 0.7 to
+1.0, and the median of `[0, 10]` with weights `[90, 10]` changes from 1 to 0.
+Published 0.1.0 pickles carry centroid means and weights. Loading one reconstructs
+a digest from those observations.
 
 ## Construction and settings
 
 ```python
-from gr_tdigest import TDigest
+from tdigest_rs import TDigest
 d = TDigest.from_array([0.0, 10.0], weights=[9.0, 1.0], max_size=1000)
 assert d.median() == d.quantile(0.5) == 0.0
 ```
 
 Use the named constructors; `TDigest()` is not a constructor. `from_array(data,
-delta=None, *, max_size=1000, scale=..., singleton_policy=..., pin_per_side=None,
+*, max_size, scale=..., singleton_policy=..., pin_per_side=None,
 weights=..., precision="auto", f32_mode=None)` copies scalar or one-dimensional
 training data. `arr=` remains a supported spelling for `data`. Unknown arguments
 raise `TypeError`. Invalid values, lengths, configuration or representability
 raise `ValueError`.
 
-The default is capacity 1,000, K2, singleton Use and Float64 means. Object
+With `max_size=`, the defaults are K2, singleton Use and Float64 means. Object
 `precision="auto"` selects Float64, even for Float32 input. Explicit `f32` stores
 Float32 means/extrema; all weights, `count` and `sum` remain Float64. Capacity is
 a compression/storage setting, not observation count. The Python convenience

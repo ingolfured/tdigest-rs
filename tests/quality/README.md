@@ -6,11 +6,7 @@ measurement report. `make quality-extended` adds the slow matrix across storage
 budgets, input orders and merge paths, and retains its report. `make quality-regression`
 is the CI entry point for the extended tests.
 
-The measurements compare the modern and preserved original engines against sorted
-input after precision casting. Rank, tail, value and CDF errors stay separate;
-the original engine is matched by logical centroid field bytes without selecting
-for accuracy. This is a comparison budget, not a heap-memory claim. Every metric
-is checked against the existing frozen baseline with the same tolerances.
+The measurements compare the shared core with independently sorted input. The existing frozen modern baselines, tolerances and statistical limits remain in force. Historical two-engine comparisons are archived in `ACCURACY.md`.
 
 Ten extended profiles exceed the absolute accuracy envelope. They appear as
 pytest expected failures only after invariants and baseline regression assertions

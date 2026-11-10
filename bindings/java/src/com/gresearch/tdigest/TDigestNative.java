@@ -1,12 +1,12 @@
 package com.gresearch.tdigest;
 
 /**
- * JNI bridge for the native gr_tdigest library.
+ * JNI bridge for the native tdigest_rs library.
  *
  * Loading strategy:
- *  - Prefer explicit path via -Dcom.gresearch.tdigest.native=path/to/libgr_tdigest.so
+ *  - Prefer explicit path via -Dcom.gresearch.tdigest.native=path/to/libtdigest_rs.so
  *  - Otherwise load from META-INF/native/<os>-<arch>/… inside the JAR
- *  - Finally, fall back to System.loadLibrary("gr_tdigest")
+ *  - Finally, fall back to System.loadLibrary("tdigest_rs")
  *
  * Note: On JDK 22+, run with --enable-native-access=ALL-UNNAMED.
  */
@@ -21,7 +21,7 @@ final class TDigestNative {
       free(0L);
     } catch (UnsatisfiedLinkError e) {
       throw new UnsatisfiedLinkError(
-          "Failed to bind gr_tdigest natives. Ensure JNI_OnLoad is exported and the library was "
+          "Failed to bind tdigest_rs natives. Ensure JNI_OnLoad is exported and the library was "
           + "loaded with native access on JDK 22+. Original: " + e.getMessage());
     }
   }

@@ -1,8 +1,8 @@
 //! Finite compressed cluster means must remain in their input intervals.
 
-use gr_tdigest::tdigest::precision::FloatLike;
-use gr_tdigest::tdigest::TDigest;
 use ordered_float::FloatCore;
+use tdigest_rs::tdigest::precision::FloatLike;
+use tdigest_rs::tdigest::TDigest;
 
 fn compressed_adjacent_means<F: FloatLike + FloatCore>() {
     let points: [(f64, f64); 20] = [

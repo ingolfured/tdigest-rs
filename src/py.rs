@@ -565,7 +565,6 @@ fn merge_all(digests: Bound<'_, PyAny>) -> PyResult<PyTDigest> {
 
 pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyTDigest>()?;
-    crate::upstream_py::register(m)?;
     m.add_function(wrap_pyfunction!(wire_precision_py, m)?)?;
     m.add_function(wrap_pyfunction!(merge_all, m)?)?;
     Ok(())

@@ -47,7 +47,7 @@ class TestInvalidTrainingData:
             assert "inf" in e.value.output.lower()
 
     def test_python_rejects_nan_and_inf(self, cfg):
-        import gr_tdigest as td
+        from tdigest_rs import _modern as td
         cases = [
             [0.0, float("nan"), 1.0],
             [0.0, float("+inf"), 1.0],
@@ -67,7 +67,7 @@ class TestInvalidTrainingData:
 
     def test_polars_rejects_nan_inf_null(self, cfg):
         import polars as pl
-        import gr_tdigest as td
+        from tdigest_rs import _modern as td
         from polars.exceptions import ComputeError
 
         bad_frames = [
@@ -146,7 +146,7 @@ class TestInvalidTrainingData:
 
 class TestEmptyDigestBehavior:
     def test_python(self, cfg):
-        import gr_tdigest as td
+        from tdigest_rs import _modern as td
         d = td.TDigest.from_array(
             [],
             max_size=cfg["max_size"],
@@ -204,7 +204,7 @@ class TestEmptyDigestBehavior:
         B: no rows → merged (empty) digest → q=None, c=NaN (including ±∞ probes → NaN)
         """
         import polars as pl
-        import gr_tdigest as td
+        from tdigest_rs import _modern as td
 
         data   = pl.DataFrame({"g": ["A","A","A"], "x": [0.0, 1.0, 2.0]}).with_columns(pl.col("x").cast(pl.Float64))
         groups = pl.DataFrame({"g": ["A", "B"]})
@@ -297,7 +297,7 @@ class TestSmokeCoherence:
         assert_close_fn(p_at_x, expect["CDF2"], expect["EPS"])
 
     def test_python(self, dataset, expect, cfg, add_pin_kw_fn, assert_close_fn):
-        import gr_tdigest as td
+        from tdigest_rs import _modern as td
         kwargs = dict(
             max_size=cfg["max_size"],
             scale=cfg["scale_py"],
@@ -313,7 +313,7 @@ class TestSmokeCoherence:
 
     def test_polars(self, dataset, expect, cfg, add_pin_kw_fn, assert_close_fn):
         import polars as pl
-        import gr_tdigest as td
+        from tdigest_rs import _modern as td
 
         df = pl.DataFrame({"x": dataset["DATA"]}).with_columns(pl.col("x").cast(pl.Float64))
 
@@ -348,14 +348,14 @@ class TestSmokeCoherence:
 
 class TestPrecisionAuto:
     def test_python(self, dataset, expect):
-        import gr_tdigest as td
+        from tdigest_rs import _modern as td
         d = td.TDigest.from_array(dataset["DATA"], max_size=50, scale="k2", singleton_policy="use", precision="auto")
         assert math.isfinite(d.quantile(expect["P"]))
         assert math.isfinite(d.cdf(expect["X"]))
 
     def test_polars(self):
         import polars as pl
-        import gr_tdigest as td
+        from tdigest_rs import _modern as td
 
         DATA = [0.0, 1.0, 2.0, 3.0]
         base = pl.DataFrame({"x": DATA})
@@ -464,7 +464,7 @@ class TestArgumentMatrix:
 
     # ---------- Python ----------
     def test_python_matrix(self, cfg):
-        import gr_tdigest as td
+        from tdigest_rs import _modern as td
         for scale in self.SIMPLE_SCALES:
             for pol in self.SIMPLE_POLICIES:
                 for prec in self.PRECS:
@@ -483,7 +483,7 @@ class TestArgumentMatrix:
     # ---------- Polars ----------
     def test_polars_matrix(self, cfg):
         import polars as pl
-        import gr_tdigest as td
+        from tdigest_rs import _modern as td
 
         base = pl.DataFrame({"x": self.DATA}).with_columns(pl.col("x").cast(pl.Float64))
 

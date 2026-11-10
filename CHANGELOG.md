@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Consolidate Python construction under `tdigest_rs`: `delta=` (default 300) retains the original calling convention and `max_size=` selects the capacity API. Both use modern Rust arithmetic. Remove the separate Python namespace and original Rust engine. Historical pickle states remain readable.
+
 - Consolidate engine and release guidance, correct the exact-point underflow
   note and preserve the Windows wrapper's CRLF bytes on fresh checkouts.
 
@@ -24,16 +26,14 @@ All notable changes to this project are documented in this file.
 - Record fresh 0.1.0/1.0.0 performance and artifact validation, including slower
   queries/modern merges, unequal storage budgets and the ten known accuracy limits.
 
-- Propose upstream version 1.0.0 with an explicit staged rollout: preserve the
-  legacy path now, deprecate only in a later release, and remove only in a future
-  major release after notice. Isolate the byte-identical original 91-case suite
+- Isolate the byte-identical original 91-case suite
   under `tests/upstream_legacy/` with inventory, checksum and separate result gates.
 
 - Replace the upstream contribution snapshot with the completed personal-repository
   0.3.0 tree at `0eaa79411d1ca46cd0cf7294b03b6aafaf1a120c`, including the final
   accuracy report and capacity-search optimization. Preserve the `tdigest-rs`
   distribution, `com.gresearch.tdigest` JVM namespace, upstream governance files
-  and pinned release workflow; retain the original numerical compatibility engine.
+  and pinned release workflow.
 
 The planned upstream release is **1.0.0**. Read the [1.0.0 release notes](RELEASE_NOTES_1.0.0.md)
 for the imported development changes, upgrade instructions and supported runtimes.
@@ -64,8 +64,7 @@ for the imported development changes, upgrade instructions and supported runtime
 
 ### Compatibility and delivery
 
-- Provide the original `tdigest_rs` Python and `tdigest_core` Rust interfaces
-  with pinned in-range calculations and historical behavior, plus explicit overflow errors.
+- Check delta input compatibility, integer weight range and published pickle migration.
 - Support standard CPython 3.10–3.15 and optional Polars with tested 1.x/2.x
   versions; preserve an already installed compatible Polars version.
 - Ship Python type declarations, standalone native JAR loading, Scala/Kotlin/Spark
@@ -175,7 +174,9 @@ upstream baseline for this contribution is 0.1.0.
 - `Cargo.toml` now includes crate publish metadata (description/license/repository/homepage/documentation/readme/keywords/categories) for crates.io readiness.
 - `bindings/java/build.gradle` now supports repository-configured Maven publishing via environment variables, optional in-memory PGP signing, and publishes sources/javadoc jars with SCM/license metadata.
 - `README.md` now documents GitHub release workflow setup for PyPI, Cargo, and Maven publishing.
-- `AGENTS.md` now requires moving `## [Unreleased]` notes into a versioned section before pushing release tags.
+- `AGENTS.md` now requires moving `## [Unreleased]
+
+- Consolidate Python construction under `tdigest_rs`: `delta=` (default 300) retains the original calling convention and `max_size=` selects the capacity API. Both use modern Rust arithmetic. Remove the separate Python namespace and original Rust engine. Historical pickle states remain readable.` notes into a versioned section before pushing release tags.
 
 ## [0.2.0] - 2026-02-14
 

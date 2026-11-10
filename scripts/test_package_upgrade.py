@@ -45,20 +45,27 @@ if sys.argv[1] == 'record':
             for seed in (31, 4242):
                 for delta in (30., 300.):
                     values=np.random.default_rng(seed).normal(size=n).astype(dtype)
-                    payload=pickle.dumps(TDigest.from_array(values, delta=delta), protocol=5)
+                    original=TDigest.from_array(values, delta=delta)
+                    payload=pickle.dumps(original, protocol=5)
                     rows.append({'dtype': str(values.dtype), 'n': n, 'seed': seed, 'delta': delta,
                                  'pickle': base64.b64encode(payload).decode(),
-                                 'restored': snapshot(pickle.loads(payload))})
+                                 'saved': snapshot(original)})
     assert len(rows) == 32
     path.write_text(json.dumps(rows, indent=2)+'\n')
 else:
     assert version('tdigest-rs') == sys.argv[3]
-    import gr_tdigest
-    assert gr_tdigest.__version__ == version('tdigest-rs')
+    import tdigest_rs
+    assert tdigest_rs.__version__ == version('tdigest-rs')
     rows=json.loads(path.read_text())
     assert len(rows)==32
     for row in rows:
-        assert snapshot(pickle.loads(base64.b64decode(row['pickle']))) == row['restored'], row
+        saved = row['saved']
+        means = np.frombuffer(base64.b64decode(saved['means']), dtype=saved['means_dtype'])
+        weights = np.frombuffer(base64.b64decode(saved['weights']), dtype=saved['weights_dtype'])
+        expected = TDigest.from_means_weights(means, weights)
+        actual = pickle.loads(base64.b64decode(row['pickle']))
+        assert snapshot(actual) == snapshot(expected), row
+        assert actual.weights.sum() == weights.sum(), row
 print(json.dumps({'version': version('tdigest-rs'), 'restored_states': len(rows), 'status': 'PASS'}))
 """
 
@@ -171,7 +178,7 @@ def main() -> None:
         "upgraded_original_tests": ORIGINAL_TEST_CASES,
         "reinstalled_original_tests": ORIGINAL_TEST_CASES,
         "additional_compatibility_tests_per_candidate_install": COMPATIBILITY_CASES - ORIGINAL_TEST_CASES,
-        "published_pickle_states_preserved": 32,
+        "published_pickle_states_migrated": 32,
     }
     (output / "result.json").write_text(json.dumps(report, indent=2) + "\n")
 

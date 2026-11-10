@@ -1,9 +1,9 @@
 //! Query-only normalization of positive subnormal mass.
 
-use gr_tdigest::tdigest::centroids::Centroid;
-use gr_tdigest::tdigest::precision::FloatLike;
-use gr_tdigest::tdigest::{DigestStats, TDigest};
 use ordered_float::FloatCore;
+use tdigest_rs::tdigest::centroids::Centroid;
+use tdigest_rs::tdigest::precision::FloatLike;
+use tdigest_rs::tdigest::{DigestStats, TDigest};
 
 fn seeded<F: FloatLike + FloatCore>(
     weights: &[f64],
@@ -199,7 +199,7 @@ fn empty_and_normal_mass_behavior_is_unchanged() {
 fn with_count<F: FloatLike + FloatCore>(
     td: &TDigest<F>,
     count: f64,
-) -> gr_tdigest::TdResult<TDigest<F>> {
+) -> tdigest_rs::TdResult<TDigest<F>> {
     TDigest::<F>::builder()
         .with_centroids_and_stats(
             td.centroids().to_vec(),

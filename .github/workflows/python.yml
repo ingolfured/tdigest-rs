@@ -30,7 +30,7 @@ jobs:
         run: |
           uv run --project bindings/python --no-sync ruff check --config bindings/python/pyproject.toml bindings/python scripts/check_python_sdist.py scripts/test_legacy_wheel.py scripts/test_python_support.py scripts/test_python_interfaces.py scripts/prepare_release_sdist.py scripts/check_upstream_tests.py scripts/test_upstream_legacy.py scripts/benchmark_upstream.py scripts/test_package_upgrade.py
           uv run --project bindings/python --no-sync ruff format --check --config bindings/python/pyproject.toml bindings/python scripts/check_python_sdist.py scripts/test_legacy_wheel.py scripts/test_python_support.py scripts/test_python_interfaces.py scripts/prepare_release_sdist.py scripts/check_upstream_tests.py scripts/test_upstream_legacy.py scripts/benchmark_upstream.py scripts/test_package_upgrade.py
-          uv run --project bindings/python --no-sync python scripts/check_upstream_sources.py
+          uv run --project bindings/python --no-sync python scripts/check_upstream_tests.py
 
   test:
     name: Test

@@ -22,8 +22,8 @@ final class Natives {
     if (arch.equals("amd64")) arch = "x86_64";
     if (arch.equals("arm64")) arch = "aarch64";
     String platform = os.contains("win") ? "windows" : os.contains("mac") ? "macos" : "linux";
-    String lib = platform.equals("windows") ? "gr_tdigest.dll"
-        : platform.equals("macos") ? "libgr_tdigest.dylib" : "libgr_tdigest.so";
+    String lib = platform.equals("windows") ? "tdigest_rs.dll"
+        : platform.equals("macos") ? "libtdigest_rs.dylib" : "libtdigest_rs.so";
     String resource = "/META-INF/native/" + platform + "-" + arch + "/" + lib;
     String override = System.getProperty("com.gresearch.tdigest.native");
     if (override != null) {
@@ -53,7 +53,7 @@ final class Natives {
     }
     // Development-only paths are used only when no bundled resource exists.
     try {
-      System.loadLibrary("gr_tdigest");
+      System.loadLibrary("tdigest_rs");
       identity = "java.library.path=" + System.getProperty("java.library.path") + " (payload hash unavailable)";
       loaded = true;
       return;

@@ -47,7 +47,7 @@ def test_old_dictionary_state_and_defaults_remain_supported():
     state = {"means": np.array([0, 10], dtype=np.float32), "weights": np.array([90, 10], dtype=np.uint32)}
     digest = TDigest.__new__(TDigest)
     digest.__setstate__(state)
-    assert digest.median() == digest.quantile(0.5) == 1
+    assert digest.median() == digest.quantile(0.5) == 0
     assert set(digest.to_dict()) == {"means", "weights"}
 
 
@@ -56,9 +56,9 @@ def test_original_float32_weights_are_never_rounded_to_float32():
     assert digest.weights.tolist() == [16_777_217]
 
 
-def test_original_lower_tail_interpolation_is_preserved():
+def test_delta_uses_modern_lower_tail_interpolation():
     digest = TDigest.from_array(np.array([1.0, 2.0]))
-    assert digest.quantile(0.1) == 0.7000000000000001
+    assert digest.quantile(0.1) == 1.0
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])

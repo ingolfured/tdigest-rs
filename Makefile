@@ -29,7 +29,7 @@ endef
 # ----------------------------------------------------------------------
 # Project naming
 # ----------------------------------------------------------------------
-CRATE_NAME      ?= gr_tdigest
+CRATE_NAME      ?= tdigest_rs
 PROJECT_SLUG    ?= tdigest-rs
 JAR_ARTIFACT    ?= $(PROJECT_SLUG)
 
@@ -51,7 +51,7 @@ UV_ENV := UV_PROJECT_ENVIRONMENT="$(CURDIR)/.venv" UV_CACHE_DIR="$(UV_CACHE_DIR)
 
 # Python layout
 PY_DIR          := bindings/python
-PY_PKG_DIR      := $(PY_DIR)/gr_tdigest
+PY_PKG_DIR      := $(PY_DIR)/tdigest_rs
 PY_TESTS_DIR    := $(PY_DIR)/tests
 
 # Upstream tdigest-rs review compatibility snapshot
@@ -240,7 +240,6 @@ test: rust-test java-test py-test compat-test
 
 rust-test:
 	$(CARGO) test -- --quiet
-	$(CARGO) test -p tdigest_core -- --quiet
 
 # Explicit path to bindings/python/tests (pytest discovers from pyproject too)
 py-test: build-python
@@ -310,7 +309,7 @@ lint:
 	$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync ruff format --check --config "$(PY_DIR)/pyproject.toml" scripts/quality_budgets.py scripts/fetch_quality_data.py tests/quality
 
 	$(call banner,Python: mypy (auto-install types if missing))
-	@(cd "$(PY_DIR)" && $(UV_ENV) $(UV) run --no-sync python -m mypy gr_tdigest --install-types --non-interactive)
+	@(cd "$(PY_DIR)" && $(UV_ENV) $(UV) run --no-sync python -m mypy tdigest_rs --install-types --non-interactive)
 
 	$(call banner,Rust docs: deny warnings)
 	@set -euo pipefail; \
@@ -358,7 +357,7 @@ smoke-wheel:
 	$(UV) pip install --python "$$TMP/bin/python" --upgrade pip; \
 	$(UV) pip install --python "$$TMP/bin/python" 'polars==1.44.2' 'numpy>=1.26.4,<3'; \
 	$(UV) pip install --python "$$TMP/bin/python" --no-index "$${LATEST}[polars]"; \
-	"$$TMP/bin/python" -c "import gr_tdigest as td; d=td.TDigest.from_array([0.0,1.0,2.0,3.0], max_size=100, scale='k2'); print('p50=', d.quantile(0.5)); print('cdf=', td.cdf); print('ok')"; \
+	"$$TMP/bin/python" -c "import tdigest_rs as td; d=td.TDigest.from_array([0.0,1.0,2.0,3.0], max_size=100, scale='k2'); print('p50=', d.quantile(0.5)); print('cdf=', td.cdf); print('ok')"; \
 	rm -rf "$$TMP"; \
 	echo "✅ smoke-wheel ok (file=$$LATEST)"
 

@@ -79,9 +79,10 @@ def load_run(mode):
         assert known["protocol_sha256"] == PROTOCOL_SHA256, "known-limit protocol changed"
         known_findings = known["findings"]
         assert set(known_findings) <= set(cases), "known-limit case absent from matrix"
-    native = Path(sys.modules["gr_tdigest._gr_tdigest"].__file__)
+    native = Path(sys.modules["tdigest_rs._native"].__file__)
     receipt = {
-        "protocol": quality.PROTOCOL,
+        "baseline_protocol": quality.PROTOCOL,
+        "engine": "shared Rust core, capacity mode",
         "protocol_sha256": PROTOCOL_SHA256,
         "runner_sha256": quality.sha(Path(quality.__file__)),
         "test_inputs_sha256": {path.name: quality.sha(path) for path in sorted(DIRECTORY.glob("*.py"))},
@@ -162,7 +163,7 @@ def quality_runs(request):
         output = request.config.getoption("--quality-baseline-output")
         if output:
             rows = run["receipt"]["rows"]
-            assert run["receipt"]["complete"] and all("modern" in row and "original" in row for row in rows), (
+            assert run["receipt"]["complete"] and all("modern" in row for row in rows), (
                 "candidate baseline requires a complete measurement matrix"
             )
             candidate = {key: run["receipt"][key] for key in ("protocol_sha256", "data_manifest_sha256")}
@@ -193,7 +194,7 @@ def quality_row(quality_profile, quality_runs):
         values = values[::-1].copy()
     row["n"] = len(values)
     try:
-        modern = quality.build(values, row["precision"], row["max_size"], "modern", row["path"])
+        modern = quality.build(values, row["precision"], row["max_size"], row["path"])
         modern_bytes = len(modern) * (values.dtype.itemsize + 8 + 1)
         row["modern_state"] = dict(
             centroids=len(modern),
@@ -203,17 +204,6 @@ def quality_row(quality_profile, quality_runs):
         )
         exact = quality.Exact(values.tolist())
         row["modern"] = quality.score(modern, exact, True)
-        original, delta, size, trace = quality.match_original(values, row["precision"], modern_bytes, row["path"])
-        row["original_state"] = dict(
-            centroids=len(original),
-            field_bytes=size,
-            delta=delta,
-            selection_trace=trace,
-            **quality.invariants(original, values, row["precision"], False),
-        )
-        row["original"] = quality.score(original, exact, False)
-        row["comparison_eligible"] = 0.9 <= size / modern_bytes <= 1.0
-        row["budget_fill"] = size / modern_bytes
         bound = 0.1 if row["max_size"] <= 32 else 0.05
         row["accuracy_limits"] = [metric for metric in ("rank_max", "cdf_max") if row["modern"][metric] > bound]
     except Exception as error:

@@ -1,8 +1,8 @@
-use gr_tdigest::tdigest::centroids::Centroid;
-use gr_tdigest::tdigest::scale::ScaleFamily;
-use gr_tdigest::tdigest::singleton_policy::SingletonPolicy;
-use gr_tdigest::tdigest::tdigest::DigestStats;
-use gr_tdigest::tdigest::TDigest;
+use tdigest_rs::tdigest::centroids::Centroid;
+use tdigest_rs::tdigest::scale::ScaleFamily;
+use tdigest_rs::tdigest::singleton_policy::SingletonPolicy;
+use tdigest_rs::tdigest::tdigest::DigestStats;
+use tdigest_rs::tdigest::TDigest;
 
 #[test]
 fn public_builder_never_exposes_invalid_configuration() {

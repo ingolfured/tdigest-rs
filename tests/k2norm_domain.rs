@@ -1,8 +1,8 @@
 //! An oversized delta must retain information when K2Norm's normalizer is nonpositive.
 
-use gr_tdigest::tdigest::singleton_policy::SingletonPolicy;
-use gr_tdigest::tdigest::wire::{decode_digest, WireDecodedDigest};
-use gr_tdigest::tdigest::{ScaleFamily, TDigest};
+use tdigest_rs::tdigest::singleton_policy::SingletonPolicy;
+use tdigest_rs::tdigest::wire::{decode_digest, WireDecodedDigest};
+use tdigest_rs::tdigest::{ScaleFamily, TDigest};
 
 fn computed_domain_boundaries() -> [f64; 3] {
     // libm rounding can put several adjacent deltas on the zero plateau.

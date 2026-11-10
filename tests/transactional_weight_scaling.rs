@@ -1,10 +1,10 @@
 //! Scaling validates all candidate mass before replacing the digest state.
 
-use gr_tdigest::tdigest::centroids::Centroid;
-use gr_tdigest::tdigest::precision::FloatLike;
-use gr_tdigest::tdigest::TDigest;
-use gr_tdigest::TdError;
 use ordered_float::FloatCore;
+use tdigest_rs::tdigest::centroids::Centroid;
+use tdigest_rs::tdigest::precision::FloatLike;
+use tdigest_rs::tdigest::TDigest;
+use tdigest_rs::TdError;
 
 fn rejected_products<F: FloatLike + FloatCore>() {
     for (label, weights, factor) in [

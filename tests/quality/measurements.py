@@ -16,8 +16,7 @@ from pathlib import Path
 from statistics import NormalDist
 
 import numpy as np
-from gr_tdigest import TDigest as Modern
-from tdigest_rs import TDigest as Original
+from tdigest_rs import TDigest
 
 PROTOCOL = {
     "version": 1,
@@ -62,7 +61,6 @@ def source_hashes() -> dict[str, str]:
         root / "rust-toolchain.toml",
         root / "bindings/python/pyproject.toml",
         *sorted((root / "src").rglob("*.rs")),
-        *sorted((root / "bindings/python/gr_tdigest").glob("*.py")),
         *sorted((root / "bindings/python/tdigest_rs").glob("*.py")),
     ]
     return {str(p.relative_to(root)): sha(p) for p in paths}
@@ -187,21 +185,12 @@ def datasets(directory: Path, mode: str):
         yield "synthetic/" + name, "synthetic", values
 
 
-def build(values, precision: str, budget: float, engine: str, path: str):
-    if engine == "modern":
+def build(values, precision: str, budget: float, path: str):
+    def raw(a):
+        return TDigest.from_array(a, max_size=int(budget), precision=precision, **PROTOCOL["modern"])
 
-        def raw(a):
-            return Modern.from_array(a, max_size=int(budget), precision=precision, **PROTOCOL["modern"])
-
-        def merge(a, b):
-            return Modern.merge_all([a, b])
-    else:
-
-        def raw(a):
-            return Original.from_array(a, delta=budget)
-
-        def merge(a, b):
-            return a.merge(b, delta=budget)
+    def merge(a, b):
+        return TDigest.merge_all([a, b])
 
     if path == "bulk":
         return raw(values)
@@ -214,41 +203,6 @@ def build(values, precision: str, budget: float, engine: str, path: str):
     while len(parts) > 1:
         parts = [merge(parts[i], parts[i + 1]) if i + 1 < len(parts) else parts[i] for i in range(0, len(parts), 2)]
     return parts[0]
-
-
-def match_original(values, precision: str, target_bytes: int, path: str):
-    width = values.dtype.itemsize + 4
-    trace = []
-    candidates = []
-    observed = []
-
-    def attempt(delta):
-        digest = build(values, precision, delta, "original", path)
-        size = len(digest) * width
-        trace.append({"delta": delta, "centroids": len(digest), "field_bytes": size})
-        observed.append((size, delta, digest))
-        if size <= target_bytes:
-            candidates.append((size, delta, digest))
-        return size
-
-    lo, hi = 1.0, 2.0
-    attempt(lo)
-    while attempt(hi) <= target_bytes and hi < 65536:
-        lo, hi = hi, hi * 2
-        if len(candidates[-1][2]) == len(set(map(float, values))):
-            break
-    for _ in range(12):
-        mid = (lo + hi) / 2
-        if attempt(mid) <= target_bytes:
-            lo = mid
-        else:
-            hi = mid
-    # Some degenerate original states retain two or more identical means.
-    # Keep them visible when even the smallest observed state exceeds budget.
-    size, delta, digest = (
-        max(candidates, key=lambda c: (c[0], c[1])) if candidates else min(observed, key=lambda c: c[0])
-    )
-    return digest, delta, size, trace
 
 
 def invariants(digest, values, precision: str, modern: bool):
@@ -274,7 +228,7 @@ def invariants(digest, values, precision: str, modern: bool):
     if modern:
         if digest.inner_kind() != precision:
             raise AssertionError("wrong actual storage precision")
-        restored = Modern.from_bytes(digest.to_bytes())
+        restored = TDigest.from_bytes(digest.to_bytes())
         if restored.to_bytes() != digest.to_bytes():
             raise AssertionError("state roundtrip changed")
     return {

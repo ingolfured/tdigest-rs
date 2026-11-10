@@ -6,7 +6,7 @@ import math
 from enum import Enum
 from typing import Any, Literal, Optional
 
-from ._gr_tdigest import wire_precision_py as _wire_precision_native
+from ._native import wire_precision_py as _wire_precision_native
 
 
 # --- enums --------------------------------------------------------------------

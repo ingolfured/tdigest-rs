@@ -1,9 +1,6 @@
-# Choosing an engine
+# Historical engine comparison
 
-Use `tdigest_rs` to reproduce existing G-Research results. Choose `gr_tdigest`
-for CDF queries, fractional weights, portable full-state serialization and a
-shared implementation across Rust, Python, Java and Polars. The same delta can
-give different numerical answers across engines. See [API compatibility](compat/gr_tdigest_vs_tdigest_rs.md).
+The release now exposes delta and capacity modes from one Rust engine. See [Python compatibility](compat/python-modes.md) for current behavior.
 
 ## Modern versus original GR: measured accuracy (CI, 21 October 2026)
 

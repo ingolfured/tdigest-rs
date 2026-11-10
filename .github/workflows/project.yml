@@ -75,7 +75,7 @@ jobs:
         run: |
           override_dir="$RUNNER_TEMP/tdigest-native-override"
           mkdir -p "$override_dir"
-          cp target/release/libgr_tdigest.so "$override_dir/custom-native-name.so"
+          cp target/release/libtdigest_rs.so "$override_dir/custom-native-name.so"
           TDIGEST_NATIVE_FILE="$override_dir/custom-native-name.so" \
           TDIGEST_SOURCE_SHA="$GITHUB_SHA" \
           bindings/java/gradlew --no-daemon --console=plain --offline -p bindings/java jar

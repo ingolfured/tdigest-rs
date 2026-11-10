@@ -7,7 +7,7 @@ import textwrap
 import pytest
 
 
-@pytest.mark.parametrize("first_package", ["tdigest_rs", "gr_tdigest"])
+@pytest.mark.parametrize("first_package", ["tdigest_rs", "tdigest_rs._native"])
 def test_numerical_apis_without_polars_and_optional_plugin_use(first_package, tmp_path):
     # A subprocess prevents another test's imports from hiding an eager import.
     script = textwrap.dedent(
@@ -29,7 +29,7 @@ def test_numerical_apis_without_polars_and_optional_plugin_use(first_package, tm
         sys.meta_path.insert(0, blocker)
         importlib.import_module(sys.argv[1])
         import numpy as np
-        import gr_tdigest as modern
+        from tdigest_rs import _modern as modern
         from tdigest_rs import TDigest
 
         values = np.array([0.0, 1.0, 2.0, 3.0])

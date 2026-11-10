@@ -4,9 +4,9 @@ use std::time::Duration;
 #[cfg(all(target_os = "linux", target_env = "gnu"))]
 use bytesize::ByteSize;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use gr_tdigest::tdigest::{ScaleFamily, TDigest};
 #[cfg(all(target_os = "linux", target_env = "gnu"))]
 use jemalloc_ctl::{epoch, stats};
+use tdigest_rs::tdigest::{ScaleFamily, TDigest};
 use testdata::{gen_dataset, DistKind};
 
 /* ------------------------ helpers ------------------------ */

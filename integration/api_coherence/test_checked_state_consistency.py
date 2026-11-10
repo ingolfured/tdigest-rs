@@ -3,7 +3,7 @@
 import base64
 import struct
 
-import gr_tdigest as td
+from tdigest_rs import _modern as td
 import polars as pl
 import pytest
 

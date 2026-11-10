@@ -35,7 +35,7 @@ Cross-surface behavior is enforced by integration tests in `integration/api_cohe
 - `src/polars_expr.rs`: Polars plugin UDFs (`tdigest`, `add_values`, `cdf`, `quantile`, `median`, merge, byte conversions).
 - `src/jni.rs`: JNI exports used by Java bridge.
 - `src/bin/tdigest_cli.rs`: CLI used heavily by coherence tests.
-- `bindings/python/gr_tdigest/__init__.py`: Python public API + Polars plugin wiring (keep runtime patching minimal).
+- `bindings/python/tdigest_rs/__init__.py`: Python public API + Polars plugin wiring (keep runtime patching minimal).
 - `bindings/java/src/com/gresearch/tdigest/`: Java API, native loader, JNI method declarations.
 - `integration/api_coherence/`: behavior contracts across CLI/Python/Polars/Java.
 - `integration/api_coherence/test_wire_python_polars.py` and `integration/api_coherence/test_wire_java_interop.py`: cross-language byte-wire compatibility.
@@ -156,7 +156,7 @@ Use `Makefile` targets by default.
 - Keep this layer focused on Python argument/container conversion and exception translation.
 - Do not re-implement merge/config/probe/training rules here if they already exist in Rust frontend helpers.
 
-### 5.4 Python package wrapper (`bindings/python/gr_tdigest/__init__.py`)
+### 5.4 Python package wrapper (`bindings/python/tdigest_rs/__init__.py`)
 
 - Keep this file mostly declarative: argument normalization, Polars expression wrappers, and ergonomic aliases.
 - Polars plugin entry points are here (`tdigest`, `add_values`, `cdf`, `quantile`, `median`, `merge_tdigests`, `to_bytes`, `from_bytes`).
@@ -180,7 +180,7 @@ Use `Makefile` targets by default.
 - `Natives.java` load order:
   1. `-Dcom.gresearch.tdigest.native=...`
   2. bundled JAR resource
-  3. `System.loadLibrary("gr_tdigest")`
+  3. `System.loadLibrary("tdigest_rs")`
   4. local `target/release`
 - Keep Java and JNI behavior aligned with integration contracts.
 
@@ -239,7 +239,7 @@ If only one surface changed, still run the relevant coherence subset.
 - `make build` passes.
 - `make test` passes.
 - No capability regressions in parity/coherence suites.
-- Bindings (`src/py.rs`, `src/jni.rs`, `bindings/python/gr_tdigest/__init__.py`) are measurably smaller and have less duplicated validation logic.
+- Bindings (`src/py.rs`, `src/jni.rs`, `bindings/python/tdigest_rs/__init__.py`) are measurably smaller and have less duplicated validation logic.
 
 ## 8. Common pitfalls
 

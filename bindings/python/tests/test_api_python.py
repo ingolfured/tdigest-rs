@@ -6,7 +6,7 @@ from copy import deepcopy
 import numpy as np
 import pytest
 
-from gr_tdigest import ScaleFamily, SingletonPolicy, TDigest
+from tdigest_rs import ScaleFamily, SingletonPolicy, TDigest
 
 
 class TestPythonApiSmoke:
@@ -100,8 +100,8 @@ class TestPythonApiSmoke:
 
     def test_delta_mode_uses_legacy_k2_cluster_rule(self):
         d = TDigest.from_means_weights(
-            [0.0, 1.0, 2.0, 3.0, 4.0],
-            [100.0, 1.0, 1.0, 1.0, 1.0],
+            np.arange(5, dtype=np.float64),
+            np.array([100, 1, 1, 1, 1], dtype=np.uint32),
             delta=20.0,
         )
 
@@ -182,8 +182,8 @@ class TestPythonApiValidation:
         with pytest.raises(ValueError, match="either max_size or delta"):
             TDigest.from_array([0.0, 1.0], max_size=64, delta=20.0)
 
-        with pytest.raises(ValueError, match="scale='k2norm'"):
+        with pytest.raises(TypeError, match="specify max_size"):
             TDigest.from_array([0.0, 1.0], delta=20.0, scale="k3")
 
-        with pytest.raises(ValueError, match="singleton_policy='off'"):
+        with pytest.raises(TypeError, match="specify max_size"):
             TDigest.from_array([0.0, 1.0], delta=20.0, singleton_policy=SingletonPolicy.USE)

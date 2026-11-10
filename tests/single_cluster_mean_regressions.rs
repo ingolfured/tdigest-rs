@@ -1,6 +1,6 @@
 //! One-centroid compressor clusters must be exact pass-throughs.
 
-use gr_tdigest::tdigest::TDigest;
+use tdigest_rs::tdigest::TDigest;
 
 #[test]
 fn fractional_atomic_mean_and_cdf_stay_at_the_observed_value() {

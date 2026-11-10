@@ -8,7 +8,7 @@ use std::process::Command;
 use std::time::Duration;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput};
-use gr_tdigest::tdigest::{ScaleFamily, TDigest};
+use tdigest_rs::tdigest::{ScaleFamily, TDigest};
 use testdata::{gen_dataset, DistKind};
 
 #[cfg(target_os = "linux")]

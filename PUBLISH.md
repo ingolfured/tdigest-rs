@@ -1,12 +1,7 @@
 # Publishing tdigest-rs
 
 The proposed upstream release version is `1.0.0`. The root `Cargo.toml` supplies
-that version to the Python distribution and JVM artifact. The original
-`tdigest_core` workspace package remains at `0.2.0`.
-
-Follow [ROLLOUT.md](ROLLOUT.md): this major release supports the old path without
-new deprecation warnings. Any deprecation and subsequent major-version removal
-are separate future release decisions, with migration documentation and notice.
+that version to the Python distribution and JVM artifact. See [the migration guide](ROLLOUT.md).
 
 ## Release prerequisites
 
@@ -26,7 +21,6 @@ Use the **Create release** workflow (`.github/workflows/create-release.yml`) wit
 the approved semantic version. It retains the existing `create-release`
 environment and GitHub App credentials. It updates the root `tdigest-rs` Cargo
 package and lockfile, commits the version, and pushes the corresponding `v*` tag.
-The preserved `tdigest_core` package is not version-bumped by that operation.
 
 The tag triggers **CI**. After the required Rust, Python and cross-language jobs
 succeed, the existing release workflow downloads the `python-package-*`
@@ -43,8 +37,7 @@ in place. Fork CI does not replace the upstream approving review or required che
 The upstream automated release publishes Python and GitHub artifacts. Rust and
 Maven publication remain separate, explicit maintainer actions. The local Makefile
 provides `publish-cargo` and `publish-maven`, but they are not invoked by upstream
-CI. A matching registry `tdigest_core` dependency must exist before publishing
-the root Rust crate; a local path dependency is not sufficient for registry users.
+CI.
 
 The JVM coordinates are `com.gresearch.tdigest:tdigest-rs`. Set `TDIGEST_SOURCE_SHA`
 when building a release JAR to record the source commit alongside the native

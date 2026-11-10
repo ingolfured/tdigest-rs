@@ -1,6 +1,6 @@
 from typing import Literal
 
-from . import TDigest as TDigest
+from ._modern import TDigest as TDigest
 
 __version__: str
 

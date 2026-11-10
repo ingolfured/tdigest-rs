@@ -16,7 +16,7 @@ import subprocess
 import sys
 import time
 
-import gr_tdigest as gr
+import tdigest_rs as gr
 import numpy as np
 import polars as pl
 
@@ -174,7 +174,7 @@ def main():
     args.output.parent.mkdir(parents=True, exist_ok=True)
     if args.worker:
         result = worker(args.worker)
-        native = Path(importlib.import_module("gr_tdigest._gr_tdigest").__file__)
+        native = Path(importlib.import_module("tdigest_rs._native").__file__)
         result.update(
             scenario=args.worker,
             source_sha=args.source_sha,

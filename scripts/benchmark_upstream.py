@@ -23,12 +23,8 @@ import time
 def worker(engine: str) -> dict:
     import copy
     import numpy as np
-    import tdigest_rs
+    import tdigest_rs as api
 
-    if engine == "modern":
-        import gr_tdigest as api
-    else:
-        api = tdigest_rs
     assert Path(api.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
     rows = []
 

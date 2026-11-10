@@ -3,7 +3,7 @@
 import base64
 import subprocess
 
-import gr_tdigest as td
+from tdigest_rs import _modern as td
 import numpy as np
 import polars as pl
 import pytest
@@ -28,15 +28,16 @@ def test_original_uint32_limits_and_float_overflow_raise_value_errors(dtype):
     np.testing.assert_array_equal(full.weights, before[1])
     assert full.quantile(0.5) == 1.0
     huge = np.finfo(dtype).max
-    extreme = OriginalDigest.from_means_weights(
-        np.array([huge / 2, huge], dtype=dtype), np.array([10, 10], dtype=np.uint32)
-    )
-    for query in [
-        lambda: extreme.quantile(0.5),
-        lambda: extreme.trimmed_mean(0.0, 1.0),
-    ]:
+    means = np.array([huge / 2, huge], dtype=dtype)
+    weights = np.array([10, 10], dtype=np.uint32)
+    if dtype == np.float64:
         with pytest.raises(ValueError, match="overflow"):
-            query()
+            OriginalDigest.from_means_weights(means, weights)
+    else:
+        # Modern sums are Float64 even with Float32 mean storage.
+        extreme = OriginalDigest.from_means_weights(means, weights)
+        assert np.isfinite(extreme.median())
+        assert np.isfinite(extreme.trimmed_mean(0.0, 1.0))
 
 
 @pytest.mark.parametrize("precision", ["f32", "f64"])
