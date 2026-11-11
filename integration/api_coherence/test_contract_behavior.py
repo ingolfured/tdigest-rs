@@ -7,20 +7,9 @@ from pathlib import Path
 import pytest
 
 
-# =====================================================================
-# Helpers (use fixtures defined in conftest)
-# =====================================================================
-
 # NOTE: We intentionally do NOT define a local _cli_build_args here to
 # avoid drift. Always use the fixture `cli_build_args_fn(cfg)`.
 
-
-# =====================================================================
-# Category 1: INVALID TRAINING — all 4 surfaces
-#   Spec:
-#     - Training data must contain ONLY finite numbers.
-#     - Any NaN, ±inf, or nulls in training → error.
-# =====================================================================
 
 class TestInvalidTrainingData:
     def test_cli_rejects_nan(self, paths, cfg, cli_build_args_fn):
@@ -47,14 +36,14 @@ class TestInvalidTrainingData:
             assert "inf" in e.value.output.lower()
 
     def test_python_rejects_nan_and_inf(self, cfg):
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         cases = [
             [0.0, float("nan"), 1.0],
             [0.0, float("+inf"), 1.0],
             [0.0, float("-inf"), 1.0],
         ]
         for bad in cases:
-            with pytest.raises(Exception) as e:
+            with pytest.raises(ValueError) as e:
                 td.TDigest.from_array(
                     bad,
                     max_size=cfg["max_size"],
@@ -67,7 +56,7 @@ class TestInvalidTrainingData:
 
     def test_polars_rejects_nan_inf_null(self, cfg):
         import polars as pl
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         from polars.exceptions import ComputeError
 
         bad_frames = [
@@ -121,7 +110,7 @@ class TestInvalidTrainingData:
                         .build(data)) {{
                     System.out.println("BUILT"); // should not happen
                   }}
-                }} catch (Throwable t) {{
+                }} catch (IllegalArgumentException t) {{
                   System.out.println("CAUGHT");
                   return;
                 }}
@@ -134,19 +123,9 @@ class TestInvalidTrainingData:
         assert "CAUGHT" in out and "NO-ERROR" not in out and "BUILT" not in out
 
 
-# =====================================================================
-# Category 2: EMPTY DIGEST BEHAVIOR — all 4 surfaces
-#   Spec:
-#     - CDF(any finite x)    → NaN
-#     - CDF(±∞)              → NaN
-#     - quantile(any finite) → NaN
-#     - quantile(NaN/±inf)   → ValueError (strict)
-#   Note: CLI CDF has no explicit probe arg; we cover empty CDF on other surfaces.
-# =====================================================================
-
 class TestEmptyDigestBehavior:
     def test_python(self, cfg):
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         d = td.TDigest.from_array(
             [],
             max_size=cfg["max_size"],
@@ -198,13 +177,8 @@ class TestEmptyDigestBehavior:
         assert val_str.lower() == "nan"
 
     def test_polars_groupby_regular_and_empty(self, cfg):
-        """
-        Two groups:
-        A: trained digest → finite q, finite c
-        B: no rows → merged (empty) digest → q=None, c=NaN (including ±∞ probes → NaN)
-        """
         import polars as pl
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
 
         data   = pl.DataFrame({"g": ["A","A","A"], "x": [0.0, 1.0, 2.0]}).with_columns(pl.col("x").cast(pl.Float64))
         groups = pl.DataFrame({"g": ["A", "B"]})
@@ -265,13 +239,6 @@ class TestEmptyDigestBehavior:
             assert math.isnan(float(row_b[k]))
 
 
-# =====================================================================
-# Category 3: SMOKE / COHERENCE — quantile & cdf agree on CLI/Python/Polars
-#   Spec:
-#     - With canonical tiny data:
-#         P=0.5 → Q50=1.5 ; CDF(2.0)=0.625
-# =====================================================================
-
 class TestSmokeCoherence:
     def test_cli(self, paths, dataset, expect, cfg, run_cli_fn, assert_close_fn, cli_build_args_fn):
         assert paths.cli_bin.exists() and paths.cli_bin.stat().st_mode & 0o111, (
@@ -297,7 +264,7 @@ class TestSmokeCoherence:
         assert_close_fn(p_at_x, expect["CDF2"], expect["EPS"])
 
     def test_python(self, dataset, expect, cfg, add_pin_kw_fn, assert_close_fn):
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         kwargs = dict(
             max_size=cfg["max_size"],
             scale=cfg["scale_py"],
@@ -313,7 +280,7 @@ class TestSmokeCoherence:
 
     def test_polars(self, dataset, expect, cfg, add_pin_kw_fn, assert_close_fn):
         import polars as pl
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
 
         df = pl.DataFrame({"x": dataset["DATA"]}).with_columns(pl.col("x").cast(pl.Float64))
 
@@ -337,25 +304,17 @@ class TestSmokeCoherence:
         assert_close_fn(p50_val, expect["Q50"], expect["EPS"])
         assert_close_fn(cdf2_val, expect["CDF2"], expect["EPS"])
 
-# =====================================================================
-# Category 4: PRECISION='auto' — CLI/Python/Polars
-#   Spec:
-#     - 'auto' selects precision based on surface rules:
-#         * Python: TDigest API accepts precision='auto'
-#         * Polars: tracks training column dtype
-#         * CLI: optional; test is skipped if CLI lacks 'auto'
-# =====================================================================
 
 class TestPrecisionAuto:
     def test_python(self, dataset, expect):
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         d = td.TDigest.from_array(dataset["DATA"], max_size=50, scale="k2", singleton_policy="use", precision="auto")
         assert math.isfinite(d.quantile(expect["P"]))
         assert math.isfinite(d.cdf(expect["X"]))
 
     def test_polars(self):
         import polars as pl
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
 
         DATA = [0.0, 1.0, 2.0, 3.0]
         base = pl.DataFrame({"x": DATA})
@@ -375,9 +334,7 @@ class TestPrecisionAuto:
         assert str(out32["q"].dtype) == "Float32"
         assert str(out64["q"].dtype) == "Float64"
 
-    def test_cli(self, paths, dataset, cfg, cli_supports_auto_fn):
-        if not cli_supports_auto_fn():
-            pytest.skip("CLI lacks precision=auto")
+    def test_cli(self, paths, dataset, cfg):
         data = " ".join(str(float(x)) for x in dataset["DATA"])
         args = ["quantile", "--stdin", "--p", "0.5",
                 "--no-header", "--output", "csv",
@@ -390,18 +347,6 @@ class TestPrecisionAuto:
         assert p_str == "0.5" and v_str.lower() != "nan"
 
 
-# =====================================================================
-# Category 5: ARGUMENT MATRIX — CLI/Python/Polars
-#   Spec:
-#     - Exercise a representative matrix:
-#         * scale ∈ {k1, k2}
-#         * singleton_policy ∈ {off, use, edges}
-#         * precision ∈ {f32, f64, auto}
-#       Expect finite quantile(0.5) and finite cdf(2.0) on canonical data.
-#     - When policy='edges', pass pin_per_side=2 (or cfg['pin_per_side']).
-#     - If a surface lacks 'auto', skip those cases gracefully.
-# =====================================================================
-
 class TestArgumentMatrix:
     DATA = [0.0, 1.0, 2.0, 3.0]
     P, X = 0.5, 2.0
@@ -410,15 +355,11 @@ class TestArgumentMatrix:
     SIMPLE_POLICIES = ("off", "use", "edges")
     PRECS = ("f32", "f64", "auto")
 
-    # ---------- CLI ----------
-    def test_cli_matrix(self, paths, cfg, cli_supports_auto_fn):
-        cli_has_auto = cli_supports_auto_fn()
+    def test_cli_matrix(self, paths, cfg):
 
         for scale in self.SIMPLE_SCALES:
             for pol in self.SIMPLE_POLICIES:
                 for prec in self.PRECS:
-                    if prec == "auto" and not cli_has_auto:
-                        continue
 
                     args = [
                         "quantile", "--stdin", "--p", str(self.P),
@@ -454,17 +395,16 @@ class TestArgumentMatrix:
                         input=" ".join(str(v) for v in self.DATA),
                         text=True,
                     ).strip()
-                    # find x==2.0
                     found = None
                     for line in out_c.splitlines():
                         xs, ps = line.split(",", 1)
                         if abs(float(xs) - self.X) <= 1e-12:
-                            found = float(ps); break
+                            found = float(ps)
+                            break
                     assert found is not None and math.isfinite(found)
 
-    # ---------- Python ----------
     def test_python_matrix(self, cfg):
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         for scale in self.SIMPLE_SCALES:
             for pol in self.SIMPLE_POLICIES:
                 for prec in self.PRECS:
@@ -480,10 +420,9 @@ class TestArgumentMatrix:
                     assert math.isfinite(d.quantile(self.P))
                     assert math.isfinite(d.cdf(self.X))
 
-    # ---------- Polars ----------
     def test_polars_matrix(self, cfg):
         import polars as pl
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
 
         base = pl.DataFrame({"x": self.DATA}).with_columns(pl.col("x").cast(pl.Float64))
 

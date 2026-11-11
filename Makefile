@@ -1,7 +1,3 @@
-# ==============================================================================
-# Makefile — tdigest-rs (Rust core + Python extension + Java/JNI)
-# ==============================================================================
-
 SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
 .ONESHELL:
@@ -9,14 +5,10 @@ SHELL := /bin/bash
 MAKEFLAGS += --no-builtin-rules --no-print-directory
 .DEFAULT_GOAL := help
 
-# ----------------------------------------------------------------------
-# Pretty output helpers
-# ----------------------------------------------------------------------
 STYLE_OK    := $(shell tput setaf 2 2>/dev/null || printf '\033[32m')
 STYLE_ERR   := $(shell tput setaf 1 2>/dev/null || printf '\033[31m')
 STYLE_BOLD  := $(shell tput bold 2>/dev/null     || printf '\033[1m')
 STYLE_RESET := $(shell tput sgr0 2>/dev/null     || printf '\033[0m')
-STYLE_CODE  := $(shell tput setaf 6 2>/dev/null || printf '\033[36m')
 
 define banner
 	@printf "\n$(STYLE_BOLD)==> %s$(STYLE_RESET)\n" "$(1)"
@@ -26,16 +18,9 @@ define need
 	@printf "$(STYLE_OK)✓ $(1)$(STYLE_RESET)\n"
 endef
 
-# ----------------------------------------------------------------------
-# Project naming
-# ----------------------------------------------------------------------
-CRATE_NAME      ?= tdigest_rs
 PROJECT_SLUG    ?= tdigest-rs
 JAR_ARTIFACT    ?= $(PROJECT_SLUG)
 
-# ----------------------------------------------------------------------
-# Tools & paths
-# ----------------------------------------------------------------------
 PATH := $(HOME)/.local/bin:$(HOME)/.cargo/bin:$(PATH)
 
 ifneq ($(filter 1 true yes,$(TDIGEST_OFFLINE)),)
@@ -49,16 +34,13 @@ UV     ?= uv
 UV_CACHE_DIR ?= $(CURDIR)/.uv-cache
 UV_ENV := UV_PROJECT_ENVIRONMENT="$(CURDIR)/.venv" UV_CACHE_DIR="$(UV_CACHE_DIR)"
 
-# Python layout
 PY_DIR          := bindings/python
 PY_PKG_DIR      := $(PY_DIR)/tdigest_rs
 PY_TESTS_DIR    := $(PY_DIR)/tests
 
-# Upstream tdigest-rs review compatibility snapshot
 COMPAT_RUNNER_DIR := compat/tdigest-rs-strict-python
 STRICT_COMPAT_BENCH := $(COMPAT_RUNNER_DIR)/benchmarks/run.py
 
-# Java layout (wrapper-only — no system Gradle fallback)
 JAVA_SRC        := bindings/java
 JAVA_BUILD_REL  := build
 JAVA_LIBS_REL   := $(JAVA_BUILD_REL)/libs
@@ -66,7 +48,6 @@ GRADLEW_PATH    := $(JAVA_SRC)/gradlew
 GRADLE          := $(GRADLEW_PATH)
 GRADLE_USER_HOME ?= $(CURDIR)/.gradle-user-home
 
-# Integration tests
 INTEG_DIR       := integration/api_coherence
 INTEG_TESTS_DIR := $(INTEG_DIR)
 
@@ -79,45 +60,11 @@ else
   CARGO_PROFILE_FLAG :=
   CARGO_DIR := debug
 endif
-LIB_DIR  := target/$(CARGO_DIR)
 
 # Version (from Cargo.toml)
 VER := $(shell sed -n 's/^version\s*=\s*"\(.*\)"/\1/p' Cargo.toml | head -1)
 
-# Platform detection → shared library basename
-UNAME_S := $(shell uname -s | tr '[:upper:]' '[:lower:]')
-UNAME_M := $(shell uname -m)
-ifeq ($(findstring linux,$(UNAME_S)),linux)
-  PLAT := linux
-  LIBBASENAME := lib$(CRATE_NAME).so
-else ifeq ($(findstring darwin,$(UNAME_S)),darwin)
-  PLAT := macos
-  LIBBASENAME := lib$(CRATE_NAME).dylib
-else ifeq ($(findstring mingw,$(UNAME_S))$(findstring msys,$(UNAME_S)),mingwmsys)
-  PLAT := windows
-  LIBBASENAME := $(CRATE_NAME).dll
-else
-  PLAT := linux
-  LIBBASENAME := lib$(CRATE_NAME).so
-endif
-
-ifeq ($(UNAME_M),x86_64)
-  ARCH := x86_64
-else ifeq ($(UNAME_M),amd64)
-  ARCH := x86_64
-else ifeq ($(UNAME_M),aarch64)
-  ARCH := aarch64
-else ifeq ($(UNAME_M),arm64)
-  ARCH := aarch64
-else ifneq (,$(filter i386 i686 x86,$(UNAME_M)))
-  ARCH := x86
-else
-  ARCH := $(UNAME_M)
-endif
-
-# CLI binary (leave as-is if unchanged)
 CLI_BIN  ?= tdigest
-CLI_PATH := $(LIB_DIR)/$(CLI_BIN)
 
 # Python distributions
 DIST      ?= dist
@@ -127,9 +74,7 @@ PUBLISH_DRY_RUN ?= 0
 # Canonical API JAR path (symlink updated by release-jar)
 API_JAR := $(DIST)/$(JAR_ARTIFACT)-latest.jar
 
-# ==============================================================================
 # Guards
-# ==============================================================================
 .PHONY: JAVA_WRAPPER_CHECK
 JAVA_WRAPPER_CHECK:
 	@test -x "$(GRADLEW_PATH)" || { \
@@ -137,9 +82,6 @@ JAVA_WRAPPER_CHECK:
 	  echo "  Bootstrap once: (cd $(JAVA_SRC) && gradle wrapper --gradle-version 8.14.5 --distribution-type bin)"; \
 	  exit 1; }
 
-# ==============================================================================
-# PHONY TARGETS
-# ==============================================================================
 .PHONY: help setup clean \
         build build-rust build-python build-java \
         test rust-test py-test java-test compat-test legacy-strict-test compat-bench legacy-bench-smoke \
@@ -148,9 +90,7 @@ JAVA_WRAPPER_CHECK:
         release-rust release-wheel release-jar release \
         publish-check publish-pypi publish-cargo publish-maven publish
 
-# ==============================================================================
 # Setup
-# ==============================================================================
 setup:
 	$(call banner,Checking required host tools)
 	$(call need,rustup)
@@ -196,9 +136,7 @@ setup-hooks:
 	fi
 	@printf "$(STYLE_OK)✓ pre-commit installed (PRE_COMMIT_HOME=.pre-commit-cache, UV_CACHE_DIR=.uv-cache)$(STYLE_RESET)\n"
 
-# ==============================================================================
 # Build (dev by default)
-# ==============================================================================
 build: build-toolchain-check build-rust build-python build-java
 	@printf "$(STYLE_OK)✓ all components built (PROFILE=$(PROFILE))$(STYLE_RESET)\n"
 
@@ -227,9 +165,7 @@ build-java: build-toolchain-check JAVA_WRAPPER_CHECK
 	[ -n "$$LATEST" ] || { echo "$(STYLE_ERR)✗ No JAR produced$(STYLE_RESET)"; exit 1; }; \
 	printf "$(STYLE_OK)✓ Built %s$(STYLE_RESET)\n" "$$LATEST"
 
-# ==============================================================================
 # Tests
-# ==============================================================================
 .PHONY: test rust-test py-test java-test compat-test legacy-strict-test compat-bench legacy-bench-smoke legacy-wheel-test python-support-test
 
 test: rust-test java-test py-test compat-test
@@ -238,7 +174,6 @@ test: rust-test java-test py-test compat-test
 rust-test:
 	$(CARGO) test -- --quiet
 
-# Explicit path to bindings/python/tests (pytest discovers from pyproject too)
 py-test: build-python
 	@mkdir -p build/ci
 	$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync python -m pytest -q "$(PY_TESTS_DIR)" "$(INTEG_TESTS_DIR)" tests/quality --junitxml=build/ci/python-coherence-quality.xml --quality-report "$(QUALITY_RESULTS_DIR)"
@@ -283,9 +218,7 @@ compat-bench: build-python
 legacy-bench-smoke: build-python
 	@$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync python "$(STRICT_COMPAT_BENCH)" --n 256 --n-arrays 16 --iterations 1 --delta 100 --workers 2
 
-# ==============================================================================
 # Lint (autofix where possible) + docs must be warning-free
-# ==============================================================================
 lint:
 	$(call banner,Format Rust)
 	$(CARGO) fmt --all
@@ -313,9 +246,7 @@ lint:
 	export RUSTDOCFLAGS="-D warnings -D rustdoc::private_intra_doc_links -D rustdoc::broken_intra_doc_links"; \
 	$(CARGO) doc --no-deps
 
-# ==============================================================================
 # Clean (single target)
-# ==============================================================================
 clean:
 	$(call banner,Clean: Rust target/ and cargo)
 	rm -rf target/ || true
@@ -331,9 +262,7 @@ clean:
 	rm -rf "$(DIST)" "$(DIST_DEV)" || true
 	@printf "$(STYLE_OK)✓ cleaned all artifacts$(STYLE_RESET)\n"
 
-# ==============================================================================
 # Smoke tests
-# ==============================================================================
 Q ?= 0.5
 
 smoke-rust-cli:
@@ -358,9 +287,7 @@ smoke-wheel:
 	rm -rf "$$TMP"; \
 	echo "✅ smoke-wheel ok (file=$$LATEST)"
 
-# ==============================================================================
 # Releases (release profile only)
-# ==============================================================================
 release-rust:
 	$(call banner,Release: Rust CLI (release) + smoke)
 	$(MAKE) build-rust PROFILE=release

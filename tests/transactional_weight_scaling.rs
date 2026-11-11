@@ -43,8 +43,6 @@ fn invalid_scaled_mass_returns_normal_errors_transactionally_in_both_precisions(
 }
 
 fn rejected_seeded_count_overflow<F: FloatLike + FloatCore>() {
-    // The former test seeded a count unrelated to its centroid mass. The public
-    // constructor now rejects that state before a query or update can observe it.
     let zero = F::from_f64(0.0);
     let error = TDigest::<F>::new(
         vec![Centroid::new_atomic_unit_f64(0.0)],

@@ -1,17 +1,16 @@
-// src/error.rs
 use core::fmt;
 
-/// Library-wide error for gr-tdigest.
+/// Errors reported by the Rust digest.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TdError {
     /// User tried to insert NaN/±inf during digest construction.
     /// `context` pinpoints where it came from (e.g., "sample value", "sample weight", "wire mean").
     NonFiniteInput { context: &'static str },
 
-    /// Back-compat alias (some code paths might still raise this).
+    /// Retained for callers that match the original NaN error variant.
     NaNInput { context: &'static str },
 
-    /// Internal invariant violation (should never happen in release builds).
+    /// Digest state failed a consistency check.
     Invariant { what: &'static str },
 
     /// Invalid scaling factor for digest-level scaling operations.

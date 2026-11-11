@@ -1,4 +1,3 @@
-// benches/codecs_bench.rs
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 use tdigest_rs::tdigest::centroids::Centroid;
@@ -6,9 +5,9 @@ use tdigest_rs::tdigest::TDigest;
 
 use criterion::{criterion_group, criterion_main, Criterion, SamplingMode};
 
-const DIGESTS: usize = 100; // number of TDigest objects (rows)
-const CENTROIDS: usize = 1000; // centroids per digest
-const MAX_SIZE: usize = 1000; // digest max capacity (k)
+const DIGESTS: usize = 100;
+const CENTROIDS: usize = 1000;
+const MAX_SIZE: usize = 1000;
 
 fn synth_digest(centroids: usize, shift: f64) -> TDigest<f64> {
     let cs: Vec<Centroid<f64>> = (0..centroids)
@@ -24,11 +23,8 @@ fn synth_digest(centroids: usize, shift: f64) -> TDigest<f64> {
     let min = cs.first().map(|c| c.mean()).unwrap_or(0.0);
     let max = cs.last().map(|c| c.mean()).unwrap_or(0.0);
 
-    // NOTE: with_centroids is a *builder* method; include the max_size override.
     TDigest::builder()
-        .with_centroids(
-            cs, sum, count, /*max:*/ max, /*min:*/ min, /*override:*/ MAX_SIZE,
-        )
+        .with_centroids(cs, sum, count, max, min, MAX_SIZE)
         .build()
         .unwrap()
 }
@@ -36,14 +32,12 @@ fn synth_digest(centroids: usize, shift: f64) -> TDigest<f64> {
 fn codec_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("codec_quick");
 
-    // --- steadier settings for ms-level work ---
     group.warm_up_time(Duration::from_millis(500));
     group.measurement_time(Duration::from_secs(5));
     group.sample_size(50);
     group.noise_threshold(0.02);
-    group.sampling_mode(SamplingMode::Flat); // keep per-sample iters steady
+    group.sampling_mode(SamplingMode::Flat);
 
-    // Pre-build some digests and their Series encodings once per benchmark group
     let digests: Vec<TDigest<f64>> = (0..DIGESTS)
         .map(|r| synth_digest(CENTROIDS, r as f64 * 0.123))
         .collect();
@@ -71,13 +65,12 @@ fn codec_bench(c: &mut Criterion) {
         acc
     };
 
-    // Accumulators so our footer reports avg ms/op across all samples (not just the last one)
+    // Accumulate all samples for the final time per operation.
     let (mut w64_secs, mut w64_iters) = (0.0_f64, 0_u64);
     let (mut w32_secs, mut w32_iters) = (0.0_f64, 0_u64);
     let (mut r64_secs, mut r64_iters) = (0.0_f64, 0_u64);
     let (mut r32_secs, mut r32_iters) = (0.0_f64, 0_u64);
 
-    // ---------------- WRITE: TDigest -> Series ----------------
     group.bench_function("write_f64", |b| {
         b.iter_custom(|iters| {
             let start = Instant::now();
@@ -114,7 +107,6 @@ fn codec_bench(c: &mut Criterion) {
         });
     });
 
-    // ---------------- READ: Series -> Vec<TDigest<f64>> ----------------
     group.bench_function("read_f64", |b| {
         b.iter_custom(|iters| {
             let start = Instant::now();
@@ -145,7 +137,6 @@ fn codec_bench(c: &mut Criterion) {
 
     group.finish();
 
-    // ---------------- summary (averaged across all samples) ----------------
     let secs_per_iter = |secs: f64, iters: u64| {
         if iters > 0 {
             secs / iters as f64

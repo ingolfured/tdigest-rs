@@ -1,4 +1,3 @@
-// src/tdigest/frontends.rs
 //! Small, shared parsing & normalization helpers for all front-ends (Python, Polars, JNI, CLI).
 //! Keep this dependency-light and free of PyO3/JNI/Polars types.
 
@@ -26,7 +25,7 @@ impl Display for ParseError {
         match self {
             ParseError::InvalidScale(s) => write!(
                 f,
-                "invalid scale: {s} (expected 'quad', 'k1', 'k2', or 'k3')"
+                "invalid scale: {s} (expected 'quad', 'k1', 'k2', 'k2norm', or 'k3')"
             ),
             ParseError::InvalidPolicy(s) => write!(
                 f,
@@ -54,8 +53,6 @@ fn norm(s: &str) -> String {
     s.trim().to_ascii_lowercase().replace(['_', ' '], "")
 }
 
-/* ----------------------- scale helpers ----------------------- */
-
 pub fn parse_scale_str(raw: Option<&str>) -> Result<ScaleFamily, ParseError> {
     match raw.map(|x| x.trim().to_ascii_lowercase()) {
         None => Ok(ScaleFamily::K2),
@@ -78,8 +75,6 @@ pub fn scale_to_str(s: ScaleFamily) -> &'static str {
     }
 }
 
-/* ----------------- singleton policy helpers ----------------- */
-
 /// Accepts: off | use | edges | (legacy) usewithprotectededges
 pub fn parse_singleton_policy_str(
     kind: Option<&str>,
@@ -99,8 +94,6 @@ pub fn parse_singleton_policy_str(
         Some(v) => Err(ParseError::InvalidPolicy(v)),
     }
 }
-
-/* ---------------------- precision helpers ---------------------- */
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PrecisionHint {
@@ -133,8 +126,6 @@ pub fn policy_from_code_edges(code: i32, edges: i32) -> Result<SingletonPolicy, 
         other => Err(ParseError::InvalidPolicy(other.to_string())),
     }
 }
-
-/* ---------------------- validation helpers ---------------------- */
 
 /// Shared finite-data guard for training/addition paths across front-ends.
 #[inline]
@@ -172,8 +163,6 @@ pub fn validate_trimmed_mean_bounds(lower: f64, upper: f64) -> Result<(), &'stat
     }
     Ok(())
 }
-
-/* ---------------------- shared frontend service ---------------------- */
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DigestConfig {
@@ -481,7 +470,6 @@ Rebuild or cast to a shared configuration before merge.",
                 "merge aggregate overflow".to_string(),
             ));
         }
-        // Empty digest merge is always safe for same precision.
         if self.is_effectively_empty() && !other.is_effectively_empty() {
             *self = other.clone();
             return Ok(());

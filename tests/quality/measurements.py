@@ -112,7 +112,7 @@ def score(digest, exact: Exact) -> dict:
     if not all(map(math.isfinite, predicted)):
         raise AssertionError("nonfinite quantile")
     tolerance = max(1.0, abs(exact.values[0]), abs(exact.values[-1])) * (
-        2e-6 if digest.means.dtype == np.float32 else 2e-12
+        2e-6 if digest.inner_kind() == "f32" else 2e-12
     )
     bounds = sum(x < exact.values[0] - tolerance or x > exact.values[-1] + tolerance for x in predicted)
     inversions = sum(a > b + tolerance for a, b in zip(predicted, predicted[1:]))

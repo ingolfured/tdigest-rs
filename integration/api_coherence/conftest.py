@@ -10,54 +10,43 @@ import pytest
 from helpers_cli import (
     assert_close,
     cli_build_args,
-    cli_supports_precision_auto,
     run_cli,
 )
 from helpers_java import compile_run_java, java_builder_chain
 
-# -------- canonical tiny dataset & expected answers (mid-rank CDF) ----------
+# The CDF counts half the mass at an observed value.
 DATA = [0.0, 1.0, 2.0, 3.0]
 P = 0.5
 X = 2.0
 EXPECT_Q50 = 1.5
 EXPECT_CDF_AT_2 = 0.625
 
-# -------- unified default config (single baseline; tests add variations) -----
 BASE_CFG = {
     "max_size": 10,
-    # precision defaults (each surface can be overridden in tests)
     "precision_cli": "f64",
     "precision_py": "f64",
     "precision_pl": "f64",
     "precision_java": "F64",
-    # scale defaults
     "scale_cli": "k2",
     "scale_py": "k2",
     "scale_pl": "k2",
     "scale_java": "K2",
-    # singleton defaults
-    "singleton_cli": "use",    # "off"|"use"|"edges"
+    "singleton_cli": "use",
     "singleton_py": "use",
     "singleton_pl": "use",
-    "singleton_java": "USE",   # OFF|USE|USE_WITH_PROTECTED_EDGES
-    # edge pins default (used whenever policy == "edges")
+    "singleton_java": "USE",
     "pin_per_side": 2,
 }
 
 @dataclass(frozen=True)
 class Paths:
     root: Path
-    profile: str
-    cargo_dir: str
     cli_bin: Path
-    java_src_dir: Path
-    gradlew: Path
     classes_dir: Path
     native_dirs: list[Path]
     classpath_sep: str
 
 
-# -------------------- paths & build once --------------------
 
 @pytest.fixture(scope="session")
 def paths() -> Paths:
@@ -69,20 +58,16 @@ def paths() -> Paths:
     target_dir = root / os.environ.get("CARGO_TARGET_DIR", "target")
     cli_bin = target_dir / cargo_dir / ("tdigest.exe" if os.name == "nt" else "tdigest")
 
-    # Java bits
     java_src_dir = root / "bindings" / "java"
-    gradlew = java_src_dir / "gradlew"
+    gradlew = java_src_dir / ("gradlew.bat" if os.name == "nt" else "gradlew")
     if not gradlew.exists() or not os.access(gradlew, os.X_OK):
         raise AssertionError(f"Gradle wrapper not found or not executable: {gradlew}")
 
     classes_dir = java_src_dir / "build" / "classes" / "java" / "main"
 
-    # Build Java classes once per session, but **skip full clean** to keep it fast.
-    # Only compile if we don't already have compiled classes (or user forces it).
     force_rebuild = os.environ.get("CI_CLEAN_JAVA", "").lower() in ("1", "true", "yes")
     if force_rebuild or not classes_dir.exists():
         try:
-            # No "clean" here; incremental compile is usually sub-second if unchanged.
             subprocess.run(
                 [str(gradlew), "--no-daemon", "--console=plain", "classes"],
                 cwd=java_src_dir,
@@ -98,33 +83,28 @@ def paths() -> Paths:
                 f"stderr:\n{e.stderr}\n"
             ) from e
 
-    # Where the native libs land (wrapper task that embeds natives)
-    sys_tag = f"{platform.system().lower()}-{platform.machine()}"
+    system = platform.system().lower()
+    machine = platform.machine().lower()
+    os_tag = "macos" if system == "darwin" else system
+    arch = {"amd64": "x86_64", "arm64": "aarch64"}.get(machine, machine)
+    sys_tag = f"{os_tag}-{arch}"
     native_dirs = [
         java_src_dir / "build" / "resources" / "main" / "META-INF" / "native" / sys_tag,
         java_src_dir / "build" / "generated-resources" / "META-INF" / "native" / sys_tag,
     ]
 
-    classpath_sep = ";" if platform.system().lower().startswith("win") else ":"
-
     return Paths(
         root=root,
-        profile=profile,
-        cargo_dir=cargo_dir,
         cli_bin=cli_bin,
-        java_src_dir=java_src_dir,
-        gradlew=gradlew,
         classes_dir=classes_dir,
         native_dirs=native_dirs,
-        classpath_sep=classpath_sep,
+        classpath_sep=os.pathsep,
     )
 
 
-# -------------------- expectations & dataset --------------------
 
 @pytest.fixture(scope="session")
 def expect() -> dict[str, float]:
-    # Tight tolerance for f64
     eps = 1e-6
     return {"P": P, "X": X, "Q50": EXPECT_Q50, "CDF2": EXPECT_CDF_AT_2, "EPS": eps}
 
@@ -136,11 +116,9 @@ def dataset() -> dict[str, object]:
 
 @pytest.fixture(scope="session")
 def cfg() -> dict[str, object]:
-    # Single, default config for all tests
     return dict(BASE_CFG)
 
 
-# --- expose helpers as fixtures returning callables ---
 @pytest.fixture(scope="session")
 def run_cli_fn():
     return run_cli
@@ -152,11 +130,6 @@ def assert_close_fn():
 @pytest.fixture(scope="session")
 def cli_build_args_fn():
     return cli_build_args
-
-@pytest.fixture(scope="session")
-def cli_supports_auto_fn(paths: Paths):
-    return lambda: cli_supports_precision_auto(paths.cli_bin)
-
 
 @pytest.fixture(scope="session")
 def compile_run_java_fn(paths: Paths):

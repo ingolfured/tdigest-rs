@@ -1,4 +1,4 @@
-//! Regressions for weighted tails and retained extrema in the modern core.
+//! Regressions for weighted tails and retained extrema in compressed digests.
 
 use ordered_float::FloatCore;
 use tdigest_rs::tdigest::centroids::Centroid;
@@ -194,7 +194,7 @@ fn finite_extreme_centroid_ranges_do_not_overflow_interpolation() {
     }
 
     // These finite observations have an unrepresentable f64 data sum. The
-    // modern state contract rejects aggregate overflow instead of storing inf.
+    // constructor rejects their aggregate overflow.
     assert!(TDigest::<f64>::from_unsorted(&[1e308, 1.1e308], 10).is_err());
     let middle =
         TDigest::<f64>::from_weighted_unsorted(&[1e308, 1.1e308], &[0.5, 0.5], 10).unwrap();

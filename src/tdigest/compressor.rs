@@ -1,20 +1,6 @@
-//! Compressor: runs the TDigest pipeline stages **1→6** on an input stream of centroids.
-//!
-//! ### Pipeline (referenced by numbers throughout)
-//! 1. **Normalize**: validate non-decreasing means; coalesce adjacent equal-means into a single
-//!    centroid preserving mixed provenance (weight adds up); compute (∑w, ∑w·mean, min, max).
-//! 2. **Slice**: partition `(left edges, interior, right edges)` and compute interior capacity
-//!    from the active [`SingletonPolicy`].
-//! 3. **Merge (k-limit)**: greedily merge interior under Δk ≤ 1 for the selected [`ScaleFamily`].
-//! 4. **Cap**: if interior exceeds its budget, run a second k-limit merge with tuned `d'`
-//!    (via binary search) to honor the cap while preserving scale-family geometry.
-//! 5. **Assemble**: concatenate `left + core + right`.
-//! 6. **Post**: optional policy finalization (e.g., total-cap for `Use`).
-//!
-//! #### Invariants
-//! - Output centroids are strictly increasing by mean.
-//! - Total weight is preserved (up to floating rounding).
-//! - Stage ownership is explicit: same-mean runs are coalesced only in **1**; edge rules only in **2/6**.
+//! Compress ordered centroids while preserving their order and total mass.
+//! Equal means coalesce before the singleton policy reserves the edges.
+//! The interior is merged under the selected scale and then reduced to its capacity.
 
 use ordered_float::FloatCore;
 
@@ -29,10 +15,6 @@ const KLIMIT_TOL: f64 = 1e-12;
 const CAP_SEARCH_ITERS: usize = 28;
 const CAP_FALLBACK_ITERS: usize = 12;
 const CAP_SEARCH_LO: f64 = 1e-6;
-
-/* =============================================================================
- * Internal utilities
- * ============================================================================= */
 
 #[derive(Clone, Copy, Debug, Default)]
 struct WeightedStats {
@@ -109,15 +91,7 @@ impl WeightedStats {
     }
 }
 
-/// Run the full pipeline (**1→6**) on `items` and write digest-level metadata to `result`.
-///
-/// Stages:
-/// 1) Normalize → `normalize_stream`
-/// 2) Slice     → policy-dependent edge/interior partition
-/// 3) Merge     → `klimit_merge`
-/// 4) Cap       → `cap_core` / `cap_with_second_klimit`
-/// 5) Assemble  → `assemble_with_edges`
-/// 6) Post      → policy-specific finalization
+/// Compress a sorted stream and update the digest statistics.
 pub(crate) fn compress_into<F, I>(
     result: &mut TDigest<F>,
     max_size: usize,
@@ -127,7 +101,6 @@ where
     F: FloatLike + FloatCore,
     I: IntoIterator<Item = Centroid<F>>,
 {
-    // -- 1) Normalize ---------------------------------------------------------
     let norm = normalize_stream::<F, _>(items)?;
     if norm.out.is_empty() {
         return Ok(norm.out);
@@ -143,7 +116,6 @@ where
     result.set_min(result.min().min(norm.min));
     result.set_max(result.max().max(norm.max));
 
-    // -- 2) Slice -------------------------------------------------------------
     let policy = policy_from(result.singleton_policy(), max_size);
     let delta = result.delta();
     if delta.is_none() {
@@ -155,7 +127,6 @@ where
     }
     let slices = policy.slice(&norm.out);
 
-    // -- 3) Merge (k-limit) ---------------------------------------------------
     let family: ScaleFamily = result.scale();
     let d: f64 = result.max_size() as f64;
     let core = if let Some(delta) = delta {
@@ -169,21 +140,18 @@ where
 
     validate_compression_stream(&core)?;
 
-    // -- 4) Cap ---------------------------------------------------------------
     // Second k-limit cap pass if the interior exceeds its budget.
     // Fallback to equal-weight bucketization remains as a safety net in cap_core.
     let core_capped = if delta.is_some() {
         core
     } else {
-        cap_core::<F>(core, slices.caps.core_cap, d, family)
+        cap_core::<F>(core, slices.core_cap, d, family)
     };
 
-    // -- 5) Assemble ----------------------------------------------------------
     let assembled = assemble_with_edges::<F>(slices.left, core_capped, slices.right);
 
     validate_compression_stream(&assembled)?;
 
-    // -- 6) Post --------------------------------------------------------------
     let compressed = if delta.is_some() {
         assembled
     } else {
@@ -215,10 +183,6 @@ fn validate_compression_stream<F: FloatLike + FloatCore>(
     Ok(())
 }
 
-/* =============================================================================
- * Policy (Stages 2 & 6)
- * ============================================================================= */
-
 #[derive(Clone, Copy, Debug)]
 enum Policy {
     Off { max: usize },
@@ -235,7 +199,6 @@ fn policy_from(sp: SingletonPolicy, max: usize) -> Policy {
 }
 
 impl Policy {
-    /// Fast-path for trivial/exact cases (part of **2**). Returns `Some` when no further work is needed.
     fn fast_path<F: FloatLike + FloatCore>(&self, out: &[Centroid<F>]) -> Option<Vec<Centroid<F>>> {
         match *self {
             Policy::Off { max } => {
@@ -243,11 +206,7 @@ impl Policy {
                     return Some(out.to_vec());
                 }
                 if max == 1 {
-                    return Some(if out.len() == 1 {
-                        out.to_vec()
-                    } else {
-                        vec![weighted_collapse(out)]
-                    });
+                    return Some(vec![weighted_collapse(out)]);
                 }
                 if max == 2 {
                     return Some(bucketize_equal_weight(out, 2));
@@ -259,17 +218,14 @@ impl Policy {
         }
     }
 
-    /// **(2) Slice** — compute `(left, interior, right)` and interior capacity.
     fn slice<'a, F: FloatLike + FloatCore>(&self, out: &'a [Centroid<F>]) -> EdgeSlices<'a, F> {
         match *self {
-            // No edge protection; core capacity equals `max`.
             Policy::Off { max } => EdgeSlices {
                 left: &[],
                 interior: out,
                 right: &[],
-                caps: EdgeCaps { core_cap: max },
+                core_cap: max,
             },
-            // Preserve endpoints; core capacity excludes the two edges.
             Policy::Use { max } => {
                 let n = out.len();
                 let l = usize::from(n >= 1);
@@ -284,10 +240,9 @@ impl Policy {
                     left,
                     interior,
                     right,
-                    caps: EdgeCaps { core_cap },
+                    core_cap,
                 }
             }
-            // Protect up to `k` **atomic** centroids per edge; interior has independent cap.
             Policy::UseProt { max, k } => {
                 let n = out.len();
                 let l_prot = edge_run_len(out, k, true);
@@ -306,13 +261,12 @@ impl Policy {
                     left,
                     interior,
                     right,
-                    caps: EdgeCaps { core_cap: max },
+                    core_cap: max,
                 }
             }
         }
     }
 
-    /// **(6) Post** — finalize per policy (e.g., total-cap enforcement for `Use`).
     fn post<F: FloatLike + FloatCore>(&self, assembled: Vec<Centroid<F>>) -> Vec<Centroid<F>> {
         match *self {
             Policy::Use { max } => {
@@ -329,19 +283,8 @@ impl Policy {
     }
 }
 
-/* =============================================================================
- * Core operations (Stages 3, 4, 5)
- * ============================================================================= */
-
-/// **(3) Merge (k-limit)** — greedy interior merge under Δk ≤ 1.
-///
-/// Guarantees:
-/// - Order and total weight are preserved.
-/// - Single-item clusters remain **atomic** only when the head was data-true atomic.
-/// - Multi-item clusters are **mixed**.
-///
-/// `tol` is added to the `Δk ≤ 1` check (pass [`KLIMIT_TOL`] for the default
-/// tolerant behaviour, `0.0` for the strict delta-mode bound).
+/// Merge adjacent centroids while their combined rank span satisfies the scale limit.
+/// Delta compression uses zero tolerance. A cluster with multiple inputs is mixed.
 fn klimit_merge<F: FloatLike + FloatCore>(
     items: &[Centroid<F>],
     d: f64,
@@ -491,13 +434,8 @@ fn count_integer_k2_clusters(boundaries: &[f64], d: f64) -> usize {
     clusters
 }
 
-/// **(4) Cap** — reduce to at most `core_cap` by running a second k-limit pass.
-///
-/// We binary-search `d'` in `(0, d]` and choose the largest value that yields `<= core_cap`
-/// centroids under the same k-limit merge rule used by Stage 3.
-///
-/// If plateau behavior prevents strict cap convergence, we tighten `d'` a few times and
-/// finally fall back to equal-weight bucketization as a last-resort safety net.
+/// Search for the largest scale parameter whose clusters fit the interior capacity.
+/// When the count stays above the limit, group the centroids by weight.
 fn cap_core<F: FloatLike + FloatCore>(
     core: Vec<Centroid<F>>,
     core_cap: usize,
@@ -513,7 +451,6 @@ fn cap_core<F: FloatLike + FloatCore>(
     cap_with_second_klimit(&core, core_cap, d, family)
 }
 
-/// Stage-4 cap strategy: second k-limit merge with tuned `d'`.
 fn cap_with_second_klimit<F: FloatLike + FloatCore>(
     core: &[Centroid<F>],
     core_cap: usize,
@@ -529,7 +466,6 @@ fn cap_with_second_klimit<F: FloatLike + FloatCore>(
     let mut lo = CAP_SEARCH_LO;
     let mut hi = d.max(CAP_SEARCH_LO);
     let mut best = lo;
-    let mut found = false;
 
     let boundaries = integer_k2_boundaries(core, family);
     for _ in 0..CAP_SEARCH_ITERS {
@@ -539,7 +475,6 @@ fn cap_with_second_klimit<F: FloatLike + FloatCore>(
             None => klimit_count(core, mid, family, KLIMIT_TOL),
         };
         if len_mid <= core_cap {
-            found = true;
             best = mid;
             lo = mid;
         } else {
@@ -547,16 +482,11 @@ fn cap_with_second_klimit<F: FloatLike + FloatCore>(
         }
     }
 
-    let mut out = klimit_merge(
-        core,
-        if found { best } else { CAP_SEARCH_LO },
-        family,
-        KLIMIT_TOL,
-    );
+    let mut out = klimit_merge(core, best, family, KLIMIT_TOL);
 
     // Guard against rare non-monotone/plateau effects.
     let mut guard = 0usize;
-    let mut tuned = if found { best } else { CAP_SEARCH_LO };
+    let mut tuned = best;
     while out.len() > core_cap && guard < CAP_FALLBACK_ITERS {
         tuned *= 0.95;
         out = klimit_merge(core, tuned, family, KLIMIT_TOL);
@@ -570,10 +500,8 @@ fn cap_with_second_klimit<F: FloatLike + FloatCore>(
     out
 }
 
-/// **(4) Cap** — order-preserving equal-weight bucketization into `buckets` groups.
-///
-/// - Emits up to `buckets` outputs, retaining every positive residual contribution.
-/// - Multi-item buckets are **mixed**; a one-item bucket retains its input kind.
+/// Group in order and put residual mass in the final bucket. A bucket
+/// with one centroid keeps its kind. Combining multiple centroids makes it mixed.
 fn bucketize_equal_weight<F: FloatLike + FloatCore>(
     cs: &[Centroid<F>],
     buckets: usize,
@@ -610,7 +538,6 @@ fn bucketize_equal_weight<F: FloatLike + FloatCore>(
     out
 }
 
-/// **(5) Assemble** — concatenate `left`, `core`, `right` without element mutation.
 fn assemble_with_edges<F: FloatLike + FloatCore>(
     left: &[Centroid<F>],
     core: Vec<Centroid<F>>,
@@ -623,26 +550,15 @@ fn assemble_with_edges<F: FloatLike + FloatCore>(
     v
 }
 
-/* =============================================================================
- * Edge helpers (used by Stage 2)
- * ============================================================================= */
-
-#[derive(Debug, Clone, Copy)]
-struct EdgeCaps {
-    core_cap: usize,
-}
-
 #[derive(Debug)]
 struct EdgeSlices<'a, F: FloatLike + FloatCore> {
     left: &'a [Centroid<F>],
     interior: &'a [Centroid<F>],
     right: &'a [Centroid<F>],
-    caps: EdgeCaps,
+    core_cap: usize,
 }
 
-/// Count up to `k` consecutive **atomic** centroids on one edge.
-///
-/// Stops at the first **mixed** centroid. When `from_left=false`, scans from the right.
+/// Only consecutive atomic centroids at an edge qualify for protection.
 fn edge_run_len<F: FloatLike + FloatCore>(cs: &[Centroid<F>], k: usize, from_left: bool) -> usize {
     if k == 0 || cs.is_empty() {
         return 0;
@@ -668,11 +584,6 @@ fn edge_run_len<F: FloatLike + FloatCore>(cs: &[Centroid<F>], k: usize, from_lef
     cnt
 }
 
-/* =============================================================================
- * Small helpers
- * ============================================================================= */
-
-/// Emit the current cluster (if any) and reset accumulation (used by **3**).
 fn flush_cluster<F: FloatLike + FloatCore>(
     clusters: &mut Vec<Centroid<F>>,
     acc: &mut WeightedStats,
@@ -798,7 +709,6 @@ mod tests {
         }
     }
 
-    // ---- tiny helpers ----
     fn c<F: FloatLike + FloatCore>(m: f64, w: f64, singleton: bool) -> Centroid<F> {
         if singleton {
             Centroid::<F>::new_singleton_f64(m, w)
@@ -811,8 +721,6 @@ mod tests {
     }
 
     type Fp = f64; // run these tests in f64 storage; f32 is covered elsewhere
-
-    // ---------- streaming/coalescing pass ----------
 
     #[test]
     fn coalescing_equal_means_preserves_mixed_provenance() {
@@ -854,8 +762,6 @@ mod tests {
         let input = vec![c::<Fp>(1.0, 1.0, true), c::<Fp>(0.9, 1.0, true)];
         let _ = super::compress_into(&mut td, 10, input).unwrap();
     }
-
-    // ---------- bucketizer ----------
 
     #[test]
     fn bucketize_equal_weight_preserves_total_weight_and_order() {
@@ -907,8 +813,6 @@ mod tests {
         }
     }
 
-    // ---------- k-limit merge core ----------
-
     #[test]
     fn klimit_merge_preserves_weight_order_and_flags() {
         let items = vec![
@@ -936,10 +840,7 @@ mod tests {
 
     #[test]
     fn delta_merge_matches_old_k2_rule_for_weighted_input() {
-        // delta-mode merges via klimit_merge with K2Norm + strict (tol=0). This
-        // must reproduce the old tdigest-rs `compute()` merge byte-for-byte:
-        // q_limit derived from the canonical Dunning K2 (paper eq 8), with
-        // n = len(items) and q = cumulative weights / total weight.
+        // The 0.1.0 K2 rule uses the number of centroids as n and cumulative weight for q.
         let items = vec![
             c::<Fp>(0.0, 100.0, true),
             c::<Fp>(1.0, 1.0, true),
@@ -950,15 +851,12 @@ mod tests {
         let delta = 20.0;
         let out = super::klimit_merge(&items, delta, ScaleFamily::K2Norm, 0.0);
 
-        // Hand-roll the old tdigest-rs q_limit loop using the same K2Norm
-        // formula via q_to_k, so the reference computation goes through the
-        // single source of truth.
+        // Independently count clusters by solving for the upper rank of each cluster.
         let total_w: f64 = items.iter().map(|x| x.weight_f64()).sum();
         let n = items.len() as f64;
         let q_limit_at = |q0: f64| -> f64 {
             // q_limit = inv(k(q0) + 1). We compute it numerically by solving
-            // q_to_k(q, delta, K2Norm, n) = q_to_k(q0, ..) + 1 via bisection
-            // — accurate enough for the equality assertion below.
+            // q_to_k(q, delta, K2Norm, n) = q_to_k(q0, ..) + 1 via bisection.
             let target = crate::tdigest::scale::q_to_k(q0, delta, ScaleFamily::K2Norm, n) + 1.0;
             let mut lo = q0;
             let mut hi = 1.0 - 1e-15;
@@ -1022,8 +920,6 @@ mod tests {
         );
     }
 
-    // ---------- edge run length ----------
-
     #[test]
     fn edge_run_len_counts_atomic_only_on_requested_side() {
         let cs = vec![
@@ -1046,8 +942,6 @@ mod tests {
         );
         assert_eq!(super::edge_run_len(&cs, 10, false), 2);
     }
-
-    // ---------- compress_into policies ----------
 
     #[test]
     fn policy_off_passthrough_under_capacity() {
@@ -1160,8 +1054,6 @@ mod tests {
         stats.add(&Centroid::<f64>::new_atomic_f64(12.0, 1.0));
         assert_eq!(stats.mean(), 8.0);
     }
-
-    // ---------- metadata on result ----------
 
     #[test]
     fn result_metadata_count_sum_min_max_are_set() {

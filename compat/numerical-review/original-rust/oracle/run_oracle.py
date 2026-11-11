@@ -63,7 +63,7 @@ def main():
     manifest = json.loads((ROOT / "source-manifest.json").read_text())
     plan = json.loads((ROOT / "plan.json").read_text())
     if not args.run:
-        print(json.dumps({"status": "prepared only; --run requires an assigned CPU slot", "plan": plan}, indent=2))
+        print(json.dumps({"status": "prepared; pass --run to run the comparison", "plan": plan}, indent=2))
         return 0
     def unchanged():
         for name, target in plan.get("original_symlinks", {}).items():

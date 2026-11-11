@@ -6,11 +6,11 @@ tdigest-rs commit `8d9cf1fe82c5c9254e5dc9593f01717e317f4333`, using Rust 1.90.0
 on Linux x86_64.
 
 The fixtures contain centroid means, integer weights, median, 11 quantile probes,
-and 6 trimmed-mean intervals per case. Both precisions exercise delta 10/30/300,
-ties, signed zero, tiny values, non-finite input, large uint32 weights, merge,
-update, and the original default-delta reconstruction for copy/pickle/dict.
+and 6 trimmed mean intervals per case. Both precisions exercise delta 10/30/300,
+ties, signed zero, tiny values, nonfinite input, large uint32 weights, merge,
+update, and the original default delta reconstruction for copy/pickle/dict.
 Expected floating results are f64 bit strings (f32 results widened exactly).
-These results record the original engine. Current tests reuse the inputs to check precision, mass and the shared core’s numerical results.
+These results record the original engine. Current tests reuse the inputs to check precision, mass and the shared core's numerical results.
 
 To regenerate, build `generate.rs` as a standalone Cargo binary with
 `serde_json = "1"` and a path dependency on an independent checkout of that

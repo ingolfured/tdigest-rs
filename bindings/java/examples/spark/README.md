@@ -2,7 +2,7 @@
 
 This check compiles Scala against a prebuilt JAR and uses two separate executor
 JVMs. It exercises weighted queries, broadcast restoration after closing the
-original, a 40-shard shuffle, on-disk caching and checkpoint restoration without
+original, a shuffle across 40 shards, on disk caching and checkpoint restoration without
 rebuilding the source. It verifies native payload identity on both executors.
 The successful result prints the actual Spark/Scala versions and process IDs.
 
@@ -22,7 +22,7 @@ python3 bindings/java/examples/spark/check.py \
 Repeat with JDK 17 and a fresh output directory. Repeat both runtimes with
 `--serializer kryo`. The Kryo example explicitly registers a serializer that
 writes TDIG bytes and restores a fresh native handle. Generic field serialization
-of a process-local handle is insufficient. Registration must be part of the
+of a process local handle is insufficient. Registration must be part of the
 application's Spark configuration. This check sets its selected serializer
 explicitly, even if an input properties file selects another one.
 
@@ -30,15 +30,15 @@ The default `local-cluster[2,1,512]` starts a local master and two executor
 processes. `local[4]` is not a substitute: the check requires distinct executor
 processes outside the driver. The local checkpoint directory is temporary and
 shared only on this machine. This does not qualify an executor image, a remote
-filesystem or a multi-host cluster. The sample's byte-header mass inspection is
+filesystem or a multi host cluster. The sample's byte header mass inspection is
 a check of the current TDIG v3 format, not an additional public Java API.
 
-For an owner-run cluster check, supply `--master`, `--checkpoint` with a shared
+For an operator cluster check, supply `--master`, `--checkpoint` with a shared
 URI, and optionally `--properties-file` and repeated `--conf` options. The check
 uses one core and 512 MiB per executor and disables retries to expose failures;
 it is a correctness exercise, not a representative capacity or memory test.
 Stage all tools and artifacts through the approved internal services. Keep
-credentials and trust configuration external. Cluster-specific images, minimum
+credentials and trust configuration external. Cluster specific images, minimum
 ABI, deployed serializer settings and real workloads still need owner approval.
 
 Every output directory contains the compiled check application, compiler

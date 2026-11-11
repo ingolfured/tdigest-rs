@@ -23,9 +23,6 @@ pub mod quality {
     pub mod quantile_quality;
 }
 
-#[cfg(test)]
-pub use crate::quality::quality_base::{print_banner, print_report, print_section};
-
 #[cfg(all(target_os = "linux", target_env = "gnu", not(feature = "java")))]
 use jemallocator::Jemalloc;
 

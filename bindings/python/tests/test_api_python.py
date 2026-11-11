@@ -1,4 +1,3 @@
-# bindings/python/tests/test_api_python.py
 import math
 import pickle
 from copy import deepcopy
@@ -31,14 +30,11 @@ class TestPythonApiSmoke:
         assert scalar == pytest.approx(0.5, abs=1e-9)
 
         as_list = d.cdf([0.0, 1.5, 3.0])
-        if isinstance(as_list, np.ndarray):
-            as_list = as_list.tolist()
         assert isinstance(as_list, list)
         assert as_list == pytest.approx([0.125, 0.5, 0.875], abs=1e-9)
 
         as_np = d.cdf(np.array([0.0, 1.5, 3.0], dtype=float))
-        if not isinstance(as_np, np.ndarray):
-            as_np = np.asarray(as_np)
+        assert isinstance(as_np, np.ndarray)
         assert as_np.shape == (3,)
         assert list(as_np) == pytest.approx([0.125, 0.5, 0.875], abs=1e-9)
 

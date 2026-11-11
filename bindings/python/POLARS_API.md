@@ -8,12 +8,12 @@ package or native build for Polars 1.x versus 2.x. Development stays pinned to
 1.44.2.
 
 `make python-support-test` installs the same compiled wheel in isolated cells
-for Polars 1.0.0, 1.20.0, 1.38.1, 1.44.2 and 2.0.0 across CPython 3.10–3.15.
+for Polars 1.0.0, 1.20.0, 1.38.1, 1.44.2 and 2.0.0 across CPython 3.10 to 3.15.
 Every cell starts with Polars installed, installs the base package and then the
 extra with normal dependency resolution, and verifies both preserve its version
 and the native library hash. The public API and consumer regressions cover
 grouped lazy joins, chunked inputs, streaming execution, empty/missing states,
-list schemas and binary precision. Polars-free baseline installs remain covered.
+list schemas and binary precision. The package tests also run with Polars absent.
 The open dependency range permits newer Polars releases without a package
 metadata change; unreleased versions still need verification before compatibility
 can be guaranteed.
@@ -26,7 +26,7 @@ reject nested reductions such as `to_bytes(tdigest("x"))` inside one `agg`.
 On CPython 3.15, Polars 1.44.2 has an upstream Series namespace dispatch
 limitation: `series.struct.field(...)` can return `None` even for ordinary
 structs. Use `frame.select(pl.col("d").struct.field("count"))` for field
-extraction on that combination. The installed-wheel tests cover this combination.
+extraction on that combination. The installed wheel tests cover this combination.
 
 ```python
 import polars as pl
@@ -43,7 +43,7 @@ result = rows.lazy().join(groups, on="g").with_columns(gr.cdf("d", pl.col("x")).
 | `tdigest(values)` | One reduced digest |
 | `merge_tdigests(digest)` | One reduced digest |
 | `quantile(digest, q)`, `median(digest)` | One query of the reduced digest |
-| add/weighted-add, scale, precision cast | One transformed reduced digest |
+| Addition with or without weights, scaling, precision cast | One transformed reduced digest |
 | `to_bytes(digest)` | One encoding of the reduced digest |
 | `from_bytes(blob)` | One reduced digest from decoded blobs, with explicit consistent precision |
 | `cdf(digest, values)` | One digest broadcast over probes, or aligned digest/probe rows; list probes produce list results |
@@ -77,19 +77,14 @@ detail. Empty modern reduction uses the documented canonical empty state.
 
 New writes retain readable `centroids`, `sum`, `min`, `max`, `count`, `max_size`
 and add configuration/kind fields. Centroid weights are Float64, including for
-Float32 means. This changes the schema from historical six-field writes. Old
-six-field reads retain the historical K2/Use defaults and infer atomic kind only
+Float32 means. This changes the schema from historical six field writes. Old
+six field reads retain the historical K2/Use defaults and infer atomic kind only
 for weight one. Missing information is inferred, not recovered. The older
 integer `polars_tdigest` schema is not automatically supported.
 
-Full-state TDIG v3 bytes preserve precision, configuration, extrema and kind.
+Complete state TDIG v3 bytes preserve precision, configuration, extrema and kind.
 V1/v2 limitations are explicit. Null or malformed blobs and mixed precision in
 one decode operation are rejected. Schema migration and a Polars major upgrade
 must be exercised against real consumer frames before internal deployment.
 
-Fast public tests include aligned empty/healthy rows, strict missing-state
-rejection, metadata corruption and lazy grouped joins with dynamic CDF probes,
-Float32 casts and clipping. These bounded checks do not qualify the user's
-unconfirmed Spark or private consumer matrix.
-
-Column-based `from_bytes` now requires `precision="f32"` or `"f64"`. This checks encoded precision; it does not convert it. Inspect eager bytes first with `wire_precision` or `infer_column_precision` when needed. Planning and execution then use the same schema, including an empty reduction.
+Column based `from_bytes` now requires `precision="f32"` or `"f64"`. This checks encoded precision; it does not convert it. Inspect eager bytes first with `wire_precision` or `infer_column_precision` when needed. Planning and execution then use the same schema, including an empty reduction.

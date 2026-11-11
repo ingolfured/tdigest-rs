@@ -1,4 +1,3 @@
-// src/tdigest/tdigest.rs
 use crate::{TdError, TdResult};
 use ordered_float::{FloatCore, OrderedFloat};
 
@@ -20,7 +19,7 @@ use crate::tdigest::wire::{self, WireDecodedDigest, WireError, WireVersion};
 pub struct TDigest<F: FloatLike + FloatCore> {
     centroids: Vec<Centroid<F>>,
     max_size: usize,
-    sum: f64,   // ∑x over raw data (f64 for stability / wire)
+    sum: f64,   // Sum of value times weight.
     count: f64, // ∑w over raw data (f64 for stability / wire)
     max: OrderedFloat<F>,
     min: OrderedFloat<F>,
@@ -47,10 +46,6 @@ impl<F: FloatLike + FloatCore> Default for TDigest<F> {
         }
     }
 }
-
-/* =============================================================================
- * Input adapters
- * ============================================================================= */
 
 /// Accepts containers already typed as `F` and yields a `Vec<F>`.
 pub trait IntoVecF<F: FloatLike> {
@@ -152,10 +147,6 @@ where
     }
 }
 
-/* =============================================================================
- * Options / Builder
- * ============================================================================= */
-
 #[derive(Debug, Clone, Copy)]
 pub struct DigestOptions<F: FloatLike> {
     pub max_size: usize,
@@ -188,7 +179,6 @@ pub struct TDigestBuilder<F: FloatLike + FloatCore> {
     delta: Option<f64>,
     scale_explicit: bool,
     policy_explicit: bool,
-    // optional seeds
     init_centroids: Option<Vec<Centroid<F>>>,
     init_stats: Option<DigestStats>,
     override_max_size: Option<usize>,
@@ -222,7 +212,7 @@ impl<F: FloatLike + FloatCore> TDigestBuilder<F> {
         self
     }
 
-    /// Choose the scale family used by the k-limit (Stage **3**).
+    /// Choose the scale used to limit centroid mass.
     #[inline]
     pub fn scale(mut self, s: ScaleFamily) -> Self {
         self.scale = s;
@@ -230,7 +220,7 @@ impl<F: FloatLike + FloatCore> TDigestBuilder<F> {
         self
     }
 
-    /// Set the atomic/edge policy influencing Stages **2** and **6**.
+    /// Set the policy for protecting centroids at the edges.
     #[inline]
     pub fn singleton_policy(mut self, p: SingletonPolicy) -> Self {
         self.policy = p;
@@ -307,7 +297,6 @@ impl<F: FloatLike + FloatCore> TDigestBuilder<F> {
     // Only internal transient streams may bypass state validation. They are
     // normalized/coalesced before a checked public result is returned.
     fn build_unchecked(self) -> TDigest<F> {
-        // If seeded, construct directly from the provided centroids and stats.
         if let (Some(cents), Some(st)) = (self.init_centroids, self.init_stats) {
             let max_size = self.override_max_size.unwrap_or(self.max_size);
             TDigest {
@@ -337,14 +326,10 @@ impl<F: FloatLike + FloatCore> TDigestBuilder<F> {
     }
 }
 
-/* =============================================================================
- * Digest
- * ============================================================================= */
-
-/// Data-level stats for seeding a digest (∑x/∑w/min/max of the **raw data**, not centroids).
+/// Observed extrema, total mass and weighted sum used to restore a digest.
 #[derive(Debug, Clone, Copy)]
 pub struct DigestStats {
-    /// Sum of raw data values (∑x), not sum of centroid means.
+    /// Sum of observation values multiplied by their weights.
     pub data_sum: f64,
     /// Total weight (∑w). For raw samples this equals the sample count.
     pub total_weight: f64,
@@ -400,13 +385,10 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
     }
 
     /// CDF wrapper that yields NaN for all probes when the digest is effectively empty.
-    /// This centralizes the “empty → NaN” rule.
     #[inline]
     pub fn cdf_or_nan(&self, xs: &[f64]) -> Vec<f64> {
         if self.is_effectively_empty() {
-            let mut v = Vec::with_capacity(xs.len());
-            v.resize(xs.len(), f64::NAN);
-            v
+            vec![f64::NAN; xs.len()]
         } else {
             self.cdf(xs)
         }
@@ -460,7 +442,6 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
             .build_unchecked()
     }
 
-    // --- internal metadata setters (small & inlined) ---
     #[inline]
     pub(crate) fn set_sum(&mut self, s: f64) {
         self.sum = s;
@@ -498,7 +479,7 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
         base.merge_weighted_unsorted(values, weights)
     }
 
-    /// The configured scale family used by the compressor’s k-limit.
+    /// The configured scale family used by the compressor's k-limit.
     #[inline]
     pub fn scale(&self) -> ScaleFamily {
         self.scale
@@ -542,7 +523,6 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
 
         let stream = MergeByMean::from_centroids_and_values(&self.centroids, &sorted_values);
 
-        // Pipeline: Normalize → Slice → Merge(k-limit) → Cap → Assemble → Post
         let data_sum = crate::tdigest::summation::sum(
             std::iter::once(self.sum)
                 .chain(sorted_values.iter().map(|v| <F as FloatLike>::to_f64(*v))),
@@ -712,10 +692,8 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
             delta: chosen_delta,
         };
 
-        // Producer: k-way merge of centroid runs (no extra coalescing beyond equal-mean heads).
         let merged_stream = KWayCentroidMerge::from_runs(&runs);
 
-        // Same pipeline as values.
         let compressed: Vec<Centroid<F>> =
             compress_into(&mut result, chosen_max_size, merged_stream)?;
         result.centroids = compressed;
@@ -981,15 +959,9 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
         Ok(self)
     }
 
-    /* ===========================
-     * Small utilities
-     * =========================== */
-
     /// Construct a digest from raw centroids + stats.
     ///
-    /// If `centroids.len() > max_size`, this creates a temporary large digest (via the builder)
-    /// and then merges down through the pipeline to respect capacity. This mirrors the case where
-    /// a producer generates more than `max_size` centroids and requires compression.
+    /// Recompress an oversized seed at the requested capacity.
     pub fn new(
         centroids: Vec<Centroid<F>>,
         sum: f64,
@@ -1143,7 +1115,7 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
         Ok(())
     }
 
-    /// Mean of the represented distribution (`∑x / ∑w`) in **f64** for stability.
+    /// Mean of the represented distribution (`sum / count`) in **f64** for stability.
     #[inline]
     pub fn mean(&self) -> f64 {
         if self.has_subnormal_point_moment() {
@@ -1157,7 +1129,7 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
         }
     }
 
-    /// Sum of raw values (∑x).
+    /// Sum of observation values multiplied by their weights.
     #[inline]
     pub fn sum(&self) -> f64 {
         self.sum
@@ -1181,10 +1153,7 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
         &self.centroids
     }
 
-    /// Prepare a result shell when ingesting a batch of **sorted** raw values.
-    ///
-    /// Sets `count` to existing `∑w + values.len()`, resets `sum` to be filled by Stage **1**,
-    /// and updates min/max by comparing current bounds with the new batch.
+    /// Carry the observed extrema forward when combining a sorted batch with this digest.
     fn new_result_for_values(&self, values: &[F]) -> TDigest<F> {
         let mut r = TDigest::<F> {
             centroids: Vec::new(),
@@ -1209,10 +1178,6 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
         }
         r
     }
-
-    /* ===========================
-     * Convenience constructors
-     * =========================== */
 
     /// Convenience: build from an arbitrary numeric container already typed as `F`, using options.
     pub fn from_array_with<A: IntoVecF<F>>(arr: A, opts: DigestOptions<F>) -> TdResult<TDigest<F>> {
@@ -1266,6 +1231,7 @@ impl TDigest<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::quality::quality_base::{empirical_cdf, expected_quantile};
     use std::hint::black_box;
     use std::time::Instant;
     use testdata::{gen_dataset, DistKind};
@@ -1452,36 +1418,6 @@ mod tests {
         samples[samples.len() / 2]
     }
 
-    fn expected_quantile(sorted: &[f64], q: f64) -> f64 {
-        let n = sorted.len();
-        if n == 0 {
-            return f64::NAN;
-        }
-        if q <= 0.0 {
-            return sorted[0];
-        }
-        if q >= 1.0 {
-            return sorted[n - 1];
-        }
-        let t = q * (n as f64 - 1.0);
-        let lo = t.floor() as usize;
-        let hi = t.ceil() as usize;
-        if lo == hi {
-            sorted[lo]
-        } else {
-            let alpha = t - lo as f64;
-            (1.0 - alpha) * sorted[lo] + alpha * sorted[hi]
-        }
-    }
-
-    fn exact_cdf_leq(sorted: &[f64], x: f64) -> f64 {
-        if sorted.is_empty() {
-            return f64::NAN;
-        }
-        let idx = sorted.partition_point(|v| *v <= x);
-        (idx as f64) / (sorted.len() as f64)
-    }
-
     fn accuracy_metrics(td: &TDigest<f64>, sorted: &[f64]) -> AccuracyMetrics {
         if sorted.is_empty() {
             return AccuracyMetrics {
@@ -1521,7 +1457,7 @@ mod tests {
         let mut cdf_mae = 0.0;
         let mut cdf_max = 0.0;
         for (x, got) in probes.iter().zip(est.iter()) {
-            let exp = exact_cdf_leq(sorted, *x);
+            let exp = empirical_cdf(sorted, *x);
             let e = (*got - exp).abs();
             cdf_mae += e;
             if e > cdf_max {
@@ -1689,8 +1625,8 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "slow proof run; prints CPU/memory/precision summary for heap merge"]
-    fn heap_kway_merge_proof_cpu_memory_precision() {
+    #[ignore = "measures two merge strategies on ten million observations"]
+    fn heap_merge_time_allocation_and_accuracy() {
         let cases = [PerfCase {
             label: "mix-10m-k40-max1000",
             dist: DistKind::Mixture,
@@ -1702,7 +1638,11 @@ mod tests {
         // Keep these conservative because n is intentionally very large.
         let trials_per_case = 1usize;
         let reps = 3usize;
-        let memory_supported = cfg!(all(target_os = "linux", target_env = "gnu"));
+        let memory_supported = cfg!(all(
+            target_os = "linux",
+            target_env = "gnu",
+            not(feature = "java")
+        ));
 
         let mut total_trials = 0usize;
         let mut cpu_wins = 0usize;
@@ -1713,12 +1653,12 @@ mod tests {
 
         println!();
         println!(
-            "=== heap k-way merge proof: concat+sort baseline vs heap stream (trials={}, reps={}) ===",
+            "=== Sorted concatenation and heap merge (trials={}, reps={}) ===",
             cases.len() * trials_per_case,
             reps
         );
         println!(
-            "memory metric = jemalloc allocated-byte peak delta (linux-gnu only): {}",
+            "memory metric = largest sampled change in jemalloc allocated bytes (GNU Linux): {}",
             if memory_supported {
                 "enabled"
             } else {
@@ -1777,7 +1717,7 @@ mod tests {
                 }
 
                 println!(
-                    "[{} trial {}/{} seed={}] cpu(ns): sort={} heap={} ratio={:.3} | mem(bytes): sort={} heap={} ratio={:.3} | q_mae: sort={:.3e} heap={:.3e} | cdf_mae: sort={:.3e} heap={:.3e}",
+                    "[{} trial {}/{} seed={}] elapsed(ns): sort={} heap={} ratio={:.3} | mem(bytes): sort={} heap={} ratio={:.3} | q_mae: sort={:.3e} heap={:.3e} | cdf_mae: sort={:.3e} heap={:.3e}",
                     case.label,
                     trial + 1,
                     trials_per_case,
@@ -1816,7 +1756,7 @@ mod tests {
         // pathological regressions while letting this profile stay realistic.
         assert!(
             heap_cpu_total_ns * 100 <= sort_cpu_total_ns * 130,
-            "heap total CPU regressed by >30% on this profile (sort_total={} heap_total={})",
+            "heap elapsed time increased by >30% on this profile (sort_total={} heap_total={})",
             sort_cpu_total_ns,
             heap_cpu_total_ns
         );

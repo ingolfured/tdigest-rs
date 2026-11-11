@@ -91,7 +91,7 @@ def worker(scenario):
         result, metrics = timed(
             lambda: inputs.group_by("g").agg(*[gr.merge_tdigests(name).alias(name) for name in names])
         )
-        assert result["d0"].struct.field("count").to_list() == [fanin * observations] * groups
+        assert result.select(pl.col("d0").struct.field("count")).to_series().to_list() == [fanin * observations] * groups
         return {
             "groups": groups,
             "columns": columns,

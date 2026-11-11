@@ -1,8 +1,4 @@
-//! TDigest "merge_unsorted" bench + peak memory (RSS) per size.
-//!
-//! - Criterion timing of end-to-end build from unsorted Vec<f64>.
-//! - Separate one-shot child process per size to print *peak* memory
-//!   during the build (includes sort + compress, input Vec, jemalloc arenas, etc).
+//! Time digest construction from unsorted values and measure peak memory on Linux.
 
 use std::process::Command;
 use std::time::Duration;
@@ -12,19 +8,17 @@ use tdigest_rs::tdigest::{ScaleFamily, TDigest};
 use testdata::{gen_dataset, DistKind};
 
 #[cfg(target_os = "linux")]
-fn rss_peak_kib() -> u64 {
+fn rss_peak_kib() -> Option<u64> {
     // ru_maxrss is in KiB on Linux
     unsafe {
         let mut usage: libc::rusage = std::mem::zeroed();
-        libc::getrusage(libc::RUSAGE_SELF, &mut usage);
-        usage.ru_maxrss as u64
+        (libc::getrusage(libc::RUSAGE_SELF, &mut usage) == 0).then_some(usage.ru_maxrss as u64)
     }
 }
 
 #[cfg(not(target_os = "linux"))]
-fn rss_peak_kib() -> u64 {
-    // Fallback: unknown platform → 0 (you can add macOS proc reading if you want)
-    0
+fn rss_peak_kib() -> Option<u64> {
+    None
 }
 
 fn build_digest_unsorted(vals: Vec<f64>) -> TDigest<f64> {
@@ -73,7 +67,7 @@ fn bench_merge_unsorted(c: &mut Criterion) {
 
         group.finish();
 
-        // ---- true peak memory: run in a fresh process so ru_maxrss is per-size ----
+        // A fresh process measures peak RSS for this input size alone.
         let exe = std::env::current_exe().expect("current exe");
         let out = Command::new(exe)
             .arg("--peak")
@@ -81,7 +75,6 @@ fn bench_merge_unsorted(c: &mut Criterion) {
             .output()
             .expect("spawn peak child");
         if out.status.success() {
-            // Child prints a single line: "[peak] size=... rss_peak_kib=... (~MiB)"
             eprint!("{}", String::from_utf8_lossy(&out.stdout));
         } else {
             eprintln!(
@@ -92,8 +85,6 @@ fn bench_merge_unsorted(c: &mut Criterion) {
         }
     }
 }
-
-/* ------------------------ custom harness ------------------------ */
 
 fn configure() -> Criterion {
     Criterion::default()
@@ -109,25 +100,23 @@ fn run_bench_suite() {
     c.final_summary();
 }
 
-fn run_peak_once(n: usize) -> anyhow::Result<()> {
-    // Build one digest of size n, then print peak RSS (KiB and MiB)
+fn run_peak_once(n: usize) {
     let vals = gen_dataset(DistKind::Mixture, n, 4242);
     let _td = build_digest_unsorted(vals);
-    let kib = rss_peak_kib();
-    let mib = kib as f64 / 1024.0;
-    println!("[peak] size={} rss_peak_kib={} (~{:.1} MiB)", n, kib, mib);
-    Ok(())
+    if let Some(kib) = rss_peak_kib() {
+        let mib = kib as f64 / 1024.0;
+        println!("[peak] size={n} rss_peak_kib={kib} ({mib:.1} MiB)");
+    } else {
+        println!("[peak] size={n} peak RSS unavailable");
+    }
 }
 
 fn main() {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
-    if args.get(0).map(|s| s.as_str()) == Some("--peak") {
+    if args.first().map(|s| s.as_str()) == Some("--peak") {
         match args.get(1).and_then(|s| s.parse::<usize>().ok()) {
             Some(n) => {
-                if let Err(e) = run_peak_once(n) {
-                    eprintln!("[peak] error: {e}");
-                    std::process::exit(1);
-                }
+                run_peak_once(n);
                 return;
             }
             None => {
@@ -137,6 +126,5 @@ fn main() {
         }
     }
 
-    // No --peak: run the Criterion suite.
     run_bench_suite();
 }

@@ -1,16 +1,14 @@
 # Modern versus original G-Research: measured accuracy
 
-This report compares the preserved legacy/original G-Research engine (GR) with the opt-in Modern engine. It is evidence of workload-dependent accuracy tradeoffs at matched logical centroid-field byte budgets, not proof that Modern universally replaces legacy. It does not measure a throughput ranking or equal process memory use.
-
-These are historical measurements from CI run 104 at `e6a14a2`. Later changes to state validation or measurement checks do not remeasure these tables or establish a new accuracy winner.
+CI run 104 at `e6a14a2` compared the original algorithm (GR) with the capacity algorithm (Modern). It matched the storage used by centroid fields. Both engines ran on the same inputs. The tables report errors for that revision. [Current wheel comparison](../../docs/upstream-1.0.0/comparison.md)
 
 ### Which implementation wins?
 
 - **Bike data: Modern wins all four error measures in every size/merge group below.**
-- **Energy data: Modern wins average rank, tail rank and average value error. GR wins peak value error:** Modern's peak-value error is **1.81–1.86 times GR's**.
-- **Synthetic data: GR wins all four measures on Gaussian, exponential, lognormal, Pareto, bimodal and signed-scale distributions when averaged across setups.** Modern wins all four on drift, skewed two-point and zero-inflated data. Rounded ties and uniform grids split by metric.
+- **Energy data: Modern wins average rank, tail rank and average value error. GR wins peak value error:** Modern's peak value error is **1.81 to 1.86 times GR's**.
+- **Synthetic data: GR wins all four measures on Gaussian, exponential, lognormal, Pareto, bimodal and signed scale distributions when averaged across setups.** Modern wins all four on drift, skewed two point and zero inflated data. Rounded ties and uniform grids split by metric.
 
-There is no single overall winner: Modern wins the real-data averages; GR handles Energy peak-value error and several synthetic distributions better. These are grouped results; individual cases can differ.
+There is no single overall winner: Modern wins the real data averages; GR handles Energy peak value error and several synthetic distributions better. These are grouped results; individual cases can differ.
 
 ### How to read the numbers
 
@@ -29,68 +27,68 @@ The tables name the winner explicitly, followed by this ratio. For example, **Mo
 | Dataset | Size | Construction | Average rank error | Tail rank error | Average value error | Peak value error |
 | --- | --- | --- | --- | --- | --- | --- |
 | Bike | 32 | 40 sequential merges | Modern (0.45) | Modern (0.14) | Modern (0.38) | Modern (0.32) |
-| Bike | 32 | 40-way balanced merge | Modern (0.46) | Modern (0.16) | Modern (0.41) | Modern (0.42) |
+| Bike | 32 | Balanced merge of 40 digests | Modern (0.46) | Modern (0.16) | Modern (0.41) | Modern (0.42) |
 | Bike | 32 | Single build | Modern (0.41) | Modern (0.20) | Modern (0.38) | Modern (0.55) |
 | Bike | 128 | 40 sequential merges | Modern (0.021) | Modern (0.047) | Modern (0.037) | Modern (0.34) |
-| Bike | 128 | 40-way balanced merge | Modern (0.021) | Modern (0.030) | Modern (0.039) | Modern (0.35) |
+| Bike | 128 | Balanced merge of 40 digests | Modern (0.021) | Modern (0.030) | Modern (0.039) | Modern (0.35) |
 | Bike | 128 | Single build | Modern (0.017) | Modern (0.030) | Modern (0.035) | Modern (0.35) |
 | Bike | 512 | 40 sequential merges | Modern (0.010) | Modern (0) | Modern (0.029) | Modern (0.34) |
-| Bike | 512 | 40-way balanced merge | Modern (0.010) | Modern (0) | Modern (0.028) | Modern (0.35) |
+| Bike | 512 | Balanced merge of 40 digests | Modern (0.010) | Modern (0) | Modern (0.028) | Modern (0.35) |
 | Bike | 512 | Single build | Modern (0.008) | Modern (0) | Modern (0.028) | Modern (0.35) |
 | Energy | 32 | 40 sequential merges | Modern (0.084) | Modern (0.013) | Modern (0.70) | GR (1.81) |
-| Energy | 32 | 40-way balanced merge | Modern (0.078) | Modern (0.064) | Modern (0.67) | GR (1.81) |
+| Energy | 32 | Balanced merge of 40 digests | Modern (0.078) | Modern (0.064) | Modern (0.67) | GR (1.81) |
 | Energy | 32 | Single build | Modern (0.23) | Modern (0.12) | Modern (0.73) | GR (1.83) |
 | Energy | 128 | 40 sequential merges | Modern (0.009) | Modern (0.002) | Modern (0.36) | GR (1.85) |
-| Energy | 128 | 40-way balanced merge | Modern (0.009) | Modern (0.031) | Modern (0.35) | GR (1.84) |
+| Energy | 128 | Balanced merge of 40 digests | Modern (0.009) | Modern (0.031) | Modern (0.35) | GR (1.84) |
 | Energy | 128 | Single build | Modern (0.043) | Modern (0.037) | Modern (0.40) | GR (1.84) |
 | Energy | 512 | 40 sequential merges | Modern (0.002) | Modern (0.00042) | Modern (0.32) | GR (1.86) |
-| Energy | 512 | 40-way balanced merge | Modern (0.002) | Modern (0.004) | Modern (0.31) | GR (1.85) |
+| Energy | 512 | Balanced merge of 40 digests | Modern (0.002) | Modern (0.004) | Modern (0.31) | GR (1.85) |
 | Energy | 512 | Single build | Modern (0.008) | Modern (0.003) | Modern (0.37) | GR (1.84) |
 
-Each row compares average per-case errors across the dataset's columns, both precisions and both input orders. “Peak value error” is the average of each case's maximum value error, not the single largest error across the group. Value errors are normalized by each column's IQR, with the test suite's fallback when IQR is zero. Tail rank measures probabilities ≤1% or ≥99%.
+Each row compares average individual errors across the dataset's columns, both precisions and both input orders. "Peak value error" is the average of each case's maximum value error, not the single largest error across the group. Value errors are normalized by each column's IQR, with the test suite's fallback when IQR is zero. Tail rank measures probabilities ≤1% or ≥99%.
 
 <details>
-<summary>Real-data breakdown by f32/f64</summary>
+<summary>Real data breakdown by f32/f64</summary>
 
 Same ratio throughout: Modern error ÷ GR error; below 1 favors Modern, above 1 favors GR.
 
 | Dataset | Precision | Size | Construction | Average rank error | Tail rank error | Average value error | Peak value error |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Bike | f32 | 32 | 40 sequential merges | Modern (0.48) | Modern (0.15) | Modern (0.40) | Modern (0.35) |
-| Bike | f32 | 32 | 40-way balanced merge | Modern (0.48) | Modern (0.17) | Modern (0.43) | Modern (0.52) |
+| Bike | f32 | 32 | Balanced merge of 40 digests | Modern (0.48) | Modern (0.17) | Modern (0.43) | Modern (0.52) |
 | Bike | f32 | 32 | Single build | Modern (0.42) | Modern (0.28) | Modern (0.39) | Modern (0.56) |
 | Bike | f32 | 128 | 40 sequential merges | Modern (0.022) | Modern (0.048) | Modern (0.038) | Modern (0.35) |
-| Bike | f32 | 128 | 40-way balanced merge | Modern (0.022) | Modern (0.032) | Modern (0.039) | Modern (0.36) |
+| Bike | f32 | 128 | Balanced merge of 40 digests | Modern (0.022) | Modern (0.032) | Modern (0.039) | Modern (0.36) |
 | Bike | f32 | 128 | Single build | Modern (0.017) | Modern (0.030) | Modern (0.035) | Modern (0.34) |
 | Bike | f32 | 512 | 40 sequential merges | Modern (0.011) | Modern (0) | Modern (0.029) | Modern (0.34) |
-| Bike | f32 | 512 | 40-way balanced merge | Modern (0.011) | Modern (0) | Modern (0.029) | Modern (0.35) |
+| Bike | f32 | 512 | Balanced merge of 40 digests | Modern (0.011) | Modern (0) | Modern (0.029) | Modern (0.35) |
 | Bike | f32 | 512 | Single build | Modern (0.008) | Modern (0) | Modern (0.029) | Modern (0.36) |
 | Bike | f64 | 32 | 40 sequential merges | Modern (0.42) | Modern (0.14) | Modern (0.36) | Modern (0.29) |
-| Bike | f64 | 32 | 40-way balanced merge | Modern (0.43) | Modern (0.14) | Modern (0.39) | Modern (0.35) |
+| Bike | f64 | 32 | Balanced merge of 40 digests | Modern (0.43) | Modern (0.14) | Modern (0.39) | Modern (0.35) |
 | Bike | f64 | 32 | Single build | Modern (0.40) | Modern (0.16) | Modern (0.38) | Modern (0.54) |
 | Bike | f64 | 128 | 40 sequential merges | Modern (0.021) | Modern (0.046) | Modern (0.036) | Modern (0.33) |
-| Bike | f64 | 128 | 40-way balanced merge | Modern (0.021) | Modern (0.028) | Modern (0.038) | Modern (0.34) |
+| Bike | f64 | 128 | Balanced merge of 40 digests | Modern (0.021) | Modern (0.028) | Modern (0.038) | Modern (0.34) |
 | Bike | f64 | 128 | Single build | Modern (0.017) | Modern (0.030) | Modern (0.034) | Modern (0.35) |
 | Bike | f64 | 512 | 40 sequential merges | Modern (0.010) | Modern (0) | Modern (0.028) | Modern (0.34) |
-| Bike | f64 | 512 | 40-way balanced merge | Modern (0.010) | Modern (0) | Modern (0.028) | Modern (0.34) |
+| Bike | f64 | 512 | Balanced merge of 40 digests | Modern (0.010) | Modern (0) | Modern (0.028) | Modern (0.34) |
 | Bike | f64 | 512 | Single build | Modern (0.008) | Modern (0) | Modern (0.027) | Modern (0.34) |
 | Energy | f32 | 32 | 40 sequential merges | Modern (0.091) | Modern (0.11) | Modern (0.75) | GR (1.80) |
-| Energy | f32 | 32 | 40-way balanced merge | Modern (0.084) | Modern (0.076) | Modern (0.70) | GR (1.84) |
+| Energy | f32 | 32 | Balanced merge of 40 digests | Modern (0.084) | Modern (0.076) | Modern (0.70) | GR (1.84) |
 | Energy | f32 | 32 | Single build | Modern (0.23) | Modern (0.18) | Modern (0.76) | GR (1.86) |
 | Energy | f32 | 128 | 40 sequential merges | Modern (0.010) | Modern (0.037) | Modern (0.38) | GR (1.85) |
-| Energy | f32 | 128 | 40-way balanced merge | Modern (0.010) | Modern (0.045) | Modern (0.36) | GR (1.87) |
+| Energy | f32 | 128 | Balanced merge of 40 digests | Modern (0.010) | Modern (0.045) | Modern (0.36) | GR (1.87) |
 | Energy | f32 | 128 | Single build | Modern (0.045) | Modern (0.037) | Modern (0.42) | GR (1.86) |
 | Energy | f32 | 512 | 40 sequential merges | Modern (0.002) | Modern (0.006) | Modern (0.34) | GR (1.85) |
-| Energy | f32 | 512 | 40-way balanced merge | Modern (0.002) | Modern (0.006) | Modern (0.32) | GR (1.87) |
+| Energy | f32 | 512 | Balanced merge of 40 digests | Modern (0.002) | Modern (0.006) | Modern (0.32) | GR (1.87) |
 | Energy | f32 | 512 | Single build | Modern (0.009) | Modern (0.003) | Modern (0.39) | GR (1.86) |
 | Energy | f64 | 32 | 40 sequential merges | Modern (0.077) | Modern (0.007) | Modern (0.65) | GR (1.83) |
-| Energy | f64 | 32 | 40-way balanced merge | Modern (0.074) | Modern (0.056) | Modern (0.64) | GR (1.78) |
+| Energy | f64 | 32 | Balanced merge of 40 digests | Modern (0.074) | Modern (0.056) | Modern (0.64) | GR (1.78) |
 | Energy | f64 | 32 | Single build | Modern (0.22) | Modern (0.094) | Modern (0.70) | GR (1.81) |
 | Energy | f64 | 128 | 40 sequential merges | Modern (0.008) | Modern (0.00087) | Modern (0.34) | GR (1.86) |
-| Energy | f64 | 128 | 40-way balanced merge | Modern (0.008) | Modern (0.022) | Modern (0.34) | GR (1.82) |
+| Energy | f64 | 128 | Balanced merge of 40 digests | Modern (0.008) | Modern (0.022) | Modern (0.34) | GR (1.82) |
 | Energy | f64 | 128 | Single build | Modern (0.041) | Modern (0.037) | Modern (0.38) | GR (1.82) |
 | Energy | f64 | 512 | 40 sequential merges | Modern (0.002) | Modern (0.00022) | Modern (0.30) | GR (1.87) |
-| Energy | f64 | 512 | 40-way balanced merge | Modern (0.002) | Modern (0.003) | Modern (0.30) | GR (1.82) |
+| Energy | f64 | 512 | Balanced merge of 40 digests | Modern (0.002) | Modern (0.003) | Modern (0.30) | GR (1.82) |
 | Energy | f64 | 512 | Single build | Modern (0.008) | Modern (0.003) | Modern (0.35) | GR (1.82) |
 
 </details>
@@ -115,6 +113,6 @@ Averages across sizes 32/128/512, both precisions, both input orders and all thr
 
 ### Test basis
 
-Results come from [CI run 104](https://github.com/ingolfured/gr-tdigest/actions/runs/39566448129) at `e6a14a2`; the [artifact contains every case and both engines' raw errors](https://github.com/ingolfured/gr-tdigest/actions/runs/39566448129/artifacts/12332712916). Both engines receive identical inputs and are compared at matched logical centroid-field byte budgets. All 324 real-data cases and 378/432 synthetic cases qualify; constant-data cases have no eligible comparison. The grouped ratios are ratios of average errors, not counts of wins. CDF has no GR comparison because its API does not expose CDF.
+Results come from [CI run 104](https://github.com/ingolfured/gr-tdigest/actions/runs/39566448129) at `e6a14a2`; the [artifact contains every case and both engines' raw errors](https://github.com/ingolfured/gr-tdigest/actions/runs/39566448129/artifacts/12332712916). Both engines receive identical inputs and are compared at matched logical centroid field byte budgets. All 324 real data cases and 378/432 synthetic cases qualify; constant data cases have no eligible comparison. The grouped ratios are ratios of average errors, not counts of wins. CDF has no GR comparison because its API does not expose CDF.
 
 In that recorded run, the regression gate passed, but 10 synthetic cases exceeded accuracy limits and 13/15 separate numerical boundary controls failed. A regression PASS means the results satisfy the baseline comparison rules; it does not mean every accuracy limit or exact boundary target passes. Current failure counts require a fresh report for the measured revision.

@@ -3,17 +3,16 @@
 Import `TDigest` from `tdigest_rs` for both modes. The original calling convention
 uses `delta=` (default 300). It accepts Float32 and Float64 NumPy arrays, ignores
 NaNs, retains infinite endpoints and returns a new digest from merge and update.
-Pass `max_size=` for capacity-based compression, strict finite inputs, fractional
-weights, CDF, in-place updates and TDIG serialization. Supply one sizing parameter
+Pass `max_size=` for fixed capacity compression, strict finite inputs, fractional
+weights, CDF, updates in place and TDIG serialization. Supply one sizing parameter
 per constructor. Both modes use the same Rust core for finite data.
 
-Compression, interpolation and restored-pickle queries use modern numerical
-results. For example, the 10th percentile of `[1.0, 2.0]` changes from 0.7 to
+Both modes use the same interpolation, including for queries on restored pickles. For example, the 10th percentile of `[1.0, 2.0]` changes from 0.7 to
 1.0, and the median of `[0, 10]` with weights `[90, 10]` changes from 1 to 0.
 Published 0.1.0 pickles carry centroid means and weights. Loading one reconstructs
 a digest from those observations.
 
-## Capacity-based digests
+## Fixed capacity digests
 
 The remaining sections describe digests constructed with `max_size=`.
 
@@ -25,7 +24,7 @@ assert d.median() == d.quantile(0.5) == 0.0
 
 Use the named constructors; `TDigest()` is not a constructor. `from_array(data,
 *, max_size, scale=..., singleton_policy=..., pin_per_side=None,
-weights=..., precision="auto", f32_mode=None)` copies scalar or one-dimensional
+weights=..., precision="auto", f32_mode=None)` copies scalar or one dimensional
 training data. `arr=` remains a supported spelling for `data`. Unknown arguments
 raise `TypeError`. Invalid values, lengths, configuration or representability
 raise `ValueError`.
@@ -34,14 +33,14 @@ With `max_size=`, the defaults are K2, singleton Use and Float64 means. Object
 `precision="auto"` selects Float64, even for Float32 input. Explicit `f32` stores
 Float32 means/extrema; all weights, `count` and `sum` remain Float64. Capacity is
 a compression/storage setting, not observation count. The Python convenience
-constructor accepts capacities 10–20,000. Explicit 200 and 1,000 remain supported.
-The lower-level Rust builder supports smaller capacities, covered separately.
+constructor accepts capacities 10 through 20,000. Explicit 200 and 1,000 remain supported.
+The lower level Rust builder supports smaller capacities, covered separately.
 
-Use the `scale`, `singleton_policy` and `pin_per_side` settings with capacity-based construction.
+Use the `scale`, `singleton_policy` and `pin_per_side` settings with fixed capacity construction.
 
 `from_means_weights(means, weights, ...)` constructs **weighted observations**.
 It cannot restore compressed extrema, original sums or point/mixed identity.
-For a full-state copy use `copy.copy`, `copy.deepcopy`, pickle or TDIG bytes.
+For a complete state copy use `copy.copy`, `copy.deepcopy`, pickle or TDIG bytes.
 
 ## Queries and containers
 
@@ -52,14 +51,13 @@ the observed extrema.
 
 | Probe input | Modern result |
 |---|---|
-| Python scalar or zero-dimensional NumPy array | Python float |
+| Python scalar or scalar NumPy array | Python float |
 | list | list of floats |
 | tuple | tuple of floats |
-| one-dimensional NumPy array, including one element | Independent writable Float64 array, same length |
+| one dimensional NumPy array, including one element | Independent writable Float64 array, same length |
 | multidimensional input | Explicit error; flatten and reshape in the application |
 
-This is a documented migration from historical modern floating shape/dtype
-preservation. Integer NumPy probes always produce floating probabilities.
+Integer NumPy probes always produce floating probabilities.
 
 Quantile probabilities must be finite and in `[0,1]`, including rejection of
 NaN. CDF of NaN is NaN. For nonempty state, CDF at negative/positive infinity is
@@ -90,8 +88,7 @@ assert d.max == 10.0 and scaled.max == 20.0
 mass. Conversion that overflows, underflows to zero or produces invalid ordering
 is rejected. Scale operations likewise reject unrepresentable products. Finite
 individual inputs do not guarantee a representable aggregate: overflowing mass
-or weighted sum is rejected. A nonzero weighted product rounding to zero is also
-rejected. No promise is made that every increment is distinguishable beside an
+or weighted sum is rejected. If a weighted product rounds to zero, a digest containing a single exact point can still represent its distribution. Mixed observations with an unrepresentable product are rejected. No promise is made that every increment is distinguishable beside an
 arbitrarily large Float64 total. See the [accuracy tests](../../tests/quality/README.md) for measured limits.
 
 `means` and `weights` return independent Float64 arrays. `count` means total mass;
@@ -102,7 +99,7 @@ independent threads; concurrent mutation of one digest is not supported.
 
 ## Saved state and installed documentation
 
-`to_bytes(version=3)` is the full-state format; `from_bytes` validates and owns
+`to_bytes(version=3)` is the complete state format; `from_bytes` validates and owns
 the restored state. V1/v2 reads remain supported with documented historical
 inference. Older writes reject unsupported fractional mass or configuration.
 V3 extensions are not automatically readable by every older v3 reader.
@@ -110,7 +107,7 @@ V3 extensions are not automatically readable by every older v3 reader.
 `to_dict()` contains a readable snapshot plus `wire_b64_v3`. Binary state is
 authoritative when present: editing readable fields does not change restored
 state. A dictionary with only means/weights constructs observations, not a
-lossless restoration. For delta-mode dictionaries and pickles, see the [migration guide](../../ROLLOUT.md).
+lossless restoration. For delta mode dictionaries and pickles, see the [migration guide](../../ROLLOUT.md).
 
 The wheel ships `py.typed` and class/expression stubs. `help(TDigest)` and native
 method docstrings describe the actual installed class. For Polars expressions,

@@ -1,16 +1,5 @@
-//! Merge helpers for TDigest centroids.
-//!
-//! This module provides two utilities used by the TDigest builder/merge path:
-//! - `MergeByMean<F>`: merges a slice of centroids with a sorted slice of values
-//!   into a single centroid stream ordered by mean.
-//! - `KWayCentroidMerge<F>`: k-way merge of multiple centroid runs, ordered by mean.
-//! - `normalize_stream`: tiny normalization pass used by the compressor (kept here
-//!   for minimal churn), coalescing equal-mean runs while preserving atomic/mixed kind and
-//!   validating sort order.
-//!
-//! The API uses `mean_f64()` / `weight_f64()` to keep math in `f64`,
-//! and constructs new centroids via `Centroid::<F>::new_singleton_f64(...)`
-//! when materializing scalars.
+//! Merge sorted observations or sorted centroid runs into one stream.
+//! Normalization coalesces adjacent equal means and preserves their atomic or mixed kind.
 
 use ordered_float::FloatCore;
 use ordered_float::OrderedFloat;
@@ -19,10 +8,6 @@ use std::collections::BinaryHeap;
 
 use crate::tdigest::centroids::Centroid;
 use crate::tdigest::precision::FloatLike;
-
-/* =============================================================================
- * MergeByMean
- * ============================================================================= */
 
 pub struct MergeByMean<'a, F: FloatLike + FloatCore> {
     centroids: &'a [Centroid<F>],
@@ -88,10 +73,6 @@ impl<'a, F: FloatLike + FloatCore> Iterator for MergeByMean<'a, F> {
 }
 
 impl<'a, F: FloatLike + FloatCore> ExactSizeIterator for MergeByMean<'a, F> {}
-
-/* =============================================================================
- * K-way merge of centroid runs
- * ============================================================================= */
 
 pub struct KWayCentroidMerge<'a, F: FloatLike + FloatCore> {
     runs: Vec<&'a [Centroid<F>]>,
@@ -212,10 +193,6 @@ pub(crate) fn merge_runs_concat_sort<F: FloatLike + FloatCore>(
     all
 }
 
-/* =============================================================================
- * Normalization shim used by compressor (Stage 1)
- * ============================================================================= */
-
 /// Output of `normalize_stream`.
 pub struct Normalized<F: FloatLike + FloatCore> {
     pub out: Vec<Centroid<F>>,
@@ -226,7 +203,7 @@ pub struct Normalized<F: FloatLike + FloatCore> {
 }
 
 /// Normalize an input stream of centroids:
-/// - **validate** non-decreasing means (panic on violation to match tests)
+/// - **validate** non-decreasing means (panics on unsorted input)
 /// - **coalesce** adjacent equal-mean centroids, preserving mixed provenance
 /// - **accumulate** total weight/sum and min/max
 pub fn normalize_stream<F, I>(items: I) -> crate::TdResult<Normalized<F>>
@@ -290,7 +267,6 @@ where
             mass.add(cur_w);
             moment.add(cur_mean * cur_w);
 
-            // Start new run
             cur_mean = m;
             cur_w = w;
             run_mass = crate::tdigest::summation::Sum::default();
@@ -303,7 +279,6 @@ where
         }
     }
 
-    // Flush last run
     ensure_run_mass(cur_w)?;
     out.push(if cur_atomic {
         Centroid::<F>::new_atomic_f64(cur_mean, cur_w)

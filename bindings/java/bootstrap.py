@@ -74,7 +74,8 @@ def extract(archive: Path, target: Path) -> None:
             if hasattr(tarfile, "data_filter"):
                 bundle.extractall(target, filter="data")
             else:
-                # Python3.10: the same path/link/device validation is above.
+                if any(member.issym() or member.islnk() for member in bundle.getmembers()):
+                    raise BootstrapError("Tool archives with links require a Python tarfile data filter")
                 bundle.extractall(target)
 
 

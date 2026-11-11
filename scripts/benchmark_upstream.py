@@ -151,6 +151,8 @@ def main() -> None:
         (args.baseline_python, args.candidate_python, args.baseline_wheel, args.candidate_wheel, args.output_dir)
     ):
         parser.error("both installed interpreters, wheel paths and a new output directory are required")
+    if args.rounds < 1:
+        parser.error("--rounds must be at least one")
     output = args.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=False)
     env = os.environ.copy()

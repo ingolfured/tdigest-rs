@@ -19,16 +19,7 @@ fn parse_policy(kind: Option<&str>, pin_per_side: Option<usize>) -> Result<Singl
     parse_singleton_policy_str(kind, pin_per_side).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
-/// Resolve `(scale, policy)` honoring delta-mode contract.
-///
-/// `delta` selects the compression family used by the old tdigest-rs library.
-/// The full legacy API is provided separately by the shipped `tdigest_rs` package.
-/// Compression-mode settings are:
-/// - `scale` defaults to `K2Norm` (canonical Dunning K2 from paper eq 8);
-/// - `singleton_policy` defaults to `Off` (no edge protection / pinning);
-/// - `pin_per_side` must be unset.
-/// Explicit values that disagree with this contract are rejected so the user
-/// gets a clear error instead of a silently-different digest.
+/// Delta compression uses K2Norm without protected edges.
 fn resolve_delta_mode_defaults(
     scale: Option<&str>,
     singleton_policy: Option<&str>,
@@ -53,6 +44,11 @@ fn resolve_delta_mode_defaults(
             parsed
         }
     };
+    if pin_per_side.is_some() {
+        return Err(PyValueError::new_err(
+            "delta-mode only supports singleton_policy='off' with no pin_per_side",
+        ));
+    }
     let policy = match (singleton_policy, pin_per_side) {
         (None, None) => SingletonPolicy::Off,
         _ => {
@@ -176,7 +172,7 @@ fn output_for_values(py: Python<'_>, kind: ContainerKind, values: Vec<f64>) -> P
 }
 
 #[pyclass(name = "TDigest", subclass)]
-/// Modern distribution summary with Float32/Float64 means and Float64 mass.
+/// Distribution summary with Float32/Float64 means and Float64 mass.
 ///
 /// Construct with from_array or from_means_weights. Updates mutate this object;
 /// merge returns it for chaining. Queries do not mutate state. Use copy.copy or
@@ -270,7 +266,7 @@ impl PyTDigest {
             max_size,
             scale: sc,
             policy,
-            delta: delta,
+            delta,
         };
         let precision = if f32_mode {
             DigestPrecision::F32
@@ -374,7 +370,6 @@ impl PyTDigest {
 
     /// Strict quantile(s): finite probabilities in [0,1]. Scalar/0-D returns float; list/tuple retains its container; 1-D NumPy input returns an independent Float64 array. Multidimensional input is rejected.
     pub fn quantile(&self, py: Python<'_>, q: Py<PyAny>) -> PyResult<Py<PyAny>> {
-        // scalar fast-path
         if q.bind(py).is_instance_of::<PyFloat>() || q.bind(py).is_instance_of::<PyInt>() {
             let v = q.extract::<f64>(py)?;
             let out = self.inner.quantile_strict(v).map_err(map_frontend_err)?;
@@ -431,7 +426,6 @@ impl PyTDigest {
 
     /// Midpoint CDF: mass below plus half tied mass, divided by total mass. NaN probes return NaN; infinities give 0/1 for nonempty state. Containers follow quantile; integer probes produce floating probabilities.
     pub fn cdf(&self, py: Python<'_>, x: Py<PyAny>) -> PyResult<Py<PyAny>> {
-        // scalar fast-path
         if x.bind(py).is_instance_of::<PyFloat>() || x.bind(py).is_instance_of::<PyInt>() {
             let v = x.extract::<f64>(py)?;
             let out = self.inner.cdf(&[v])[0];
@@ -492,13 +486,11 @@ impl PyTDigest {
 
     /// Merge one digest or an iterable in place. All inputs must match precision/configuration, including empties. A failure leaves this digest unchanged; other inputs are never modified.
     pub fn merge(&mut self, other: Bound<'_, PyAny>) -> PyResult<()> {
-        // Single TDigest
         if let Ok(one) = other.extract::<PyRef<PyTDigest>>() {
             self.merge_inner(&one)?;
             return Ok(());
         }
 
-        // Iterable of TDigest
         let iter = PyIterator::from_object(&other).map_err(|_| {
             PyTypeError::new_err("tdigest merge: expected a TDigest or an iterable of TDigest")
         })?;

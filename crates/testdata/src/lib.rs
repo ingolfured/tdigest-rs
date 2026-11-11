@@ -1,4 +1,3 @@
-//! tdigest-testdata
 //! Synthetic data generators shared by benches and tests.
 //! Values are squashed into \[0,1] so shapes are comparable.
 
@@ -13,7 +12,7 @@ pub enum DistKind {
     Uniform,
     /// Gaussian mapped to \[0,1]
     Normal,
-    /// Log-normal-ish: exp(N(0, σ²)) squashed to \[0,1]
+    /// Lognormal sample mapped to the unit interval by `x / (1 + x)`.
     LogNormal { sigma: f64 },
     /// Mixed: clumps, broad region, and heavy tails
     Mixture,

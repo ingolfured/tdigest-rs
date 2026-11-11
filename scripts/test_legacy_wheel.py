@@ -17,8 +17,11 @@ from check_upstream_tests import verify_tests
 
 
 def verify_wheel_contents(wheel: Path) -> None:
-    """Reject generated Python caches before installing the release artifact."""
+    """Check the license, package layout, and absence of Python caches."""
     with ZipFile(wheel) as archive:
+        licenses = [name for name in archive.namelist() if name.endswith(".dist-info/licenses/LICENSE")]
+        if len(licenses) != 1 or archive.read(licenses[0]) != (Path(__file__).resolve().parents[1] / "LICENSE").read_bytes():
+            raise RuntimeError("wheel must include the project license")
         required = {"tdigest_rs/_polars.py", "tdigest_rs/_shared.py"}
         if any(name.startswith("gr_tdigest/") for name in archive.namelist()):
             raise RuntimeError("wheel contains the retired gr_tdigest namespace")

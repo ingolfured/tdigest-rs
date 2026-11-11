@@ -34,8 +34,7 @@ def main():
             raise RuntimeError("Upstream row count differs")
         writer.writerows([row[c] for c in source["columns"]] for row in rows)
         payload = bytearray(gzip.compress(stream.getvalue().encode(), mtime=0))
-        # Python3.12's mtime=0 fast path exposes zlib's host OS byte; newer
-        # Python versions use255. Keep the header platform-independent.
+        # Set the gzip OS byte to 255 so the fixture hash is the same on every platform.
         payload[9] = 255
         if hashlib.sha256(payload).hexdigest() != source["derived_sha256"]:
             raise RuntimeError("Derived bytes differ; review Python/zlib compatibility before updating fixtures")

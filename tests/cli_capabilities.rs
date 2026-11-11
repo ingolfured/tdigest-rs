@@ -181,6 +181,24 @@ fn cli_precision_auto_uses_f32_when_values_fit_and_f64_when_not() {
 }
 
 #[test]
+fn cli_auto_preserves_values_below_f32_range_with_k2norm() {
+    let out = run_cli(
+        &[
+            "median",
+            "--stdin",
+            "--scale",
+            "k2norm",
+            "--precision",
+            "auto",
+            "--output",
+            "text",
+        ],
+        Some("1e-100"),
+    );
+    assert_eq!(out.parse::<f64>().unwrap(), 1e-100);
+}
+
+#[test]
 fn cli_supports_ndjson_with_object_column() {
     let td = assert_fs::TempDir::new().expect("temp dir");
     let train = td.child("train.ndjson");
@@ -208,4 +226,23 @@ fn cli_supports_ndjson_with_object_column() {
     let (_, q_raw) = out.split_once(',').expect("quantile row");
     let q = q_raw.parse::<f64>().expect("q");
     assert!((q - 1.5).abs() <= 1e-12);
+}
+
+#[test]
+fn cli_rejects_malformed_text_and_csv_observations() {
+    for (format, data) in [
+        ("text", "1 bad 3"),
+        ("csv", "x,y\n1,2\nbad,3"),
+        ("csv", "x,y\n1,2\n3"),
+    ] {
+        let mut command = Command::cargo_bin("tdigest").unwrap();
+        command.args(["median", "--stdin", "--input-format", format]);
+        if format == "csv" {
+            command.args([
+                "--input-column",
+                if data.contains("bad") { "x" } else { "y" },
+            ]);
+        }
+        command.write_stdin(data).assert().failure();
+    }
 }

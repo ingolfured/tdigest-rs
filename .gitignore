@@ -1,6 +1,4 @@
-# =========================
 # Rust / Cargo
-# =========================
 /target
 /Cargo.lock.old
 **/*.rlib
@@ -13,11 +11,8 @@
 **/*.obj
 **/*.o
 
-# =========================
 # Python / Maturin
-# =========================
 __pycache__/
-**/__pycache__/
 *.pyc
 *.pyo
 *.pyd
@@ -41,9 +36,7 @@ venv/
 .python-version
 .python312_path
 
-# =========================
 # JNI / Java
-# =========================
 *.class
 *.jar
 !bindings/java/gradle/wrapper/gradle-wrapper.jar
@@ -53,11 +46,8 @@ venv/
 *.idea/
 .gradle/
 .gradle-user-home/
-build/
 
-# =========================
 # IDE / Editor
-# =========================
 .vscode/
 *.code-workspace
 *.swp
@@ -66,9 +56,7 @@ build/
 .DS_Store
 Thumbs.db
 
-# =========================
 # Benchmarks / Temp / Logs
-# =========================
 bench_results/
 criterion/
 tmp/
@@ -77,13 +65,8 @@ tmp/
 *.bak
 *.old
 
-# =========================
 # Local agent context (not for commit)
-# =========================
 typical_usecase.md
 
 # Local Claude Code agent state (not for commit)
 .claude/
-
-# Historical follow-up reports stay in PR descriptions or local build output.
-/compat/followups-20261021/

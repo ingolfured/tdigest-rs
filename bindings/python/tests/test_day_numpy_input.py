@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from tdigest_rs._modern import TDigest
+from tdigest_rs import TDigest
 
 
 class ArraySubclass(np.ndarray):

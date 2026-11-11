@@ -1,321 +1,45 @@
-# api_design.md
-
-This is the **target-state API contract** for cross-surface behavior (Rust, Python, Polars, Java).
-
-- It defines what behavior we want after refactor completion.
-- It may differ from current implementation.
-- If current behavior and this target contract diverge, this document wins.
-- For external implementation/paper comparisons and tradeoff positioning, see `comparison_design.md`.
-
-## 1. Scope boundary
-
-This file defines:
-- Public capabilities and semantic contracts.
-- Validation, merge, serialization, and error behavior across surfaces.
-
-This file does not define:
-- TDigest algorithm internals or compression mechanics.
-- External implementation comparisons.
-
-For current implementation internals, see `tdigest_design.md`.
-
-## 2. Locked decisions
-
-1. Rust-first behavior ownership.
-- Validation, merge policy, query rules, and decode policy live in Rust.
-- Bindings stay thin (argument conversion + error mapping).
-
-2. Strict null policy on Polars surfaces.
-- Null probes and null add-values are errors.
-- Null blobs in `from_bytes` are errors.
-
-3. Explicit cast only.
-- No implicit precision/config coercion in merge or decode.
-- Polars struct decoding rejects delta configurations unless the scale is K2Norm and singleton policy is Off, matching binary decoding and training validation.
-- Precision cast helpers are explicit API calls.
-
-## 3. Capability parity contract
-
-### JVM build and runtime support
-
-The Java binding targets Java 11 bytecode, with Java/JNI tests, JAR smoke tests
-and compiled-class version checks on JDK 11, 17, 21 and 25. The default
-Gradle 8.14.5 build can itself run on JDK 11; JDK 25 builds select Gradle 9.1.0
-through the verified distribution override. Internal build environments
-can select verified JDK/Gradle archives and an exclusive Maven dependency
-repository through the documented `TDIGEST_*` environment settings. Offline mode
-uses pre-staged tools/dependencies and never attempts a public fallback. It
-applies to Gradle and the native Cargo build. Publishing coordinates and the
-numerical API are unchanged.
-
-All surfaces must support:
-- Build/train from numeric values.
-- Add one value.
-- Add multiple values.
-- Add weighted value(s) (`values[i]` + `weights[i]`).
-- Merge one digest.
-- Merge multiple digests.
-- `quantile`
-- `cdf`
-- `median`
-- Explicit precision cast (`f32`/`f64`).
-- `to_bytes` / `from_bytes`
-
-Notes:
-- Polars naming can stay surface-specific (`add_values`, `merge_tdigests`).
-- New APIs should prefer common cross-surface names unless a surface constraint requires otherwise.
-- CLI maps query capabilities to subcommands: `tdigest quantile`, `tdigest cdf`, `tdigest median`.
-- CLI build/serialization flow is explicit: `tdigest build --to-digest ...`, then query via `--from-digest` (with optional additional training/merge input).
-
-## 4. Normative semantics (target)
-
-### 4.1 Training and add
-
-- Empty training input is valid and returns an empty digest.
-- Any non-finite value (`NaN`, `+inf`, `-inf`) is an error.
-- Any null value (where representable) is an error.
-- Adding an empty vector/list is a no-op success.
-
-### 4.1.1 Python construction modes
-
-Import `TDigest` from `tdigest_rs` for both modes. The original calling convention
-uses `delta=` (default 300). It accepts Float32 and Float64 NumPy arrays, ignores
-NaNs, retains infinite endpoints and returns a new digest from merge and update.
-Pass `max_size=` for capacity-based compression, strict finite inputs, fractional
-weights, CDF, in-place updates and TDIG serialization. Supply one sizing parameter
-per constructor. Both modes use the same Rust core for finite data.
-
-Compression, interpolation and restored-pickle queries use modern numerical
-results. For example, the 10th percentile of `[1.0, 2.0]` changes from 0.7 to
-1.0, and the median of `[0, 10]` with weights `[90, 10]` changes from 1 to 0.
-Published 0.1.0 pickles carry centroid means and weights. Loading one reconstructs
-a digest from those observations.
-
-### 4.1.2 Rust interface
-
-The workspace exposes the checked Rust implementation from the root package.
-
-### 4.1.3 Python runtime and installation
-
-The Python distribution supports standard GIL builds of CPython 3.10–3.15 through a py310
-ABI3 wheel, with NumPy >=1.26.4,<3 on 3.10–3.12, >=2.3.4,<3 on
-3.13–3.14, and >=2.5.4,<3 on 3.15. The base installation exposes both NumPy numerical
-interfaces without requiring the Polars Python package. The optional `polars`
-extra accepts Polars >=1.0.0 without an upper cap. Installing either the base
-package or its extra preserves an already installed compatible Polars version.
-Development remains pinned to 1.44.2. The installed-artifact gate exercises
-the same compiled wheel against 1.0.0, 1.20.0, 1.38.1, 1.44.2 and 2.0.0 across
-all supported Python versions, including consumer cardinality/schema and streaming regressions.
-The open dependency range permits newer releases; compatibility with unreleased
-versions cannot be guaranteed before testing. Existing numerical imports
-remain lazy, while expression operations require Polars to be installed.
-
-The installed-artifact gate reuses one real wheel across the tested Polars
-versions and all six Python versions, using both NumPy lines on 3.10–3.12 and
-NumPy 2 on 3.13–3.15. It also
-tests genuinely Polars-free installations on every runtime. The default gate
-builds that ABI3 wheel once from the verified source archive with Python 3.10,
-reusing Cargo dependency artifacts, then installs it on every supported runtime.
-The 3.15 cell uses SciPy >=1.18.1 and pytest >=9.1.1 for compatibility validation;
-these are test dependencies. Standard CPython is covered; free-threaded runtimes
-and PyPy need separate qualification.
-The bounded Python metadata is narrower than upstream's open-ended >=3.10
-declaration. The development tool environment remains Python 3.12.
-
-Modern NumPy training inputs are copied into owned Rust vectors. Compatible aligned/native-endian/contiguous Float32/Float64 arrays use a bulk copy; other layouts/dtypes retain their generic conversion and validation behavior. Constructors and updates neither retain nor mutate input storage.
-
-### 4.1.4 Modern Python constructor concurrency
-
-`tdigest_rs.TDigest.from_array` and `from_means_weights` convert their Python inputs to owned Rust vectors before releasing the GIL for native construction. Each call builds a private digest and retains existing validation and numerical order. Independent calls may overlap in a caller-managed pool; input conversion remains serialized by the GIL. This does not add a shared-object mutation guarantee or change the original `tdigest_rs` interface.
-
-### 4.2 Queries
-
-Quantile:
-- Probe `q` must be finite and in `[0,1]`.
-- `q=NaN`, `q=+/-inf`, `q<0`, `q>1` are errors.
-- Empty digest + valid `q`:
-  - Rust/Python/Java: `NaN`
-  - Polars: `None`
-
-CDF:
-- Empty digest + any probe returns `NaN`.
-- Non-empty digest:
-  - finite probe -> finite value in `[0,1]`
-  - `NaN` probe -> `NaN`
-  - `-inf` probe -> `0.0`
-  - `+inf` probe -> `1.0`
-- Null probe(s) in Polars are errors.
-
-Median:
-- Empty digest:
-  - Rust/Python/Java: `NaN`
-  - Polars: `None`
-- Non-empty modern digest returns `quantile(0.5)` using centroid weights, including fractional weights.
-
-Shape behavior:
-- Scalar probe in -> scalar out.
-- Vector/list probe in -> vector/list out (surface-appropriate shape preservation).
-
-### 4.3 Merge
-
-- Precision mismatch merge is an error (`f32` vs `f64`).
-- Config mismatch merge is an error:
-  - `max_size`
-  - `scale`
-  - `singleton_policy`
-  - `delta`
-- No implicit coercion in merge.
-
-Canonical empty for `merge_all([])`:
-- precision: `f64`
-- `max_size=1000`
-- `scale=K2`
-- `singleton_policy=Use`
-- `delta=None`
-
-### 4.4 Serialization / `from_bytes`
-
-- TDIG written by one surface must decode on all surfaces.
-- `to_bytes` supports explicit version selection (`1|2|3`) where surfaced.
-- Wire precision (`f32`/`f64`) and delta must round-trip in default TDIG v3.
-- Delta-mode digests require v3; wrappers reject explicit v1/v2 export rather than losing configuration.
-- V3 uses flag bit1 and an 8-byte header extension for delta, and flag bit2 for full-width edge pins above 255. Extensions follow flag order and are checksum-covered; older readers reject unknown flags.
-- Large edge pins require v3; explicit v1/v2 exports fail instead of truncating configuration.
-- V1 requires positive integer centroid weights and a total within u64 range; fractional export fails rather than rounding away mass. V1's historical centroid-kind inference remains lossy for some weighted data; default v3 preserves kind.
-- Invalid encoded weights return decode errors instead of panicking in centroid constructors.
-- Polars structs retain centroid atomic/mixed kind, scale, singleton policy, pins, and delta.
-  Older structs remain readable with their historical default configuration and kind inference.
-- Python pickle/deepcopy use TDIG bytes.
-- Empty digest to/from bytes is valid.
-- Empty blob bytes (`b""`) are invalid TDIG and must error.
-- Null blobs (Polars) are errors.
-- Mixed `f32`/`f64` blobs in one logical deserialize operation are errors unless the user explicitly normalizes first.
-
-## 5. Error model (target)
-
-Rust defines canonical behavior/errors. Bindings map to native exception classes.
-
-Canonical classes:
-- `InvalidTrainingData`
-- `InvalidProbe`
-- `InvalidScale`
-- `IncompatibleMerge`
-- `DecodeError`
-- `ClosedHandle` (Java/JNI lifecycle)
-- `InvariantViolation`
-
-Surface mapping:
-- Rust: `Result<T, TdError>`
-- Python: `ValueError` / `TypeError`
-- Java: `IllegalArgumentException` / `IllegalStateException`
-- Polars: `ComputeError`
-
-## 6. Architecture target
-
-- Keep `src/tdigest/frontends.rs` as the shared semantic layer.
-- Route all public operation paths through shared Rust behavior.
-- Continue removing duplicated validation/business logic from:
-  - `src/py.rs`
-  - `src/jni.rs`
-  - `src/polars_expr.rs`
-  - `bindings/python/tdigest_rs/__init__.py`
-- Expose explicit precision-cast APIs across surfaces.
-
-## 7. Acceptance criteria
-
-- `make build` passes.
-- `make test` passes.
-- Capability/coherence/serialization suites pass.
-- No documented cross-surface contract drift.
-- Binding layers are thinner with less duplicated validation logic.
-
-## Empirical accuracy contract
-
-Accuracy tests compare rank error, value error and midpoint CDF with sorted input. Run `make test` for the fast suite and `make quality-extended` for the full matrix. See [accuracy tests](tests/quality/README.md) for the regression thresholds and known limits.
-
-## State validation and migration
-
-Modern Rust `TDigestBuilder::build()` and seeded `TDigest::new(...)` return
-`Result<TDigest<_>, TdError>`. Invalid capacity, delta/configuration, centroid
-ordering, means, mass or aggregate metadata are rejected before a digest can be
-queried. Builder delta mode defaults to K2Norm/Off unless settings were explicitly
-provided; explicit incompatible settings fail. Private transient compression and
-precision-conversion streams are checked before becoming public state.
-
-Modern builders, reconstruction and precision conversions return checked results. Merges validate matching configuration even for empty contributors and replace the receiver only after validating the prepared result.
-
-State validation checks centroid mass, ordering, finite statistics, aggregate-moment consistency and configuration. Fully atomic state must have extrema matching its observed points; protected-edge counts must be positive. Empty additions/merges and single-item frontend merges still validate existing state. Export validation uses the same contract. Struct reconstruction distinguishes a missing centroid list from an empty list and accepts either complete modern configuration or the legacy schema with no configuration fields. Binary reconstruction rejects trailing payload on empty digests and integer fields outside the platform range.
-
-The raw Float64 sum remains authoritative across compression and precision conversion. Moment checks compare normalized quantities, with a rounding envelope that allows prior Float32 storage even after upcasting, plus subnormal quantization. These checks reject detectable contradictions; they cannot authenticate the original observations or prove statistical accuracy from a compressed summary.
-
-Legacy TDIG v1 export rejects mixed unit-weight summaries when its historical kind heuristic would reconstruct atomic centroids inconsistent with the stored extrema; v2/v3 preserve the centroid kinds.
-
-Positive transformations prepare and validate independent state before commit; failures preserve the receiver. Exact atomic points may retain a rounded zero moment without losing their known location or mass.
-
-Polars rejects missing digest rows, checks training representability, and requires a binary precision hint. CDF broadcasting follows input lengths; per-row List expressions retain List output, while Python sequences provide a flat probe vector.
-
-New NumPy query outputs are Float64 one-dimensional arrays (including one element); zero-dimensional probes return scalars, list/tuple preserve containers, and multidimensional input is explicitly rejected. Native docstrings, `py.typed` and stubs ship in the actual wheel.
-
-Modern missing digests and mixed capacities are rejected. Empty contributors also undergo configuration validation. Polars broadcasts by shape, supports a scalar probe across digest rows, and never substitutes healthy state for aligned empties. Missing and valid empty state are distinct. Python iterable merge prepares private state before committing; add/scale overflow and unsupported product underflow cannot corrupt the receiver.
-
-The Java API exposes array merge-all, weighted builder construction and modern delta/K2Norm configuration. Java object restoration registers the restored object itself with Cleaner; temporary referents never own restored handles. JNI catches catchable Rust panics, uses the system allocator, and reports controlled native loading paths and payload identity. Independent handles are supported; shared mutable handles are not thread-safe.
-
-The public Spark consumer check uses explicit byte-state serialization for Kryo,
-or Java object serialization, across separate executor processes. It verifies
-broadcast, shuffle and checkpoint restoration. Local separate-executor checks
-do not qualify a consuming cluster's image, filesystem or configuration.
-
-Polars requires explicit binary-column precision (`f32` or `f64`) so planning matches execution. This is a consistency check, not conversion. `from_bytes` remains a group reduction, including one empty state for empty input, rather than silently becoming row-wise. Scalar/list literal CDF probes and List-valued columns now have consistent planned/runtime types for zero, one and many rows.
-
-The public Polars functions delegate to a dedicated internal adapter. Polars remains lazily imported; numerical APIs and wire-header inspection work without the optional dependency. Shared Python configuration normalization is independent of both the adapter and the numerical wrapper. The public `tdigest(values, max_size=1000, *, ...)` signature retains positional capacity and does not accept delta.
-
-CDF chooses aligned rows or one-digest broadcasting from input shape. Missing states and incompatible contributors are errors. Column-based from_bytes requires explicit f32/f64 precision and reduces each logical group, including empty groups. Planned schema must equal the runtime schema. See bindings/python/POLARS_API.md.
-
-Modern Float32 training rejects values that overflow or round a nonzero input to
-zero, including additions routed through Python/JNI/Polars. Explicit precision
-conversion retains the same representability rule. Ordinary Float32 rounding is
-permitted without narrowing mass. A known exact point retains its midpoint CDF,
-quantiles and mean even when the rounded Float64 weighted moment is zero or
-subnormal; its full state and positive transforms preserve point identity. Mixed
-training products that are not representable still fail explicitly and leave
-receivers unchanged. The sum getter remains the rounded Float64 weighted moment.
-
-The separate `make quality-budgets` diagnostic covers explicit modern capacities
-200/1000, smaller capacities, alternate named scales and additional data shapes.
-It reports sampled rank, value, tail and CDF errors separately.
-
-Python capacity mode accepts sizes from 10 to 20,000; checked modern Rust allows
-positive capacities including 1. These limits are stated separately.
-
-A build-time `TDIGEST_NATIVE_FILE` override may have an arbitrary basename; the
-finished JAR must contain exactly one platform-native payload under the canonical
-loader resource name. This differs from a runtime native-file override, which
-loads the selected path directly. No source/developer library is required at runtime.
-
-## Scala and Kotlin consumer examples
-
-Public examples compile Scala 2.12.16 and Kotlin consumers against the shared Java JAR. The local authenticated Maven fixture exercises selected dependency resolution and prepared-cache offline use. Actual Spark driver/executor, serializer and checkpoint qualification remains a consumer-environment check.
-
-The loopback Maven fixture serves only paths contained within its configured repository, rejecting absolute paths and symlinks that resolve outside it.
-
-Kotlin example compilation tracks its source and application classpath so incremental builds recompile after either changes.
-
-## Installed Python discovery
-
-The installed package includes native method docstrings, public type stubs and py.typed metadata. The object and Polars guides describe defaults, shapes, mutation, ownership and errors separately.
-
-## Build and package checks
-
-Build checks reject an incompatible selected Rust/Cargo toolchain before native compilation. Installed-wheel qualification records exact runtime cells and the source-archive build. A separate wider budget diagnostic reports accuracy failures without waiving them; benchmarks retain throughput, latency and memory separately.
-
-## Overflow behavior across interfaces
-
-Modern creation, update, merge and scaling return checked results. Compression
-checks rounded/coalesced mass and output means before another stage or a checked
-centroid constructor can observe overflow; failures never replace the receiver.
-The normalization helper returns `Result` for overflowing mass. Queries over
-valid modern state retain finite CDF/quantile results at extreme finite values.
-Trimmed means use normalized moments if direct moment accumulation overflows.
-Empty-digest and NaN-probe semantics remain as documented above.
-
-The Python delta adapter raises `ValueError` when the total mass exceeds the uint32 range. It ignores NaNs and retains infinite endpoints.
+# API behavior
+
+The Rust library supplies compression and queries for Python, Polars, Java and the CLI. The Python constructor selects one of two calling conventions. See the [upgrade guide](ROLLOUT.md) for examples and all seven differences covered by the original Python suite.
+
+## Python construction
+
+`TDigest.from_array(values)` uses the original default of `delta=300`. The delta API accepts Float32 and Float64 NumPy arrays, skips NaNs and retains infinite endpoints. Merge and update return new digests. The total weight must fit in a uint32. Pickles from 0.1.0 provide centroid means and weights for reconstruction. The shared core supplies the numerical results. For example, the 10th percentile of `[1.0, 2.0]` changes from 0.7 to 1.0.
+
+Pass `max_size=` for capacity mode. It accepts finite observations, positive finite weights, CDF queries and updates in place. Python accepts capacities from 10 to 20,000. Rust permits any positive capacity. The default capacity for the underlying engine and Polars is 1,000. Supply one sizing parameter per Python constructor. The [Python object guide](bindings/python/OBJECT_API.md) documents return types, precision and ownership for each mode.
+
+The capacity constructors copy inputs into owned Rust vectors. Contiguous, aligned NumPy arrays of native Float32 or Float64 use a bulk copy. Other supported layouts follow the generic conversion path. Once conversion finishes, independent constructors can run concurrently with the GIL released.
+
+## State, queries and updates
+
+A centroid stores its mean in the selected precision and its mass in Float64. The digest also keeps the observed extrema, weighted sum, total mass, compression settings and centroid kinds. Rust builders and state decoders validate those fields before exposing a digest. The stored weighted sum may retain information lost when centroid means were rounded. Validation allows for that rounding and rejects contradictory mass or extrema.
+
+Weighted observations must have finite values and strictly positive finite weights. Float32 conversion rejects overflow and a nonzero value rounding to zero. Training rejects unrepresentable products of mixed observations. For a single exact point, the mean and quantiles can still equal the observed value when the rounded weighted sum is zero. Adding an empty batch preserves the digest.
+
+A capacity quantile takes a finite probability in `[0, 1]`. Python, Java, Polars and the CLI reject invalid probabilities. The raw Rust method clamps probabilities to the interval and propagates NaN. The median uses the weighted 0.5 quantile. An empty quantile or median yields NaN in Rust, Python capacity mode and Java. Polars returns null.
+
+The CDF assigns a tied value the mass below it plus half the tied mass, divided by total mass. On nonempty input, probes below the observed minimum yield zero and probes above the maximum yield one. NaN probes and empty digests yield NaN. Python scalar probes return floats, lists and tuples retain their container, and NumPy vectors return independent Float64 arrays. Multidimensional query arrays must be flattened explicitly.
+
+Capacity merges require matching precision, capacity, scale, singleton policy and delta, including for empty inputs. Cast precision explicitly when needed. An empty `merge_all` produces a Float64 digest with capacity 1,000, K2 scale and the default singleton policy. A failed update, iterable merge or rescaling leaves the receiver intact. Weight scaling changes the total mass and sum. Value scaling changes the means, extrema and sum. Both require a positive finite factor.
+
+## Polars
+
+Build digests inside a lazy aggregation with `td.tdigest`. A Float32 input column produces Float32 means. Other numeric columns produce Float64 means. Quantile results follow the stored mean precision, and scalar or list CDF results follow the probe dtype as described in the [Polars guide](bindings/python/POLARS_API.md).
+
+CDF broadcasts one digest to a column of probes, one scalar probe to a column of digests, or evaluates corresponding rows when the column lengths match. An aligned empty digest produces its own NaN. A null digest, null training value or null probe is an error. A list of probes in a row returns a list of probabilities.
+
+`from_bytes` reduces each logical group to one digest. Supply an explicit storage precision so Polars can plan the schema. For eager binary data, `infer_column_precision` can determine the hint. Each blob must match that hint. An empty group returns one empty state. A null or malformed blob raises an error.
+
+## Serialization
+
+TDIG v3 stores mean precision, Float64 weights, centroid kinds, raw statistics and configuration. Python capacity pickles and copies preserve this state. The Polars struct codec also reads older structs that omit configuration or use Float32 weights.
+
+TDIG v1 requires positive integer weights with a total that fits in a u64. It infers kind from weight, which can change the interpretation of a weighted centroid. V2 stores weights and kinds explicitly. Delta, edge pin counts above 255, and Float32 means paired with weights that require Float64 precision need v3 for export. Older formats do not identify the mean precision of an empty payload. V3 stores it in the header. The [wire format description](tdigest_design.md) gives the layout and checksum rules.
+
+Core construction and updates return `Result`. Python reports `ValueError` or `TypeError`, Polars reports expression errors and Java reports invalid arguments or native state errors. The Java API supports independent handles. A caller sharing a mutable handle across threads must coordinate access.
+
+## Building and measuring
+
+The Python package supports standard CPython 3.10 through 3.15. Numerical use requires NumPy. The optional Polars dependency is loaded when an expression needs it. The Java API targets Java 11 bytecode. The repository includes Scala, Kotlin and Spark examples. The Java guide covers native loading, supported JDKs and offline builds. [Python package](bindings/python/PYTHON_README.md) · [Java binding](bindings/java/README.md)
+
+`make test` includes the fast accuracy matrix. `make quality-extended` exercises more capacities, merge orders and datasets. Both compare quantiles and CDF results with independently sorted observations. The benchmark report identifies the wheels, workloads and settings used for the published comparisons. [Accuracy measurements](tests/quality/README.md) · [Performance and accuracy](docs/upstream-1.0.0/comparison.md)

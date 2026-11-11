@@ -1,4 +1,4 @@
-//! Polars ↔ TDigest codec — strict, DRY, fully generic.
+//! Encode digests as Polars struct columns and read them at their stored precision.
 //!
 //! # Design
 //! - Means and extrema follow `F`; centroid weights, `sum`, and `count` are always `f64`.
@@ -20,12 +20,10 @@
 //! use polars::prelude::*;
 //! use tdigest_rs::tdigest::TDigest;
 //!
-//! // build a digest (details elided) and round-trip via a Series:
 //! let td: TDigest<f64> = TDigest::builder().max_size(256).build().unwrap();
 //! let series: Series = td.to_series("td")?;
 //! let round_tripped: Vec<TDigest<f64>> = TDigest::<f64>::from_series(&series)?;
 //!
-//! // dtype advertised to Polars matches the wire schema for F = f64:
 //! let dtype = TDigest::<f64>::polars_dtype();
 //! assert!(matches!(dtype, DataType::Struct(_)));
 //! # Ok::<(), Box<dyn std::error::Error>>(())
@@ -42,8 +40,6 @@ use crate::tdigest::singleton_policy::SingletonPolicy;
 use crate::tdigest::wire::{code_to_scale, scale_to_code};
 use crate::tdigest::{DigestStats, ScaleFamily, TDigest};
 
-/* --------------------- field names (public) -------------------------------- */
-
 pub const F_CENTROIDS: &str = "centroids";
 pub const F_MEAN: &str = "mean";
 pub const F_WEIGHT: &str = "weight";
@@ -57,8 +53,6 @@ pub const F_SCALE: &str = "scale";
 pub const F_POLICY: &str = "policy";
 pub const F_PIN: &str = "pin_per_side";
 pub const F_DELTA: &str = "delta";
-
-/* --------------------- errors (public) ------------------------------------- */
 
 #[non_exhaustive]
 #[derive(Debug)]
@@ -80,7 +74,7 @@ pub enum CodecError {
     MixedCentroidDtypes, // unsupported mean/weight pair
     WirePrecisionMismatch {
         expected: DataType,
-    }, // incoming wire doesn't match F’s wire dtype
+    },
     NullField {
         field: &'static str,
         row: usize,
@@ -129,8 +123,6 @@ impl fmt::Display for CodecError {
 }
 
 impl std::error::Error for CodecError {}
-
-/* --------------------- Polars float abstraction (public) ------------------- */
 
 /// Trait over Polars float families (Float32Type / Float64Type).
 pub trait PlFloat: PolarsNumericType + 'static {
@@ -205,8 +197,6 @@ impl WireOf for f64 {
     type Pl = Float64Type;
 }
 
-/* --------------------- TDigest public API (thin shim) ---------------------- */
-
 impl<F> TDigest<F>
 where
     F: FloatLike + FloatCore + WireOf,
@@ -246,8 +236,6 @@ where
     }
 }
 
-/* --------------------- writer (generic, branch-free) ----------------------- */
-
 fn tdigest_to_series<F, N>(td: &TDigest<F>, name: &str) -> PolarsResult<Series>
 where
     F: FloatLike + FloatCore,
@@ -257,15 +245,12 @@ where
         .map_err(|e| PolarsError::ComputeError(e.to_string().into()))?;
     let max_size = i64::try_from(td.max_size())
         .map_err(|_| PolarsError::ComputeError("capacity exceeds Polars Int64 range".into()))?;
-    // Gather once in f64 from centroids
-    let means_f64: Vec<f64> = td.centroids().iter().map(|c| c.mean_f64()).collect();
+    let means = td
+        .centroids()
+        .iter()
+        .map(|c| N::from_f64(c.mean_f64()))
+        .collect();
     let wgts_f64: Vec<f64> = td.centroids().iter().map(|c| c.weight_f64()).collect();
-
-    // Cast into wire-native
-    let means: Vec<<N as PolarsNumericType>::Native> =
-        means_f64.iter().copied().map(N::from_f64).collect();
-
-    // Build centroid inner struct and wrap as a single-element list
     let mean_s = N::series_from_vec(F_MEAN, means);
     let weight_s = Series::new(F_WEIGHT.into(), wgts_f64);
     let atomic_s = Series::new(
@@ -324,8 +309,6 @@ where
     )
     .map(|sc| sc.into_series())
 }
-
-/* --------------------- reader (generic, strict) ---------------------------- */
 
 fn parse_tdigests<F, N>(input: &Series) -> Result<Vec<TDigest<F>>, CodecError>
 where
@@ -462,8 +445,6 @@ where
     Ok(out)
 }
 
-/* --------------------- small helpers (private) ----------------------------- */
-
 #[inline]
 fn field(s: &StructChunked, name: &'static str) -> Result<Series, CodecError> {
     s.field_by_name(name)
@@ -579,9 +560,7 @@ where
             return Err(CodecError::InvalidField(F_WEIGHT));
         }
 
-        // Heuristic reconstruction of kind:
-        // - weight == 1 → atomic unit (flat CDF step behavior preserved)
-        // - weight > 1  → mixed (cannot reliably infer “atomic pile” from wire)
+        // Structs without a kind field identify only unit weights as atomic.
         let atomic = if let Some(column) = &atomic_ser {
             expect_dtype(column, DataType::Boolean, F_ATOMIC)?;
             column

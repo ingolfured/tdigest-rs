@@ -4,7 +4,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from tdigest_rs import _modern as td
+import tdigest_rs as td
 
 
 SIGNED_OFFSETS = [

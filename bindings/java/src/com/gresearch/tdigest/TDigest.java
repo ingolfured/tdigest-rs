@@ -31,8 +31,6 @@ import java.util.Objects;
 public final class TDigest implements AutoCloseable, Serializable {
   private static final long serialVersionUID = 1L;
 
-  /* ======================= Type-safe enums for builder ======================= */
-
   public enum Scale {
     QUAD, K1, K2, K2NORM, K3;
     String asWire() { return name().toLowerCase(Locale.ROOT); }
@@ -55,8 +53,6 @@ public final class TDigest implements AutoCloseable, Serializable {
     F64, F32, AUTO
   }
 
-  /* ======================= Backing native ======================= */
-
   private static String norm(String s) {
     if (s == null) throw new NullPointerException();
     return s.trim().toLowerCase(Locale.ROOT);
@@ -74,7 +70,7 @@ public final class TDigest implements AutoCloseable, Serializable {
         return v;
       default:
         throw new IllegalArgumentException(
-            "invalid scale: " + s + " (expected 'quad', 'k1', 'k2', or 'k3')");
+            "invalid scale: " + s + " (expected 'quad', 'k1', 'k2', 'k2norm', or 'k3')");
     }
   }
 
@@ -96,17 +92,6 @@ public final class TDigest implements AutoCloseable, Serializable {
   private static int coalesceEdges(Integer edges) {
     return edges == null ? 3 : Math.max(0, edges);
   }
-
-  private static int policyCode(SingletonPolicy p) {
-    switch (p) {
-      case OFF:  return 0;
-      case USE:  return 1;
-      case USE_WITH_PROTECTED_EDGES:return 2;
-      default:   return 1;
-    }
-  }
-
-  /* ======================= Cleaner & state ======================= */
 
   private static final Cleaner CLEANER = Cleaner.create();
 
@@ -147,8 +132,6 @@ public final class TDigest implements AutoCloseable, Serializable {
     }
   }
 
-  /* ======================= Builder (fluent) ======================= */
-
   public static final class Builder {
     private int maxSize = 1000;
     private Scale scale = Scale.K2;
@@ -157,7 +140,7 @@ public final class TDigest implements AutoCloseable, Serializable {
     private Double delta;
     private boolean explicitScale;
     private boolean explicitPolicy;
-    private Precision precision = Precision.F64; // keep default as-is to avoid surprises
+    private Precision precision = Precision.F64;
 
     public Builder maxSize(int n) {
       if (n <= 0) throw new IllegalArgumentException("maxSize must be > 0");
@@ -196,10 +179,7 @@ public final class TDigest implements AutoCloseable, Serializable {
 
     public TDigest build(double[] values) {
       Objects.requireNonNull(values, "values");
-      final boolean f32 =
-          (precision == Precision.F32) ? true :
-          (precision == Precision.AUTO) ? false /* auto: double[] → f64 */ :
-          false;
+      final boolean f32 = precision == Precision.F32;
       final int edges = (policy == SingletonPolicy.USE_WITH_PROTECTED_EDGES) ? edgesPerSide : 0;
       long h = TDigestNative.fromArray(
           values, maxSize, scale.asWire(), policy.toNativeCode(), edges, f32, delta == null ? 0.0 : delta);
@@ -221,10 +201,7 @@ public final class TDigest implements AutoCloseable, Serializable {
 
     public TDigest build(float[] values) {
       Objects.requireNonNull(values, "values");
-      final boolean f32 =
-          (precision == Precision.F32) ? true :
-          (precision == Precision.AUTO) ? true /* auto: float[] → f32 */ :
-          false;
+      final boolean f32 = precision != Precision.F64;
       final int edges = (policy == SingletonPolicy.USE_WITH_PROTECTED_EDGES) ? edgesPerSide : 0;
       long h = TDigestNative.fromArray(
           values, maxSize, scale.asWire(), policy.toNativeCode(), edges, f32, delta == null ? 0.0 : delta);
@@ -242,8 +219,6 @@ public final class TDigest implements AutoCloseable, Serializable {
         + (origin == null ? "unknown" : origin.getLocation()) + "; " + Natives.identity();
   }
 
-
-  /* ======================= Construction (stringly-typed) ======================= */
 
   public static TDigest fromArray(
       double[] values, Integer max_size, String scale, Boolean f32_mode, String singleton_policy, Integer edges
@@ -286,8 +261,6 @@ public final class TDigest implements AutoCloseable, Serializable {
   public static TDigest fromValues(double[] values, int maxSize, String scale) {
     return TDigest.fromArray(values, maxSize, scale, false, "use", 3);
   }
-
-  /* ======================= Queries ======================= */
 
   /**
    * CDF evaluated at array-like x (returns double[]).
@@ -442,8 +415,6 @@ public final class TDigest implements AutoCloseable, Serializable {
       throw e;
     }
   }
-
-  /* ======================= Serialization & lifecycle ======================= */
 
   public byte[] toBytes() {
     ensureOpen();

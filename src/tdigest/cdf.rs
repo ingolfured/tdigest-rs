@@ -46,7 +46,7 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
     /// Estimate the CDF at each `vals[i]`, returning values in **[0, 1]**.
     ///
     /// ## Semantics
-    /// Mirrors the reference `MergingDigest.cdf()` with explicit handling of:
+    /// The rank depends on the support, centroid kind and cumulative mass.
     /// - **Outside support**: clamps using `self.min()`/`self.max()`.
     /// - **Tails**: linear ramps `min↔mean[0]` and `mean[last]↔max` with
     ///   **half-weight** at the adjacent edge centroid.
@@ -124,8 +124,6 @@ fn fraction_between(value: f64, left: f64, right: f64) -> f64 {
         (value - left) / span
     }
 }
-
-/* ------------------------- PRIVATE KERNEL ------------------------- */
 
 /// Optimized evaluation kernel (reference semantics).
 ///
@@ -215,8 +213,6 @@ fn cdf_at_val_fast<F: FloatLike + FloatCore>(
         }
     }
 }
-
-/* --------- Reference exact ECDF for tests (midpoint semantics over ties) --------- */
 
 #[cfg(test)]
 mod tests {
@@ -362,7 +358,6 @@ mod tests {
             .merge_sorted(values)
             .expect("no NaNs");
 
-        // Sanity: compressor should coalesce equal means into two centroids.
         assert_eq!(td.centroids().len(), 2, "expected two centroids (0 and 10)");
         assert!((td.centroids()[0].mean_f64() - 0.0).abs() < 1e-12);
         assert!((td.centroids()[1].mean_f64() - 10.0).abs() < 1e-12);
@@ -382,8 +377,6 @@ mod tests {
         assert_eq!(out.len(), probes.len());
 
         for (i, &p) in out.iter().enumerate() {
-            // This assertion FAILS with current code (which only excludes 0.5 for units),
-            // and will PASS after changing CDF span exclusion to subtract w/2 for any atomic.
             assert!(
                 (p - expected_between).abs() <= 1e-9,
                 "cdf({}) = {}, expected flat step {} between atomic centroids",
@@ -393,8 +386,7 @@ mod tests {
             );
         }
 
-        // Optional extra sanity: exact hit at the left centroid mean should be midpoint mass (2.5/12),
-        // while any value just above the left mean should jump to 5/12 (the flat step).
+        // A probe exactly at zero counts half the five observations tied there.
         let exact = td.cdf(&[0.0])[0];
         assert!(
             (exact - (2.5 / 12.0)).abs() <= 1e-12,

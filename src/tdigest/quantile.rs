@@ -56,15 +56,12 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
     /// - **NaN `q`** → **`NaN`**.
     /// - A single atomic centroid is constant; a mixed centroid retains its tails.
     pub fn quantile(&self, q: f64) -> f64 {
-        // NaN probe propagates
         if q.is_nan() {
             return f64::NAN;
         }
-        // Empty digest → NaN
         if self.centroids().is_empty() {
             return f64::NAN;
         }
-        // Only clamp after guarding NaN
         let q = q.clamp(0.0, 1.0);
         let (target_index, total_weight) = self.quantile_to_weight_index(q);
 
@@ -81,7 +78,7 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
                 return mean;
             }
             // One mixed cluster still represents a range, with its center at
-            // q=0.5. Use probabilities directly so rounded f32 mass cannot
+            // q=0.5. Use probabilities directly so rounded cumulative mass cannot
             // create a gap between the two half-weight branches.
             return if q <= 0.5 {
                 interpolate_value(self.min(), mean, 2.0 * q)
@@ -209,7 +206,7 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
             };
         }
 
-        // Inside a multi-weight singleton "pile" → return exact mean.
+        // Every rank strictly inside an atomic centroid has its exact mean.
         if left.is_singleton()
             && Self::inside_pile_strict(target_index, cum_w_at_left_center, w_left)
         {

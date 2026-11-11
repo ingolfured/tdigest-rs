@@ -44,10 +44,8 @@ def test_bad_reference_data_is_rejected(bad):
 
 
 class Fake:
-    import numpy as np
-
-    means = np.array([0.0, 10.0])
-    weights = np.array([3, 1])
+    def inner_kind(self):
+        return "f64"
 
     def quantile(self, q):
         return 0.0

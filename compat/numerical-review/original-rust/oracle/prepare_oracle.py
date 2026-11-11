@@ -29,7 +29,6 @@ def main():
     def git(repo, *cmd):
         return subprocess.check_output(['git','-C',str(repo),*cmd])
     assert git(upstream,'rev-parse',PIN).decode().strip() == PIN
-    assert git(modern,'rev-parse',FIXTURE_PIN).decode().strip() == FIXTURE_PIN
     manifest = json.loads((HERE/'source-manifest.json').read_text())
     tree = git(upstream,'ls-tree','-r','-z',PIN).decode().rstrip('\0').split('\0')
     entries = {record.split('\t',1)[1]:record.split('\t',1)[0].split()[0] for record in tree}
@@ -52,7 +51,7 @@ def main():
             assert not posixpath.isabs(link) and target in originals and entries[target] != '120000'
             assert sha(originals[target]) == manifest[name], name
             symlinks[name] = link
-    golden = git(modern,'show',FIXTURE_PIN+':'+FIXTURE_PATH)
+    golden = (modern / FIXTURE_PATH).read_bytes()
     assert sha(golden) == GOLDEN_SHA and len(json.loads(golden)['cases']) == 70
     oracle = (HERE/'committed_lock_oracle.rs').read_bytes()
     assert sha(oracle) == ORACLE_SHA

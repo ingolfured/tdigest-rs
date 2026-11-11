@@ -16,27 +16,11 @@ pub struct QualityReport {
 impl QualityReport {
     #[inline]
     pub fn from_metrics(n: usize, ks: f64, mae: f64) -> Self {
-        // Same heuristic everywhere so numbers are comparable.
         let score = (-((1200.0 * mae) + (18.0 * ks))).exp();
         QualityReport { n, ks, mae, score }
     }
 }
 
-/// Pretty banner for section headings in story-style tests.
-pub fn print_banner(title: &str) {
-    println!();
-    println!("═══════════════════════════════════════════════════════════════════════════");
-    println!("{title}");
-    println!("═══════════════════════════════════════════════════════════════════════════");
-    println!();
-}
-
-/// Subsection header (indented a touch) for size/scale groups.
-pub fn print_section(title: &str) {
-    println!("  ── {title} ────────────────────────────────────────────");
-}
-
-/// Small, shared print helper used in tests/benches.
 pub fn print_report(tag: &str, r: QualityReport) {
     println!(
         "{} -> QualityReport(n={}, KS={:.6e}, MAE={:.6e}, score={:.3})",
@@ -67,28 +51,11 @@ pub fn expected_quantile(sorted: &[f64], q: f64) -> f64 {
     }
 }
 
-/// Exact ECDF on a sorted sample using the midpoint convention on ties.
-pub fn exact_ecdf_for_sorted(sorted: &[f64]) -> Vec<f64> {
-    let n = sorted.len();
-    if n == 0 {
-        return Vec::new();
-    }
-    let nf = n as f64;
-    let mut out = Vec::with_capacity(n);
-    let mut i = 0usize;
-    while i < n {
-        let mut j = i + 1;
-        while j < n && sorted[j] == sorted[i] {
-            j += 1;
-        }
-        let mid = (i + j) as f64 / 2.0;
-        let f = mid / nf;
-        for _ in i..j {
-            out.push(f);
-        }
-        i = j;
-    }
-    out
+/// Midpoint rank counts every value below the probe and half the ties.
+pub fn empirical_cdf(sorted: &[f64], x: f64) -> f64 {
+    let below = sorted.partition_point(|&value| value < x);
+    let through = sorted.partition_point(|&value| value <= x);
+    (below as f64 + through as f64) / (2.0 * sorted.len() as f64)
 }
 
 pub fn build_digest_sorted(
@@ -97,7 +64,7 @@ pub fn build_digest_sorted(
     scale: ScaleFamily,
     precision: Precision,
 ) -> TDigest<f64> {
-    // Apply input “precision” policy (affects only inputs; TDigest math still in f64).
+    // Round inputs to the requested precision before building the f64 reference digest.
     if let Precision::F32 = precision {
         for x in &mut data {
             *x = (*x as f32) as f64;

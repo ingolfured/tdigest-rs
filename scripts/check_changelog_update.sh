@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Enforce project policy: every commit must stage CHANGELOG.md.
-staged="$(git diff --cached --name-only --diff-filter=ACMR)"
-if [[ -z "$staged" ]]; then
+if git diff --cached --quiet; then
   exit 0
 fi
 
-if ! grep -Eq '(^|/)CHANGELOG\.md$' <<<"$staged"; then
-  echo "ERROR: CHANGELOG.md must be updated and staged for every commit." >&2
-  echo "Hint: add a short entry under [Unreleased] before committing." >&2
+if git diff --cached --quiet --diff-filter=AM -- CHANGELOG.md; then
+  echo "Stage a change to the root CHANGELOG.md before committing." >&2
   exit 1
 fi

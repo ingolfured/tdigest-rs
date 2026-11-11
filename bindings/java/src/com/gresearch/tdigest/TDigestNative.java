@@ -1,22 +1,11 @@
 package com.gresearch.tdigest;
 
-/**
- * JNI bridge for the native tdigest_rs library.
- *
- * Loading strategy:
- *  - Prefer explicit path via -Dcom.gresearch.tdigest.native=path/to/libtdigest_rs.so
- *  - Otherwise load from META-INF/native/<os>-<arch>/… inside the JAR
- *  - Finally, fall back to System.loadLibrary("tdigest_rs")
- *
- * Note: On JDK 22+, run with --enable-native-access=ALL-UNNAMED.
- */
+/** Native entry points for the Rust digest. See {@link Natives} for library loading. */
 final class TDigestNative {
   static {
-    // Load the native library (triggers JNI_OnLoad in the .so)
     Natives.load();
 
-    // Sanity check: resolve one native symbol without doing any work.
-    // free(0) is a no-op in native code, but ensures RegisterNatives ran.
+    // A null handle resolves the exported symbol without allocating a digest.
     try {
       free(0L);
     } catch (UnsatisfiedLinkError e) {
@@ -26,7 +15,6 @@ final class TDigestNative {
     }
   }
 
-  // ---- Native methods (implemented in Rust via JNI) ----
   static native long     fromBytes(byte[] bytes);
   static native byte[]   toBytes(long handle);
   static native byte[]   toBytesVersion(long handle, int version);

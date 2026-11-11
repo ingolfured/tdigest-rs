@@ -31,25 +31,10 @@ def cli_build_args(cfg: dict) -> list[str]:
         "--scale",
         cfg["scale_cli"],
         "--singleton-policy",
-        cfg["singleton_cli"],  # "off"|"use"|"edges"
+        cfg["singleton_cli"],
         "--precision",
-        cfg["precision_cli"],  # "f64"|"f32"|("auto"?)
+        cfg["precision_cli"],
     ]
     if str(cfg.get("singleton_cli", "")).lower() == "edges" and cfg.get("pin_per_side") is not None:
         args += ["--pin-per-side", str(int(cfg["pin_per_side"]))]
     return args
-
-
-def cli_supports_precision_auto(cli_bin: Path) -> bool:
-    """Heuristic: check command help for 'auto' in precision options."""
-    try:
-        helps = [
-            subprocess.check_output([str(cli_bin), "--help"], text=True).lower(),
-            subprocess.check_output([str(cli_bin), "quantile", "--help"], text=True).lower(),
-            subprocess.check_output([str(cli_bin), "cdf", "--help"], text=True).lower(),
-            subprocess.check_output([str(cli_bin), "median", "--help"], text=True).lower(),
-            subprocess.check_output([str(cli_bin), "build", "--help"], text=True).lower(),
-        ]
-        return any("precision" in out and "auto" in out for out in helps)
-    except Exception:
-        return False

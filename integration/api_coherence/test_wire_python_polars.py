@@ -1,16 +1,11 @@
 from __future__ import annotations
 
 
-# =====================================================================
-# Category 1: PYTHON ROUND-TRIP — TDigest.to_bytes() / from_bytes()
-# =====================================================================
-
-
 class TestPythonRoundTripSerde:
     def test_python_round_trip(
         self, dataset, expect, cfg, add_pin_kw_fn, assert_close_fn
     ):
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
 
         kwargs = dict(
             max_size=cfg["max_size"],
@@ -23,14 +18,11 @@ class TestPythonRoundTripSerde:
 
         d1 = td.TDigest.from_array(dataset["DATA"], **kwargs)
 
-        # Serialize → bytes
         blob = d1.to_bytes()
         assert isinstance(blob, (bytes, bytearray))
 
-        # Deserialize → new digest
         d2 = td.TDigest.from_bytes(bytes(blob))
 
-        # Coherence on key probes
         q1 = d1.quantile(expect["P"])
         q2 = d2.quantile(expect["P"])
         c1 = d1.cdf(expect["X"])
@@ -38,26 +30,17 @@ class TestPythonRoundTripSerde:
 
         assert_close_fn(q2, q1, expect["EPS"])
         assert_close_fn(c2, c1, expect["EPS"])
-        # Also match canonical expectations
         assert_close_fn(q2, expect["Q50"], expect["EPS"])
         assert_close_fn(c2, expect["CDF2"], expect["EPS"])
 
 
-# =====================================================================
-# Category 2: PYTHON ↔ POLARS wire interop
-# =====================================================================
-
-
 class TestPythonPolarsSerdeInterop:
-    # ------------------------------------------------------------------
-    # Small helpers (not collected by pytest)
-    # ------------------------------------------------------------------
     @staticmethod
     def _build_python_digest(dataset, cfg, add_pin_kw_fn, precision: str):
         """
         Build a Python TDigest with explicit precision ("f32" or "f64").
         """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
 
         py_kwargs = dict(
             max_size=cfg["max_size"],
@@ -69,7 +52,6 @@ class TestPythonPolarsSerdeInterop:
             py_kwargs = add_pin_kw_fn(py_kwargs)
 
         d = td.TDigest.from_array(dataset["DATA"], **py_kwargs)
-        # Sanity: inner_kind matches requested precision
         assert d.inner_kind() == precision
         return d
 
@@ -78,7 +60,7 @@ class TestPythonPolarsSerdeInterop:
         """
         Build a Polars TDigest struct column over a single Float32/Float64 column.
         """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
 
         df = pl.DataFrame({"x": dataset["DATA"]}).with_columns(
@@ -120,18 +102,10 @@ class TestPythonPolarsSerdeInterop:
             assert min_field.dtype == pl.Float64
             assert max_field.dtype == pl.Float64
 
-    # ================================================================
-    # 1. Python f32 → Polars f32
-    # ================================================================
     def test_python_f32_to_polars_f32(
         self, dataset, cfg, add_pin_kw_fn, assert_close_fn
     ):
-        """
-        Python TDigest(f32) → to_bytes() → Polars td.from_bytes(...)
-        - Polars struct column must be compact (Float32 min/max).
-        - quantile/cdf must match Python digest.
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
 
         d_py = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f32")
@@ -142,7 +116,6 @@ class TestPythonPolarsSerdeInterop:
         df2 = df.with_columns(td_col=td.from_bytes("blob", precision="f32"))
         assert df2.height == 1
 
-        # Schema: compact (f32) on the Polars side.
         td_dtype = df2.schema["td_col"]
         self._assert_polars_digest_dtype(td_dtype, pl, expect_f32=True)
 
@@ -158,18 +131,10 @@ class TestPythonPolarsSerdeInterop:
         assert_close_fn(q_pl, d_py.quantile(0.5), 1e-9)
         assert_close_fn(c_pl, d_py.cdf(x0), 1e-9)
 
-    # ================================================================
-    # 2. Python f64 → Polars f64
-    # ================================================================
     def test_python_f64_to_polars_f64(
         self, dataset, cfg, add_pin_kw_fn, assert_close_fn
     ):
-        """
-        Python TDigest(f64) → to_bytes() → Polars td.from_bytes(...)
-        - Polars struct column must be full-precision (Float64 min/max).
-        - quantile/cdf must match Python digest.
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
 
         d_py = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f64")
@@ -192,19 +157,10 @@ class TestPythonPolarsSerdeInterop:
         assert_close_fn(q_pl, d_py.quantile(0.5), 1e-9)
         assert_close_fn(c_pl, d_py.cdf(x0), 1e-9)
 
-    # ================================================================
-    # 3. Polars f32 → Python f32
-    # ================================================================
     def test_polars_f32_to_python_f32(
         self, dataset, cfg, add_pin_kw_fn, assert_close_fn
     ):
-        """
-        Polars td.tdigest(..., precision="f32") on Float32 input:
-        - Struct column is compact (Float32 min/max).
-        - td.to_bytes(...) → Python TDigest.from_bytes(...) yields inner_kind() == "f32".
-        - quantile/cdf coherent across the boundary.
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
 
         df_td = self._build_polars_digest(
@@ -223,7 +179,6 @@ class TestPythonPolarsSerdeInterop:
         q_pl = float(out_pl["q"][0])
         c_pl = float(out_pl["c"][0])
 
-        # Serialize in Polars and rebuild in Python.
         blob = df_td.with_columns(blob=td.to_bytes("td_col")).select("blob").row(0)[0]
 
         d_py = td.TDigest.from_bytes(blob)
@@ -236,19 +191,10 @@ class TestPythonPolarsSerdeInterop:
         assert_close_fn(q_py, q_pl, 1e-9)
         assert_close_fn(c_py, c_pl, 1e-9)
 
-    # ================================================================
-    # 4. Polars f64 → Python f64
-    # ================================================================
     def test_polars_f64_to_python_f64(
         self, dataset, cfg, add_pin_kw_fn, assert_close_fn
     ):
-        """
-        Polars td.tdigest(..., precision="f64") on Float64 input:
-        - Struct column is full-precision (Float64 min/max).
-        - td.to_bytes(...) → Python TDigest.from_bytes(...) yields inner_kind() == "f64".
-        - quantile/cdf coherent across the boundary.
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
 
         df_td = self._build_polars_digest(
@@ -278,20 +224,10 @@ class TestPythonPolarsSerdeInterop:
         assert_close_fn(q_py, q_pl, 1e-9)
         assert_close_fn(c_py, c_pl, 1e-9)
 
-    # ================================================================
-    # 5. Python f32 → Polars → Python f32
-    # ================================================================
     def test_python_f32_to_python_f32_via_polars(
         self, dataset, cfg, add_pin_kw_fn, assert_close_fn
     ):
-        """
-        Python TDigest(f32) → bytes → Polars from_bytes → td.to_bytes(...)
-        → Python TDigest.from_bytes():
-        - Polars struct is compact (Float32 min/max).
-        - Final Python digest has inner_kind() == "f32".
-        - quantile/cdf preserved end-to-end.
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
 
         d_py = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f32")
@@ -303,7 +239,6 @@ class TestPythonPolarsSerdeInterop:
         td_dtype = df2.schema["td_col"]
         self._assert_polars_digest_dtype(td_dtype, pl, expect_f32=True)
 
-        # Serialize again from Polars and round-trip back to Python.
         blob2 = df2.with_columns(blob=td.to_bytes("td_col")).select("blob").row(0)[0]
         d_py2 = td.TDigest.from_bytes(blob2)
 
@@ -314,20 +249,10 @@ class TestPythonPolarsSerdeInterop:
         assert_close_fn(d_py2.quantile(0.5), d_py.quantile(0.5), 1e-9)
         assert_close_fn(d_py2.cdf(x0), d_py.cdf(x0), 1e-9)
 
-    # ================================================================
-    # 6. Python f64 → Polars → Python f64
-    # ================================================================
     def test_python_f64_to_python_f64_via_polars(
         self, dataset, cfg, add_pin_kw_fn, assert_close_fn
     ):
-        """
-        Python TDigest(f64) → bytes → Polars from_bytes → td.to_bytes(...)
-        → Python TDigest.from_bytes():
-        - Polars struct is full-precision (Float64 min/max).
-        - Final Python digest has inner_kind() == "f64".
-        - quantile/cdf preserved end-to-end.
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
 
         d_py = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f64")
@@ -349,27 +274,16 @@ class TestPythonPolarsSerdeInterop:
         assert_close_fn(d_py2.quantile(0.5), d_py.quantile(0.5), 1e-9)
         assert_close_fn(d_py2.cdf(x0), d_py.cdf(x0), 1e-9)
 
-    # ================================================================
-    # 7. Polars f32 → Python → Polars f32
-    # ================================================================
     def test_polars_f32_to_polars_f32_via_python(
         self, dataset, cfg, add_pin_kw_fn, assert_close_fn
     ):
-        """
-        Polars TDigest(f32) → td.to_bytes() → Python TDigest.from_bytes()
-        → to_bytes() → Polars td.from_bytes():
-        - Both Polars struct columns are compact (Float32 min/max).
-        - Python intermediate digest has inner_kind() == "f32".
-        - quantile/cdf preserved end-to-end.
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
 
         df_td = self._build_polars_digest(
             dataset, cfg, add_pin_kw_fn, precision="f32", float_dtype=pl.Float32
         )
 
-        # Original Polars side.
         td_dtype_orig = df_td.schema["td_col"]
         self._assert_polars_digest_dtype(td_dtype_orig, pl, expect_f32=True)
 
@@ -381,12 +295,10 @@ class TestPythonPolarsSerdeInterop:
         q_orig = float(out_orig["q"][0])
         c_orig = float(out_orig["c"][0])
 
-        # Polars → Python
         blob = df_td.with_columns(blob=td.to_bytes("td_col")).select("blob").row(0)[0]
         d_py = td.TDigest.from_bytes(blob)
         assert d_py.inner_kind() == "f32"
 
-        # Python → Polars
         blob2 = d_py.to_bytes()
         df2 = pl.DataFrame({"blob": [blob2]}).with_columns(td_rt=td.from_bytes("blob", precision="f32"))
 
@@ -403,20 +315,10 @@ class TestPythonPolarsSerdeInterop:
         assert_close_fn(q_rt, q_orig, 1e-9)
         assert_close_fn(c_rt, c_orig, 1e-9)
 
-    # ================================================================
-    # 8. Polars f64 → Python → Polars f64
-    # ================================================================
     def test_polars_f64_to_polars_f64_via_python(
         self, dataset, cfg, add_pin_kw_fn, assert_close_fn
     ):
-        """
-        Polars TDigest(f64) → td.to_bytes() → Python TDigest.from_bytes()
-        → to_bytes() → Polars td.from_bytes():
-        - Both Polars struct columns are full-precision (Float64 min/max).
-        - Python intermediate digest has inner_kind() == "f64".
-        - quantile/cdf preserved end-to-end.
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
 
         df_td = self._build_polars_digest(
@@ -454,20 +356,11 @@ class TestPythonPolarsSerdeInterop:
         assert_close_fn(q_rt, q_orig, 1e-9)
         assert_close_fn(c_rt, c_orig, 1e-9)
 
-    # ================================================================
-    # 9. Mixed-precision blob column → infer_column_precision(strict=True) blows up
-    # ================================================================
     def test_infer_column_precision_mixed_raises(self, dataset, cfg, add_pin_kw_fn):
-        """
-        Column contains both f32-encoded and f64-encoded TDIG blobs.
-        - infer_column_precision(..., strict=True) must raise.
-        - strict=False returns a fallback precision (currently "f64").
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
         import pytest
 
-        # Build one f32 and one f64 Python digest over the same data.
         d32 = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f32")
         d64 = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f64")
 
@@ -476,23 +369,14 @@ class TestPythonPolarsSerdeInterop:
 
         df = pl.DataFrame({"blob": [blob32, blob64]})
 
-        # Strict mode: must blow up on mixed precisions.
         with pytest.raises(ValueError, match="Mixed TDIG wire precisions"):
             td.infer_column_precision(df, "blob", strict=True)
 
-        # Non-strict mode: returns a fallback (heavier) precision, currently "f64".
         prec = td.infer_column_precision(df, "blob", strict=False)
-        assert prec in {"f64", "f32"}
         assert prec == "f64"
 
-    # ================================================================
-    # 10–13. Extra precision tests (homogeneous + nulls)
-    # ================================================================
     def test_infer_column_precision_all_f32(self, dataset, cfg, add_pin_kw_fn):
-        """
-        All blobs are f32-encoded → infer_column_precision(..., strict=True/False) == "f32".
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
 
         d32 = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f32")
@@ -507,10 +391,7 @@ class TestPythonPolarsSerdeInterop:
         assert prec_relaxed == "f32"
 
     def test_infer_column_precision_all_f64(self, dataset, cfg, add_pin_kw_fn):
-        """
-        All blobs are f64-encoded → infer_column_precision(..., strict=True/False) == "f64".
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
 
         d64 = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f64")
@@ -525,10 +406,7 @@ class TestPythonPolarsSerdeInterop:
         assert prec_relaxed == "f64"
 
     def test_infer_column_precision_all_nulls_defaults_f64(self):
-        """
-        All-null blob column → default fallback is "f64".
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
 
         df = pl.DataFrame({"blob": [None, None]}).with_columns(
@@ -537,14 +415,8 @@ class TestPythonPolarsSerdeInterop:
         prec = td.infer_column_precision(df, "blob", strict=True)
         assert prec == "f64"
 
-    # ================================================================
-    # 14–16. from_bytes + precision hints behaviour
-    # ================================================================
     def test_from_bytes_explicit_mixed_column_raises(self, dataset, cfg, add_pin_kw_fn):
-        """
-        td.from_bytes("blob") with precision="auto" must fail on mixed f32/f64 blobs.
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
         import pytest
 
@@ -559,15 +431,12 @@ class TestPythonPolarsSerdeInterop:
         with pytest.raises(
             pl.exceptions.ComputeError, match="mixed f32/f64 blobs in column"
         ):
-            df.with_columns(td_col=td.from_bytes("blob", precision="f64")).collect()
+            df.with_columns(td_col=td.from_bytes("blob", precision="f64"))
 
     def test_from_bytes_with_precision_f32_on_f64_blobs_raises(
         self, dataset, cfg, add_pin_kw_fn
     ):
-        """
-        td.from_bytes(..., precision="f32") must fail if blobs are f64-encoded.
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
         import pytest
 
@@ -578,15 +447,12 @@ class TestPythonPolarsSerdeInterop:
         with pytest.raises(
             pl.exceptions.ComputeError, match="mixed f32/f64 blobs in column"
         ):
-            df.with_columns(td_col=td.from_bytes("blob", precision="f32")).collect()
+            df.with_columns(td_col=td.from_bytes("blob", precision="f32"))
 
     def test_from_bytes_with_precision_f64_on_f32_blobs_raises(
         self, dataset, cfg, add_pin_kw_fn
     ):
-        """
-        td.from_bytes(..., precision="f64") must fail if blobs are f32-encoded.
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
         import pytest
 
@@ -597,15 +463,12 @@ class TestPythonPolarsSerdeInterop:
         with pytest.raises(
             pl.exceptions.ComputeError, match="mixed f32/f64 blobs in column"
         ):
-            df.with_columns(td_col=td.from_bytes("blob", precision="f64")).collect()
+            df.with_columns(td_col=td.from_bytes("blob", precision="f64"))
 
     def test_from_bytes_with_any_null_blob_row_raises(
         self, dataset, cfg, add_pin_kw_fn
     ):
-        """
-        Null blob rows are invalid input for td.from_bytes(...): strict error.
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
         import pytest
 
@@ -619,10 +482,7 @@ class TestPythonPolarsSerdeInterop:
             df.with_columns(td_col=td.from_bytes("blob", precision="f64"))
 
     def test_from_bytes_all_null_blob_column_raises(self):
-        """
-        All-null blob columns are invalid for td.from_bytes(...): strict error.
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
         import pytest
 
@@ -634,10 +494,7 @@ class TestPythonPolarsSerdeInterop:
             df.with_columns(td_col=td.from_bytes("blob", precision="f64"))
 
     def test_from_bytes_empty_blob_bytes_raises_decode_error(self):
-        """
-        Empty bytes (b"") are not a valid TDIG payload and must fail decode.
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
         import pytest
 
@@ -651,12 +508,7 @@ class TestPythonPolarsSerdeInterop:
     def test_from_bytes_with_precision_f32_homogeneous_column(
         self, dataset, cfg, add_pin_kw_fn, assert_close_fn
     ):
-        """
-        td.from_bytes(..., precision="f32") on homogeneous f32 blobs:
-        - schema is compact (Float32 min/max)
-        - quantile/cdf coherent with original Python digest.
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
 
         d32 = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f32")
@@ -679,33 +531,22 @@ class TestPythonPolarsSerdeInterop:
         assert_close_fn(q_pl, d32.quantile(0.5), 1e-9)
         assert_close_fn(c_pl, d32.cdf(x0), 1e-9)
 
-    def test_from_bytes_precision_auto_homogeneous_f32(
+    def test_inferred_f32_hint_preserves_wire_precision(
         self, dataset, cfg, add_pin_kw_fn, assert_close_fn
     ):
-        """
-        td.from_bytes(..., precision="auto") on homogeneous f32 blobs:
-        - schema is compact (Float32 min/max),
-        - quantile/cdf coherent with original Python TDigest(f32),
-        - Python roundtrip keeps inner_kind() == "f32".
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
 
-        # Build a Python f32 digest and serialize to wire bytes.
         d32 = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f32")
         blob32 = d32.to_bytes()
 
-        # Single-row Binary column with only f32-encoded blobs.
         df = pl.DataFrame({"blob": [blob32]})
 
-        # Use an explicit precision hint to keep planning and execution consistent.
-        df2 = df.with_columns(td_col=td.from_bytes("blob", precision="f32"))
+        df2 = df.with_columns(td_col=td.from_bytes("blob", precision=td.infer_column_precision(df, "blob")))
 
-        # 1) Schema: compact (Float32-backed struct).
         td_dtype = df2.schema["td_col"]
         self._assert_polars_digest_dtype(td_dtype, pl, expect_f32=True)
 
-        # 2) Quantile / CDF coherence vs original Python digest.
         x0 = float(dataset["DATA"][0])
         out_pl = df2.select(
             q=td.quantile("td_col", 0.5),
@@ -717,7 +558,6 @@ class TestPythonPolarsSerdeInterop:
         assert_close_fn(q_pl, d32.quantile(0.5), 1e-9)
         assert_close_fn(c_pl, d32.cdf(x0), 1e-9)
 
-        # 3) Roundtrip back to Python: still an f32-backed digest, and values preserved.
         blob_rt = df2.with_columns(blob=td.to_bytes("td_col")).select("blob").row(0)[0]
         d_rt = td.TDigest.from_bytes(blob_rt)
         assert d_rt.inner_kind() == "f32"
@@ -731,11 +571,7 @@ class TestPythonPolarsSerdeInterop:
     def test_python_to_bytes_explicit_wire_versions_roundtrip(
         self, dataset, cfg, add_pin_kw_fn, assert_close_fn
     ):
-        """
-        Python to_bytes(version=1|2|3) must produce decodable TDIG blobs
-        with coherent quantile/cdf behavior.
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
 
         d = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f64")
         x0 = float(dataset["DATA"][0])
@@ -750,11 +586,7 @@ class TestPythonPolarsSerdeInterop:
     def test_from_bytes_explicit_accepts_mixed_v1_v2_same_precision(
         self, dataset, cfg, add_pin_kw_fn, assert_close_fn
     ):
-        """
-        Migration behavior: a Binary column mixing TDIG v1 and v2 blobs with
-        the same precision (f64) must decode under an explicit f64 hint.
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
         import polars as pl
 
         d = self._build_python_digest(dataset, cfg, add_pin_kw_fn, precision="f64")
@@ -773,15 +605,3 @@ class TestPythonPolarsSerdeInterop:
 
         assert_close_fn(q, d.quantile(0.5), 1e-6)
         assert_close_fn(c, d.cdf(float(dataset["DATA"][0])), 1e-6)
-
-
-# =====================================================================
-# Category 3: JAVA → PYTHON — TDigest.toBytes() → TDigest.from_bytes()
-#   Spec:
-#     - Java builds digest from canonical data.
-#     - Java calls toBytes() and prints base64(blob).
-#     - Python decodes base64, TDigest.from_bytes(...).
-#     - quantile/cdf must match Java expectations and canonical values.
-#     - Round-trip: once Python has the blob, TDigest.from_bytes ⟷ to_bytes
-#       must be stable.
-# =====================================================================

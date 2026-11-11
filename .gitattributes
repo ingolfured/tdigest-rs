@@ -13,11 +13,6 @@ tests/upstream_legacy/bindings/python/tests/constants.py text eol=lf
 tests/upstream_legacy/bindings/python/tests/test_distributions.py text eol=lf
 tests/upstream_legacy/bindings/python/tests/test_tdigest.py text eol=lf
 tests/upstream_legacy/bindings/python/tests/utils.py text eol=lf
-src/upstream/LICENSE text eol=lf
-src/upstream/core.rs text eol=lf
-src/upstream/lib.rs text eol=lf
-src/upstream/scale.rs text eol=lf
-src/upstream/traits.rs text eol=lf
 
 # The Windows launcher intentionally uses CRLF.
 bindings/java/gradlew.bat -text whitespace=cr-at-eol

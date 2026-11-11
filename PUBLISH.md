@@ -7,29 +7,28 @@ that version to the Python distribution and JVM artifact. See [the migration gui
 
 Run `make build`, `make test` and `make python-support-test` on the final upstream
 commit. Review this repository's Rust and Python platform jobs, wheel builds,
-installed-wheel/runtime checks and cross-language project checks. Review the
+tests of installed wheels and interoperability checks. Review the
 accuracy limits linked from the README; passing regression checks does not imply
 that every statistical accuracy target passes.
 
 Move the pending changelog entries into a versioned section before release.
-Merge the approved contribution into G-Research's `main`. This snapshot does
-not create a tag, publish packages or change repository environments or secrets.
+Merge the approved contribution into G-Research's `main`.
 
 ## Existing upstream release workflow
 
 Use the **Create release** workflow (`.github/workflows/create-release.yml`) with
 the approved semantic version. It retains the existing `create-release`
 environment and GitHub App credentials. It updates the root `tdigest-rs` Cargo
-package and lockfile, commits the version, and pushes the corresponding `v*` tag.
+package and lockfile when the version changes, then pushes the corresponding `v*` tag.
 
-The tag triggers **CI**. After the required Rust, Python and cross-language jobs
+The tag triggers **CI**. After the required Rust, Python and interoperability jobs
 succeed, the existing release workflow downloads the `python-package-*`
 artifacts, publishes the `tdigest-rs` distribution using the `release` environment
-and PyPI trusted publishing, and creates the GitHub release. The seven-platform
+and PyPI trusted publishing, and creates the GitHub release. The seven platform
 wheel build matrix and pinned action references remain part of that pipeline.
-The Linux runtime-support job also supplies the checked source distribution.
+The Linux runtime support job also supplies the checked source distribution.
 
-The original `check-required.yml` workflow and its app-backed required check stay
+The original `check-required.yml` workflow and its GitHub App required check stay
 in place. Fork CI does not replace the upstream approving review or required check.
 
 ## Optional Rust and Maven publication

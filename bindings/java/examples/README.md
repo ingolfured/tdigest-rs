@@ -1,7 +1,7 @@
 # Standalone JVM consumers
 
 These examples resolve the same prebuilt `com.gresearch.tdigest:tdigest-rs` JAR used by Java.
-They need no Rust compiler or Python at runtime. Use version `0.3.0` once the
+They need no Rust compiler or Python at runtime. Use version `1.0.0` once the
 artifact is published to the configured repository. A successful local example
 is not Spark cluster qualification.
 
@@ -14,7 +14,7 @@ Use the repository's complete Gradle wrapper or its configured Gradle bootstrap:
 
 ```sh
 bindings/java/gradlew -p bindings/java/examples/kotlin \
-  -PtdigestVersion=0.3.0 run
+  -PtdigestVersion=1.0.0 run
 ```
 
 Set `TDIGEST_MAVEN_REPOSITORY_URL` for an exclusive internal dependency source.
@@ -31,12 +31,12 @@ the compiled example targets Java 11. Install or stage sbt separately, then run:
 
 ```sh
 cd bindings/java/examples/scala
-sbt -Dtdigest.version=0.3.0 run
+sbt -Dtdigest.version=1.0.0 run
 ```
 
 `TDIGEST_MAVEN_REPOSITORY_URL` selects the sole project dependency repository.
 The optional credential environment variables are the same as above; set
-`TDIGEST_MAVEN_REALM` to the server's authentication realm. For an internal-only
+`TDIGEST_MAVEN_REALM` to the server's authentication realm. For an internal only
 sbt launcher and compiler bootstrap, also supply sbt's external repository and
 credential configuration using `sbt.override.build.repos`,
 `sbt.repository.config` and `sbt.boot.credentials`. Project resolution alone
@@ -44,14 +44,13 @@ does not configure the launcher. Keep credentials and trust stores outside the
 source checkout.
 
 After staging the launcher, compiler and application dependencies, run
-`sbt -Dtdigest.version=0.3.0 'set offline := true' run` with the configured
+`sbt -Dtdigest.version=1.0.0 'set offline := true' run` with the configured
 repository unavailable. `TDIGEST_RUNTIME_JAVA_HOME` selects the forked example's
 runtime independently of the build JDK. Test that runtime explicitly.
 
-Both examples exercise weighted construction, array merge-all and a byte
-round-trip. They print the loaded JAR origin and native payload hash through
-`TDigest.runtimeInfo()`. The coverage manifest identifies the exact artifact and
-runtime checks actually completed. The [Spark consumer check](spark/README.md) exercises driver/executor
+Both examples exercise weighted construction, array merge all and a byte
+round trip. They print the loaded JAR origin and native payload hash through
+`TDigest.runtimeInfo()`. The [Spark consumer check](spark/README.md) exercises driver/executor
 serialization, shuffles, broadcasts and checkpoint restoration with separate
 executor JVMs. Actual checkpoint settings and executor images still require the
 consuming environment's checks.

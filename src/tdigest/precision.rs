@@ -1,4 +1,3 @@
-// src/tdigest/precision.rs
 use serde::{Deserialize, Serialize};
 use std::any::TypeId;
 use std::cmp::Ordering;
@@ -21,7 +20,7 @@ impl Precision {
         matches!(self, Precision::F64)
     }
 
-    /// Map a float *type* to a Precision at compile-time.
+    /// Map a float *type* to a Precision.
     #[inline]
     pub fn of_type<F: 'static>() -> Self {
         if TypeId::of::<F>() == TypeId::of::<f32>() {
@@ -67,7 +66,6 @@ pub trait FloatLike:
     /// Total ordering consistent with IEEE semantics.
     #[inline]
     fn total_cmp(self, other: Self) -> Ordering {
-        // Use native total_cmp on f32/f64 (stable), but expose a unified API here.
         self.to_f64().total_cmp(other.to_f64())
     }
 }

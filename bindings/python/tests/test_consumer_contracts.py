@@ -1,4 +1,4 @@
-"""Public consumer regressions; original tdigest_rs semantics stay separate."""
+"""Capacity constructors and Polars expressions as used through the public package."""
 
 import copy
 import inspect
@@ -10,7 +10,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from tdigest_rs import _modern as gr
+import tdigest_rs as gr
 
 
 def digest(values, **kwargs):

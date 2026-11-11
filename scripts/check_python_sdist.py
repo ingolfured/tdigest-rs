@@ -125,6 +125,8 @@ def verify_sdist_contents(sdist: Path, root: Path) -> None:
             "tests/quality/data/energy.csv.gz",
         ):
             require_same(relative, relative)
+        require_same("LICENSE", "LICENSE")
+        require_same("bindings/python/LICENSE", "LICENSE")
         require_same("PYTHON_README.md", "bindings/python/PYTHON_README.md")
         normalized_build = manifests["pyproject.toml"].get("tool", {}).get("maturin", {})
         if normalized_build.get("manifest-path") != "Cargo.toml":

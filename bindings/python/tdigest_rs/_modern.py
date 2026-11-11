@@ -60,6 +60,49 @@ if _native_from_array_raw is None:  # pragma: no cover
 _native_from_array = cast(Callable[..., Any], _native_from_array_raw)
 
 
+def _constructor_options(
+    max_size: Any,
+    delta: Any,
+    scale: Any,
+    singleton_policy: SingletonPolicy | str | None,
+    pin_per_side: int | None,
+    precision: str | None,
+    f32_mode: bool | None,
+) -> Dict[str, Any]:
+    max_size, legacy_delta = _resolve_size_mode(max_size, delta)
+    s = _resolve_scale_for_mode(scale, legacy_delta is not None)
+    m = _norm_policy(singleton_policy)
+
+    if legacy_delta is not None:
+        if singleton_policy is not None and m != "off":
+            raise ValueError("delta mode only supports singleton_policy='off'.")
+        if pin_per_side is not None:
+            raise ValueError("pin_per_side is not supported when using delta mode.")
+        m = "off"
+
+    if m != "edges" and pin_per_side is not None:
+        raise ValueError("pin_per_side is only allowed when singleton_policy='edges'")
+    eps = _validate_pin_per_side(pin_per_side, max_size) if m == "edges" else None
+
+    prec_norm = _coerce_precision(precision)
+    f32_flag = prec_norm == "f32" if f32_mode is None else bool(f32_mode)
+    if f32_mode is not None and prec_norm != "auto" and f32_flag != (prec_norm == "f32"):
+        raise ValueError(f"Conflicting precision arguments: precision={prec_norm!r} and f32_mode={f32_flag!r}")
+
+    call_kwargs: Dict[str, Any] = {
+        "max_size": int(max_size),
+        "scale": s,
+        "f32_mode": f32_flag,
+        "singleton_policy": m,
+    }
+    if eps is not None:
+        call_kwargs["pin_per_side"] = int(eps)
+    if legacy_delta is not None:
+        call_kwargs["delta"] = legacy_delta
+
+    return call_kwargs
+
+
 def _from_array_cls(
     cls: type[_NativeTDigest],
     data: Any = _UNSET,
@@ -92,52 +135,7 @@ def _from_array_cls(
     if data is _UNSET:
         raise TypeError("TDigest.from_array() missing required argument: 'data'")
 
-    max_size, legacy_delta = _resolve_size_mode(max_size, delta)
-    s = _resolve_scale_for_mode(scale, legacy_delta is not None)
-    m = _norm_policy(singleton_policy)
-
-    if legacy_delta is not None:
-        if singleton_policy is not None and m != "off":
-            raise ValueError("delta mode only supports singleton_policy='off'.")
-        if pin_per_side is not None:
-            raise ValueError("pin_per_side is not supported when using delta mode.")
-        m = "off"
-
-    if m != "edges" and pin_per_side is not None:
-        raise ValueError("pin_per_side is only allowed when singleton_policy='edges'")
-    eps = _validate_pin_per_side(pin_per_side, max_size) if m == "edges" else None
-
-    policy_str = {"off": "off", "use": "use", "edges": "edges"}[m]
-
-    # --- precision / f32_mode reconciliation ---------------------------------
-    prec_raw = precision
-    f32_mode_raw = f32_mode
-
-    prec_norm = _coerce_precision(prec_raw)  # "auto" | "f64" | "f32"
-
-    if f32_mode_raw is not None:
-        f32_flag = bool(f32_mode_raw)
-        if prec_norm != "auto":
-            expected_flag = prec_norm == "f32"
-            if f32_flag != expected_flag:
-                raise ValueError(f"Conflicting precision arguments: precision={prec_norm!r} and f32_mode={f32_flag!r}")
-    else:
-        # No explicit f32_mode provided; derive from precision.
-        if prec_norm == "auto":
-            f32_flag = False  # default to f64 backend when auto and no legacy flag
-        else:
-            f32_flag = prec_norm == "f32"
-
-    call_kwargs: Dict[str, Any] = {
-        "max_size": int(max_size),
-        "scale": s,
-        "f32_mode": f32_flag,
-        "singleton_policy": policy_str,
-    }
-    if eps is not None:
-        call_kwargs["pin_per_side"] = int(eps)
-    if legacy_delta is not None:
-        call_kwargs["delta"] = legacy_delta
+    call_kwargs = _constructor_options(max_size, delta, scale, singleton_policy, pin_per_side, precision, f32_mode)
 
     if kwargs:
         extra = ", ".join(sorted(kwargs.keys()))
@@ -146,8 +144,7 @@ def _from_array_cls(
     if weights is not _UNSET:
         # Weighted observations, not compressed-state reconstruction.
         return _native_from_means_weights(data, weights, **call_kwargs)
-    out = _native_from_array(data, **call_kwargs)
-    return out
+    return _native_from_array(data, **call_kwargs)
 
 
 setattr(_NativeTDigest, "from_array", classmethod(_from_array_cls))
@@ -170,50 +167,15 @@ def _from_means_weights_cls(
     pin_per_side: Optional[int] = None,
     **kwargs: Any,
 ) -> _NativeTDigest:
-    max_size, legacy_delta = _resolve_size_mode(max_size, delta)
-    s = _resolve_scale_for_mode(scale, legacy_delta is not None)
-    m = _norm_policy(singleton_policy)
-
-    if legacy_delta is not None:
-        if singleton_policy is not None and m != "off":
-            raise ValueError("delta mode only supports singleton_policy='off'.")
-        if pin_per_side is not None:
-            raise ValueError("pin_per_side is not supported when using delta mode.")
-        m = "off"
-
-    if m != "edges" and pin_per_side is not None:
-        raise ValueError("pin_per_side is only allowed when singleton_policy='edges'")
-    eps = _validate_pin_per_side(pin_per_side, max_size) if m == "edges" else None
-
-    policy_str = {"off": "off", "use": "use", "edges": "edges"}[m]
-
-    prec_raw = kwargs.pop("precision", None)
-    f32_mode_raw = kwargs.pop("f32_mode", None)
-
-    prec_norm = _coerce_precision(prec_raw)
-
-    if f32_mode_raw is not None:
-        f32_flag = bool(f32_mode_raw)
-        if prec_norm != "auto":
-            expected_flag = prec_norm == "f32"
-            if f32_flag != expected_flag:
-                raise ValueError(f"Conflicting precision arguments: precision={prec_norm!r} and f32_mode={f32_flag!r}")
-    else:
-        if prec_norm == "auto":
-            f32_flag = False
-        else:
-            f32_flag = prec_norm == "f32"
-
-    call_kwargs: Dict[str, Any] = {
-        "max_size": int(max_size),
-        "scale": s,
-        "f32_mode": f32_flag,
-        "singleton_policy": policy_str,
-    }
-    if eps is not None:
-        call_kwargs["pin_per_side"] = int(eps)
-    if legacy_delta is not None:
-        call_kwargs["delta"] = legacy_delta
+    call_kwargs = _constructor_options(
+        max_size,
+        delta,
+        scale,
+        singleton_policy,
+        pin_per_side,
+        kwargs.pop("precision", None),
+        kwargs.pop("f32_mode", None),
+    )
 
     if kwargs:
         extra = ", ".join(sorted(kwargs.keys()))
@@ -256,9 +218,7 @@ def _merge_patched(self: _NativeTDigest, other: Any, delta: Any = _UNSET, **kwar
         raise TypeError(f"Unsupported argument(s): {extra}")
     if other is self:
         other = TDigest.merge_all([self])
-    # Call native in-place merge (which returns None / raises on error)
     _native_merge(self, other)
-    # Then return self so Python sees a fluent API
     return self
 
 
@@ -317,7 +277,6 @@ setattr(TDigest, "from_dict", classmethod(_from_dict_cls))
 
 
 def _add_patched(self: _NativeTDigest, values: Any) -> _NativeTDigest:
-    # Native mutates in-place; return self for fluent parity with Java.
     _native_add(self, values)
     return self
 

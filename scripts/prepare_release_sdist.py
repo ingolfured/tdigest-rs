@@ -32,8 +32,6 @@ def main() -> None:
 
     before = (root / "Cargo.lock").read_bytes()
     sdist = build_and_check_sdist(root, output / "sdist", run)
-    # The helper also enforces this before validating active archive sources.
-    assert (root / "Cargo.lock").read_bytes() == before
     provenance = {
         "status": "PASS",
         "operation": "maturin sdist and active-source validation; no extension compilation",

@@ -7,7 +7,7 @@
 The original directory layout is retained below this folder so every file maps
 directly to its upstream path. [manifest.json](manifest.json) records the source
 repository, exact commit, original paths and SHA-256 hashes; [PROVENANCE.md](PROVENANCE.md)
-provides the human-readable provenance. The tests at pinned commit
+provides the human readable provenance. The tests at pinned commit
 `8d9cf1fe82c5c9254e5dc9593f01717e317f4333` also match upstream `main` at
 `32a49203d6fdbc80e3ea4a381265e83762f87faa` byte for byte.
 
@@ -18,7 +18,7 @@ installed package, and requires exactly 91 passed cases with no skips or xfails.
 Its separate report is `build/ci/upstream-legacy.xml`. No launcher/configuration
 adaptations are embedded in the copied tests.
 
-The installed-wheel runtime matrix and cross-platform interface jobs run this
+The installed wheel runtime matrix and across platforms interface jobs run this
 same suite separately from the additional compatibility and modern tests. Source
 archives must contain the same test bytes and provenance. Do not regenerate
 expected answers, reformat these files, filter out cases or edit their assertions

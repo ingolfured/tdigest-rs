@@ -11,9 +11,9 @@ Both datasets are licensed under [Creative Commons Attribution 4.0 International
 
 Modifications: select the named columns, retain their original numeric text and all rows in source order, omit the other columns, compress as CSV. The energy dataset's `rv1`/`rv2` columns are artificial random variables and are excluded. No rows were filled, dropped, shuffled or generated.
 
-[manifest.json](manifest.json) pins each source download, source member, archive/source/derived SHA256, row count, columns and credit. The actual Bike Sharing CSV contains17,379 rows; tests use the file count rather than a website summary count.
+[manifest.json](manifest.json) pins each source download, source member, archive/source/derived SHA256, row count, columns and credit. The actual Bike Sharing CSV contains 17,379 rows.
 
-To reproduce the files in a **new** directory, use the project's Python3.12 environment:
+To reproduce the files in a **new** directory, use the project's Python 3.12 environment.
 
 ```sh
 .venv/bin/python scripts/fetch_quality_data.py --output /tmp/reproduced-quality-data

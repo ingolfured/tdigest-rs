@@ -9,7 +9,6 @@ from typing import Any, Literal, Optional
 from ._native import wire_precision_py as _wire_precision_native
 
 
-# --- enums --------------------------------------------------------------------
 class ScaleFamily(str, Enum):
     QUAD = "QUAD"
     K1 = "K1"
@@ -24,19 +23,12 @@ class SingletonPolicy(str, Enum):
     EDGES = "edges"
 
 
-#: Default `max_size` when neither `max_size` nor `delta` is specified.
-#: Established in `14b34ac` ("Default arguments k2, 1000 and f64") and used
-#: by the Rust extension (PyO3 signature), Rust CLI (`--max-size`), and this shim.
 DEFAULT_MAX_SIZE: int = 1000
-#: Default `delta` value documented for delta-mode. Matches the constant
-#: `DEFAULT_DELTA = 300.0` from the old `tdigest-rs` Python API. Full legacy
-#: input and mutation semantics are exposed by the shipped `tdigest_rs` package.
 DEFAULT_DELTA: float = 300.0
 
 _UNSET = object()
 
 
-# --- helpers ------------------------------------------------------------------
 def _coerce_scale_for_class(scale: ScaleFamily | str) -> str:
     s = scale.value if isinstance(scale, ScaleFamily) else str(scale).strip().upper()
     if s in {"QUAD", "K1", "K2", "K2NORM", "K3"}:

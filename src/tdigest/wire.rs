@@ -1,5 +1,3 @@
-// src/tdigest/wire.rs
-//
 // Canonical TDigest binary wire codec ("TDIG" format).
 //
 // v1/v2 header (56 bytes, little-endian):
@@ -296,7 +294,6 @@ fn expected_payload_len(
 
 #[derive(Debug, Clone, Copy)]
 struct DecodedV3Header {
-    flags: u8,
     header_len: usize,
     width: WireFloatWidth,
     scale: ScaleFamily,
@@ -322,7 +319,7 @@ pub fn wire_precision(bytes: &[u8]) -> WireResult<WirePrecision> {
     match version {
         WireVersion::V1 | WireVersion::V2 => wire_precision_v12(bytes, version),
         WireVersion::V3 => {
-            let h = parse_v3_header(bytes, true)?;
+            let h = parse_v3_header(bytes)?;
             Ok(h.width.to_precision())
         }
     }
@@ -335,17 +332,17 @@ fn wire_precision_v12(bytes: &[u8], version: WireVersion) -> WireResult<WirePrec
 
     let mut offset = 40;
     let centroid_count_u64 = read_u64(bytes, &mut offset)?;
-    let centroid_count = centroid_count_u64 as usize;
-
+    let centroid_count = usize::try_from(centroid_count_u64)
+        .map_err(|_| WireError::InvalidHeader("centroid_count exceeds platform size"))?;
+    let payload_len = bytes.len() - HEADER_LEN_V12;
     if centroid_count == 0 {
+        if payload_len != 0 {
+            return Err(WireError::InvalidPayload(
+                "empty digest has trailing payload",
+            ));
+        }
         return Ok(WirePrecision::F64);
     }
-
-    let payload_len = bytes
-        .len()
-        .checked_sub(HEADER_LEN_V12)
-        .ok_or(WireError::InvalidHeader("buffer too small"))?;
-
     let f32_len = expected_payload_len(version, WireFloatWidth::F32, centroid_count)?;
     let f64_len = expected_payload_len(version, WireFloatWidth::F64, centroid_count)?;
 
@@ -359,10 +356,6 @@ fn wire_precision_v12(bytes: &[u8], version: WireVersion) -> WireResult<WirePrec
         ))
     }
 }
-
-/* ============================
- * Small helpers
- * ============================ */
 
 #[inline]
 fn write_u64(buf: &mut Vec<u8>, v: u64) {
@@ -501,26 +494,15 @@ fn code_is_atomic(code: u8) -> WireResult<bool> {
 }
 
 #[inline]
-fn checksum_v3(bytes: &[u8], header_len: usize) -> u32 {
+fn checksum_v3(bytes: &[u8]) -> u32 {
     let mut hasher = Hasher::new();
 
-    // bytes before checksum slot
+    // The checksum covers the header, extensions and payload with the checksum field zeroed.
     hasher.update(&bytes[..V3_CHECKSUM_OFFSET]);
-    // checksum slot treated as zeros
     hasher.update(&[0u8; 4]);
-    // any v3 header extension bytes
-    if header_len > V3_CHECKSUM_OFFSET + 4 {
-        hasher.update(&bytes[V3_CHECKSUM_OFFSET + 4..header_len]);
-    }
-    // payload
-    hasher.update(&bytes[header_len..]);
-
+    hasher.update(&bytes[V3_CHECKSUM_OFFSET + 4..]);
     hasher.finalize()
 }
-
-/* ============================
- * Encode
- * ============================ */
 
 pub fn encode_digest<F>(td: &TDigest<F>) -> Vec<u8>
 where
@@ -715,16 +697,13 @@ where
     }
 
     if (flags & V3_FLAG_CHECKSUM) != 0 {
-        let checksum = checksum_v3(&buf, header_len);
+        let checksum = checksum_v3(&buf);
         buf[V3_CHECKSUM_OFFSET..V3_CHECKSUM_OFFSET + 4].copy_from_slice(&checksum.to_le_bytes());
     }
 
     buf
 }
 
-/* ============================
- * Decode
- * ============================ */
 pub fn decode_digest(bytes: &[u8]) -> WireResult<WireDecodedDigest> {
     if bytes.len() < 5 {
         return Err(WireError::InvalidHeader("buffer too small"));
@@ -826,7 +805,7 @@ fn decode_digest_v12(bytes: &[u8], version: WireVersion) -> WireResult<WireDecod
     )
 }
 
-fn parse_v3_header(bytes: &[u8], verify_checksum: bool) -> WireResult<DecodedV3Header> {
+fn parse_v3_header(bytes: &[u8]) -> WireResult<DecodedV3Header> {
     if bytes.len() < HEADER_LEN_V3_MIN {
         return Err(WireError::InvalidHeader("buffer too small"));
     }
@@ -915,8 +894,8 @@ fn parse_v3_header(bytes: &[u8], verify_checksum: bool) -> WireResult<DecodedV3H
     let mut checksum_offset = V3_CHECKSUM_OFFSET;
     let expected_checksum = read_u32(bytes, &mut checksum_offset)?;
 
-    if (flags & V3_FLAG_CHECKSUM) != 0 && verify_checksum {
-        let actual_checksum = checksum_v3(bytes, header_len);
+    if (flags & V3_FLAG_CHECKSUM) != 0 {
+        let actual_checksum = checksum_v3(bytes);
         if actual_checksum != expected_checksum {
             return Err(WireError::InvalidChecksum);
         }
@@ -938,7 +917,6 @@ fn parse_v3_header(bytes: &[u8], verify_checksum: bool) -> WireResult<DecodedV3H
     }
 
     Ok(DecodedV3Header {
-        flags,
         header_len,
         width,
         scale,
@@ -955,9 +933,7 @@ fn parse_v3_header(bytes: &[u8], verify_checksum: bool) -> WireResult<DecodedV3H
 }
 
 fn decode_digest_v3(bytes: &[u8]) -> WireResult<WireDecodedDigest> {
-    let h = parse_v3_header(bytes, true)?;
-
-    let _ = h.flags; // reserved for future behavior branching
+    let h = parse_v3_header(bytes)?;
 
     let stats = DigestStats {
         data_sum: h.data_sum,

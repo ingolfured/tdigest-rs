@@ -1,5 +1,3 @@
-// src/bin/tdigest_cli.rs
-
 use std::fmt;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Read};
@@ -21,6 +19,7 @@ enum ScaleOpt {
     Quad,
     K1,
     K2,
+    K2norm,
     K3,
 }
 
@@ -30,6 +29,7 @@ impl fmt::Display for ScaleOpt {
             ScaleOpt::Quad => "quad",
             ScaleOpt::K1 => "k1",
             ScaleOpt::K2 => "k2",
+            ScaleOpt::K2norm => "k2norm",
             ScaleOpt::K3 => "k3",
         };
         f.write_str(s)
@@ -115,7 +115,7 @@ struct DigestArgs {
     #[arg(long = "max-size", default_value_t = 1000)]
     max_size: usize,
 
-    /// Scale family: quad|k1|k2|k3.
+    /// Scale family: quad|k1|k2|k2norm|k3.
     #[arg(long, value_enum, default_value_t = ScaleOpt::K2)]
     scale: ScaleOpt,
 
@@ -324,9 +324,10 @@ fn parse_text_values<R: Read>(reader: R) -> Result<Vec<f64>, String> {
             if tok.is_empty() {
                 continue;
             }
-            if let Ok(v) = tok.parse::<f64>() {
-                out.push(v);
-            }
+            out.push(
+                tok.parse::<f64>()
+                    .map_err(|_| format!("expected a number, got {tok:?}"))?,
+            );
         }
     }
     Ok(out)
@@ -349,10 +350,9 @@ fn resolve_csv_index(
                     headers.len()
                 ));
             }
-            let sel_lc = sel.to_ascii_lowercase();
             headers
                 .iter()
-                .position(|h| h.eq_ignore_ascii_case(sel) || h.to_ascii_lowercase() == sel_lc)
+                .position(|h| h.eq_ignore_ascii_case(sel))
                 .ok_or_else(|| format!("csv column {sel:?} not found in {source_label}"))
         }
     }
@@ -404,7 +404,6 @@ fn parse_csv_values<R: Read>(
 ) -> Result<Vec<f64>, String> {
     let mut out = Vec::new();
     let mut idx: Option<usize> = None;
-    let mut saw_first_data_line = false;
     let mut line = String::new();
     let mut rdr = BufReader::new(reader);
     let mut line_no = 0usize;
@@ -443,21 +442,16 @@ fn parse_csv_values<R: Read>(
             };
             if let Ok(v) = first_cell.parse::<f64>() {
                 out.push(v);
-                saw_first_data_line = true;
             }
             continue;
         }
 
         let selected_idx = idx.expect("csv index initialized");
-        let Some(raw_cell) = row.get(selected_idx) else {
-            continue;
-        };
-
-        if !saw_first_data_line && row.len() > selected_idx && raw_cell.parse::<f64>().is_err() {
-            saw_first_data_line = true;
-            continue;
-        }
-
+        let raw_cell = row.get(selected_idx).ok_or_else(|| {
+            format!(
+                "csv parse error ({source_label}) at row {line_no}: missing column {selected_idx}"
+            )
+        })?;
         let v = parse_csv_number(raw_cell, source_label, line_no, selected_idx)?;
         out.push(v);
     }
@@ -659,7 +653,9 @@ fn parse_float_tokens(values: &[String], label: &str) -> Result<Vec<f64>, String
 
 fn is_representable_in_f32(v: f64) -> bool {
     let as32 = v as f32;
-    as32.is_finite() && ((as32 as f64) - v).abs() <= 1e-6 * v.abs().max(1.0)
+    as32.is_finite()
+        && (v == 0.0 || as32 != 0.0)
+        && ((as32 as f64) - v).abs() <= 1e-6 * v.abs().max(1.0)
 }
 
 fn choose_precision(flag: PrecisionOpt, values: &[f64]) -> DigestPrecision {

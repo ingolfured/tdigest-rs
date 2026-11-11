@@ -8,13 +8,14 @@ Source commit:
 8d9cf1fe82c5c9254e5dc9593f01717e317f4333
 ```
 
-Copied files are intentionally kept byte-for-byte identical to the source
+Copied files are intentionally kept byte for byte identical to the source
 snapshot. To verify against a fresh checkout of the source repository at the
-commit above (set `UPSTREAM` to its path):
+commit above, set `UPSTREAM` to its absolute path and run these commands from the repository root.
 
 ```bash
-diff -qr "$UPSTREAM/bindings/python/tests"            bindings/python/tests
-diff -q  "$UPSTREAM/bindings/python/benchmarks/run.py" bindings/python/benchmarks/run.py
+cd tests/upstream_legacy
+diff -qr --exclude=__pycache__ "$UPSTREAM/bindings/python/tests" bindings/python/tests
+diff -q "$UPSTREAM/bindings/python/benchmarks/run.py" bindings/python/benchmarks/run.py
 ```
 
 ## SHA256

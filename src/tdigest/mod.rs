@@ -1,11 +1,9 @@
 #![allow(clippy::module_inception)]
 //! t-digest core types and public API.
 //!
-//! - [`TDigest`] — main data structure and builder.
-//! - **Compression** — internal compressor enforces a k-limit ([`ScaleFamily`]) while
-//!   preserving extremes and discrete *singleton piles*.
-//! - **Scales** — see [`ScaleFamily`] for available k-mappings.
-//! - **CDF** — see [`TDigest::cdf`] for exact semantics and guarantees.
+//! The compressor uses a [`ScaleFamily`] to group centroids and a
+//! singleton policy to preserve selected values at the tails. See
+//! [`TDigest::cdf`] for the rank assigned to ties.
 
 pub mod cdf;
 pub mod centroids;
@@ -21,7 +19,6 @@ pub(crate) mod summation;
 pub mod tdigest;
 pub mod wire;
 
-// Re-exports for a clean public surface
 pub use self::precision::Precision;
 pub use self::scale::ScaleFamily;
 pub use self::tdigest::{DigestStats, TDigest, TDigestBuilder};

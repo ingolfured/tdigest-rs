@@ -12,10 +12,8 @@ from tdigest_rs import TDigest
 
 def tdigest_rs_callback(arr: np.ndarray, delta: float) -> float:
     digest = TDigest.from_array(arr, delta=delta)
-    digest = TDigest.merge_all([digest, digest])
-    q = digest.quantile(0.1)
-    c = digest.cdf(0.0)
-    return float(q + c)
+    digest = digest.merge(digest, delta=delta)
+    return float(digest.quantile(0.1))
 
 
 def parse_args() -> argparse.Namespace:
@@ -36,7 +34,7 @@ def main() -> None:
     rng = np.random.default_rng(args.seed)
     arrays = [rng.standard_normal(args.n) for _ in range(args.n_arrays)]
 
-    t0 = time.time()
+    t0 = time.perf_counter()
     total = 0.0
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
         for _ in range(args.iterations):
@@ -47,7 +45,7 @@ def main() -> None:
                     raise RuntimeError(f"non-finite benchmark result: {value!r}")
                 total += value
 
-    elapsed = time.time() - t0
+    elapsed = time.perf_counter() - t0
     print(
         "tdigest-rs strict legacy benchmark passed | "
         f"n={args.n} n_arrays={args.n_arrays} iterations={args.iterations} "

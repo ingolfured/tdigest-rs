@@ -1,8 +1,4 @@
-"""Small public contract probes; record failures rather than concealing them.
-
-Run with an installed environment's Python -I. Output is evidence, not a claim
-that all of the consumer handoff is qualified. --require-clean fails on defects.
-"""
+"""Check the public consumer APIs and record each probe result."""
 
 import argparse
 import copy

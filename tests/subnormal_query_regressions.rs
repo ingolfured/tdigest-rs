@@ -216,8 +216,6 @@ fn with_count<F: FloatLike + FloatCore>(
 fn different_subnormal_header<F: FloatLike + FloatCore>() {
     let tiny = f64::from_bits(1);
     let correct = seeded::<F>(&[tiny, tiny], &[true, true], -2.0, 6.0);
-    // Malformed public seeds are now rejected before queries can observe an
-    // inconsistent header, including differences in the subnormal range.
     assert!(with_count(&correct, tiny * 3.0).is_err());
 }
 

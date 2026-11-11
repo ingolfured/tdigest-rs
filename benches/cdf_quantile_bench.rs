@@ -9,8 +9,6 @@ use jemalloc_ctl::{epoch, stats};
 use tdigest_rs::tdigest::{ScaleFamily, TDigest};
 use testdata::{gen_dataset, DistKind};
 
-/* ------------------------ helpers ------------------------ */
-
 fn build_digest(
     kind: DistKind,
     n: usize,
@@ -41,8 +39,6 @@ fn alloc_bytes_hold<T, F: FnOnce() -> T>(f: F) -> (T, usize) {
     (obj, after.saturating_sub(before))
 }
 
-/* ------------------------ main benchmark ------------------------ */
-
 fn bench_cdf_light(c: &mut Criterion) {
     let sizes = [1usize, 1_000, 100_000, 5_000_000];
 
@@ -53,11 +49,7 @@ fn bench_cdf_light(c: &mut Criterion) {
         group.throughput(Throughput::Elements(m as u64));
 
         let values: Vec<f64> = (0..m).map(|i| i as f64 / m as f64).collect();
-
-        // Base digest for this size (Mixture is a nice stressor; K2 is your current fave)
         let td = build_digest(DistKind::Mixture, m, 1_000, ScaleFamily::K2, 4242);
-
-        // light
         group.bench_with_input(BenchmarkId::new("cdf", m), &values, |b, values| {
             b.iter(|| {
                 let out = td.cdf(black_box(values));
@@ -69,13 +61,9 @@ fn bench_cdf_light(c: &mut Criterion) {
 
         #[cfg(all(target_os = "linux", target_env = "gnu"))]
         {
-            // ---- memory footprint (one line per size) ----
-            // 1) Digest construction footprint
             let (_td_hold, digest_bytes) = alloc_bytes_hold(|| {
                 build_digest(DistKind::Mixture, m, 1_000, ScaleFamily::K2, 4242)
             });
-
-            // 2) One evaluation footprint (keep both digest and output Vec alive)
             let ((_td_eval_hold, _out_hold), eval_bytes) = alloc_bytes_hold(|| {
                 let td2 = build_digest(DistKind::Mixture, m, 1_000, ScaleFamily::K2, 4242);
                 let out = td2.cdf(&values);
@@ -93,8 +81,6 @@ fn bench_cdf_light(c: &mut Criterion) {
         println!("[memory] size={m}: jemalloc counters unavailable on this target");
     }
 }
-
-/* ------------------------ registration ------------------------ */
 
 fn configure() -> Criterion {
     Criterion::default()

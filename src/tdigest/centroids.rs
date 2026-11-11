@@ -1,22 +1,5 @@
-//! Centroid representation for TDigest.
-//!
-//! This module defines a compact centroid type that stores:
-//! - `mean`   in generic `F` (`f32` or `f64`)
-//! - `weight` in `f64`, independently of mean precision
-//! - a `Kind` flag: `Atomic` (all identical inputs at this mean) or `Mixed`.
-//!
-//! ## Semantics
-//! - **Atomic** means the centroid represents *identical* samples at exactly the same
-//!   value (the centroid mean). It can be:
-//!   - an **atomic unit** (weight == 1), or
-//!   - an **atomic pile** (weight > 1), both represented by `Kind::Atomic`.
-//! - **Mixed** means the centroid arises from merging across different means or
-//!   from synthetic aggregation (e.g., bucketization).
-//!
-//! The codebase should rely on `is_atomic()` + `weight_f64()` to drive behavior.
-//! For convenience and clarity, helpers `is_atomic_unit()` / `is_atomic_pile()`
-//! are provided. A small **compatibility shim** keeps
-//! `new_singleton_f64(..)` and `is_singleton()` working, mapping to the new model.
+//! A centroid stores a mean in the selected precision and positive mass in f64.
+//! Atomic centroids represent one distinct value. Mixed centroids summarize a range.
 
 use ordered_float::FloatCore;
 
@@ -26,7 +9,7 @@ use crate::tdigest::precision::FloatLike;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     /// All composing items are identical (same value as the centroid mean).
-    /// Weight may be 1 (atomic unit) or >1 (atomic pile).
+    /// The mass may be any finite positive weight.
     Atomic,
     /// Composed from different values or synthetic aggregation.
     Mixed,
@@ -49,10 +32,6 @@ impl<F: FloatLike + FloatCore> Centroid<F> {
         );
         weight
     }
-
-    /* ---------------------------------------------------------------------
-     * Constructors
-     * ------------------------------------------------------------------ */
 
     /// Create an **atomic unit** centroid (exact single sample).
     #[inline]
@@ -101,17 +80,12 @@ impl<F: FloatLike + FloatCore> Centroid<F> {
         }
     }
 
-    /* ---------------------------------------------------------------------
-     * Accessors
-     * ------------------------------------------------------------------ */
-
     #[inline]
     pub fn mean(&self) -> F {
         self.mean
     }
 
     /// Statistical mass in Float64, independent of mean precision.
-    /// This modern accessor never narrows Float32-mean digest weights.
     #[inline]
     pub fn weight(&self) -> f64 {
         self.weight
@@ -133,11 +107,7 @@ impl<F: FloatLike + FloatCore> Centroid<F> {
         self.kind
     }
 
-    /* ---------------------------------------------------------------------
-     * Kind helpers (preferred in new code)
-     * ------------------------------------------------------------------ */
-
-    /// Returns `true` for both atomic unit (w=1) and atomic pile (w>1).
+    /// Returns `true` if all observations in the centroid share a value.
     #[inline]
     pub fn is_atomic(&self) -> bool {
         matches!(self.kind, Kind::Atomic)
@@ -161,13 +131,7 @@ impl<F: FloatLike + FloatCore> Centroid<F> {
         matches!(self.kind, Kind::Mixed)
     }
 
-    /* ---------------------------------------------------------------------
-     * Back-compat helpers (avoid in new code)
-     * ------------------------------------------------------------------ */
-
-    /// Historical predicate retained for minimal churn.
-    ///
-    /// This maps to **atomic** in the new model.
+    /// Compatibility alias for [`Self::is_atomic`].
     #[inline]
     pub fn is_singleton(&self) -> bool {
         self.is_atomic()
@@ -192,10 +156,6 @@ mod tests {
         let _ = Centroid::<f32>::new_atomic_f64(0.0, f64::INFINITY);
     }
 }
-
-/* -------------------------------------------------------------------------
- * Utilities
- * ---------------------------------------------------------------------- */
 
 /// Verify strict increasing order by centroid mean.
 #[inline]

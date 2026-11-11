@@ -102,7 +102,6 @@ def infer_column_precision(
 
     bin_s = s.cast(pl.Binary)
 
-    # Indices of non-null rows
     idxs = [i for i, v in enumerate(bin_s) if v is not None]
     if not idxs:
         return "f64"
@@ -132,9 +131,6 @@ def infer_column_precision(
     return cast(Literal["f32", "f64"], kinds.pop())
 
 
-# --- Polars plugin wrappers ---------------------------------------------------
-
-
 def tdigest(
     values: "IntoExpr",
     max_size: int = 1000,
@@ -158,7 +154,7 @@ def tdigest(
     kwargs: Dict[str, Any] = {
         "max_size": int(max_size),
         "scale": scale_norm,
-        "singleton_mode": mode_norm,  # expected by Rust
+        "singleton_mode": mode_norm,
         "precision": prec_norm,
     }
     if eps is not None:
@@ -245,8 +241,8 @@ def median(digest: "IntoExpr") -> pl.Expr:
 def merge_tdigests(digest: "IntoExpr") -> pl.Expr:
     """
     Merge TDigest structs.
-    - Use with `.over("g")` to do a per-group merge.
-    - If a group's input is null/empty, this yields a *real empty digest* (n=0) for that group.
+    Use `.over("g")` to merge each group. Empty input produces an empty digest.
+    A null digest row raises a Polars error.
     """
     d_expr = _into_expr(digest)
     return _register_plugin_function(
@@ -384,7 +380,7 @@ def from_bytes(blob: "IntoExpr", *, precision: str = "auto") -> pl.Expr:
     """
     pl = _require_polars()
     b_expr = _into_expr(blob)
-    prec_norm = _coerce_precision(precision)  # "auto" | "f64" | "f32"
+    prec_norm = _coerce_precision(precision)
 
     if prec_norm == "auto":
         raise ValueError(

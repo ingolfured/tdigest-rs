@@ -7,15 +7,6 @@ from pathlib import Path
 import pytest
 
 
-# =====================================================================
-# Helpers (use fixtures defined in conftest)
-# =====================================================================
-
-# NOTE: We intentionally do NOT define a local _cli_build_args here to
-# avoid drift. Always use the fixtures `dataset`, `expect`, `cfg`,
-# `assert_close_fn`, `add_pin_kw_fn` defined in conftest.
-
-
 def _run_java_emit_blob(
     *,
     class_name: str,
@@ -74,13 +65,6 @@ def _run_java_emit_blob(
     return float(p50_s), float(cdf_s), base64.b64decode(b64.encode("ascii"))
 
 
-# =====================================================================
-# Category 1: JAVA → PYTHON — TDigest.toBytes() → TDigest.from_bytes()
-#   Spec:
-#     - Java builds digest from canonical data.
-#     - Java emits base64(toBytes()).
-#     - Python decodes/rebuilds and matches quantile/cdf.
-# =====================================================================
 class TestJavaToPythonSerde:
     @pytest.mark.parametrize(
         ("precision_override", "expected_kind", "class_name"),
@@ -103,11 +87,7 @@ class TestJavaToPythonSerde:
         expected_kind,
         class_name,
     ):
-        """
-        Java -> Python bytes interop.
-        Runs once with cfg precision and once forced to F32.
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
 
         p50_java, cdf_java, blob = _run_java_emit_blob(
             class_name=class_name,
@@ -152,10 +132,7 @@ class TestJavaToPythonSerde:
         compile_run_java_fn,
         java_builder_chain_fn,
     ):
-        """
-        Java TDigest.toBytes(version=1|2|3) must emit decodable blobs in Python.
-        """
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
 
         for version in (1, 2, 3):
             p50_java, cdf_java, blob = _run_java_emit_blob(
@@ -177,20 +154,6 @@ class TestJavaToPythonSerde:
             assert_close_fn(c_py, cdf_java, expect["EPS"])
 
 
-# =====================================================================
-# Category 2: JAVA → POLARS — TDigest.toBytes() → td.from_bytes(...)
-#   Spec:
-#     - Java builds digest and emits base64(toBytes()).
-#     - Python decodes base64 to raw bytes.
-#     - Polars td.from_bytes on a Binary column reconstructs digest.
-#     - quantile/cdf in Polars must match Java / canonical expectations.
-#     - Extra:
-#         * F64 full roundtrip inside Polars.
-#         * Explicit F32 path with compact schema.
-#         * "Strict" mismatch (treat F32 wire as F64) must error; F32 hint works.
-# =====================================================================
-
-
 class TestJavaToPolarsSerde:
     def test_java_to_polars_f64_roundtrip(
         self,
@@ -202,27 +165,9 @@ class TestJavaToPolarsSerde:
         compile_run_java_fn,
         java_builder_chain_fn,
     ):
-        """
-        Java (Precision from cfg) → Polars (F64 only):
-
-        - Only runs when cfg["precision_java"] == "F64" (skip otherwise).
-        - Java builds TDigest and prints: p50,cdf(x),base64(blob).
-        - Python:
-            * decodes bytes to blob
-            * feeds blob into Polars td.from_bytes(..., precision="f64")
-            * checks quantile/cdf vs Java + canonical expectations.
-        - Extra: Polars td_col → td.to_bytes() → td.from_bytes(...)
-          roundtrip is stable.
-        """
-        import pytest
         import polars as pl
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
 
-        # Only test the F64 case here to keep semantics tight.
-        if cfg["precision_java"] != "F64":
-            pytest.skip(
-                "test_java_to_polars_f64_roundtrip only runs for Java Precision.F64"
-            )
         p50_java, cdf_java, blob = _run_java_emit_blob(
             class_name="TDJavaToPolarsSerdeF64",
             compile_run_java_fn=compile_run_java_fn,
@@ -231,10 +176,9 @@ class TestJavaToPolarsSerde:
             cfg=cfg,
             dataset=dataset,
             expect=expect,
-            precision_override=None,
+            precision_override="F64",
         )
 
-        # Push bytes into Polars and reconstruct via td.from_bytes, explicit F64.
         df = pl.DataFrame({"blob": [blob]})
         df_td = df.with_columns(td_col=td.from_bytes("blob", precision="f64"))
         out_pl = df_td.select(
@@ -245,7 +189,6 @@ class TestJavaToPolarsSerde:
         q_pl = float(out_pl["q"][0])
         c_pl = float(out_pl["c"][0])
 
-        # Coherence with Java and canonical expectations
         assert_close_fn(q_pl, p50_java, expect["EPS"])
         assert_close_fn(c_pl, cdf_java, expect["EPS"])
         assert_close_fn(q_pl, expect["Q50"], expect["EPS"])
@@ -292,17 +235,8 @@ class TestJavaToPolarsSerde:
         compile_run_java_fn,
         java_builder_chain_fn,
     ):
-        """
-        Java with Precision.F32 → Polars:
-
-        - Force Java to use Precision.F32.
-        - Python decodes base64 to blob.
-        - Polars td.from_bytes(..., precision="f32") reconstructs a compact
-          f32-backed struct (min/max are Float32).
-        - quantile/cdf in Polars must match Java and canonical expectations.
-        """
         import polars as pl
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
 
         p50_java, cdf_java, blob = _run_java_emit_blob(
             class_name="TDJavaToPolarsSerdeF32",
@@ -315,11 +249,9 @@ class TestJavaToPolarsSerde:
             precision_override="F32",
         )
 
-        # Push bytes into Polars and reconstruct via td.from_bytes, explicit F32.
         df = pl.DataFrame({"blob": [blob]})
         df_td = df.with_columns(td_col=td.from_bytes("blob", precision="f32"))
 
-        # Schema: compact struct (min/max Float32).
         td_dtype = df_td.schema["td_col"]
         fields = getattr(td_dtype, "fields", None)
         assert fields is not None
@@ -336,7 +268,6 @@ class TestJavaToPolarsSerde:
         q_pl = float(out_pl["q"][0])
         c_pl = float(out_pl["c"][0])
 
-        # Coherence with Java and canonical expectations
         assert_close_fn(q_pl, p50_java, expect["EPS"])
         assert_close_fn(c_pl, cdf_java, expect["EPS"])
         assert_close_fn(q_pl, expect["Q50"], expect["EPS"])
@@ -352,20 +283,8 @@ class TestJavaToPolarsSerde:
         compile_run_java_fn,
         java_builder_chain_fn,
     ):
-        """
-        Java F32 blobs + Polars plugin, strict vs hint:
-
-        - Java builds Precision.F32 digest and emits base64(toBytes()).
-        - In Polars:
-            * Treating the column as F64 (precision="f64"/default) is a
-              strict mismatch and must error.
-            * Using precision="f32" succeeds and yields a compact struct.
-        - Quantile/cdf from the Polars struct must match Java and canonical
-          expectations.
-        """
-        import pytest
         import polars as pl
-        from tdigest_rs import _modern as td
+        import tdigest_rs as td
 
         p50_java, cdf_java, blob = _run_java_emit_blob(
             class_name="TDJavaF32ForPolarsStrict",
@@ -378,17 +297,13 @@ class TestJavaToPolarsSerde:
             precision_override="F32",
         )
 
-        # Build a Polars DataFrame with the Java F32 blob.
         df = pl.DataFrame({"blob": [blob]})
 
-        # "Strict" mismatch: treating F32 wire as F64 (precision="f64"/auto)
-        # must error with a plugin ComputeError.
         with pytest.raises(
             pl.exceptions.ComputeError, match="mixed f32/f64 blobs in column"
         ):
-            df.with_columns(td_col=td.from_bytes("blob", precision="f64")).collect()
+            df.with_columns(td_col=td.from_bytes("blob", precision="f64"))
 
-        # Correct precision hint: precision="f32" → must succeed and be compact.
         df_td = df.with_columns(td_col=td.from_bytes("blob", precision="f32"))
         td_dtype = df_td.schema["td_col"]
 
@@ -407,7 +322,6 @@ class TestJavaToPolarsSerde:
         q_pl = float(out_pl["q"][0])
         c_pl = float(out_pl["c"][0])
 
-        # Coherence with Java and canonical expectations
         assert_close_fn(q_pl, p50_java, expect["EPS"])
         assert_close_fn(c_pl, cdf_java, expect["EPS"])
         assert_close_fn(q_pl, expect["Q50"], expect["EPS"])

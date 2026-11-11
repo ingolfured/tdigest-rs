@@ -7,7 +7,8 @@ name = "tdigest-rs"
 dynamic = ["version"]
 description = "Rust TDigest with Python, Polars and JNI"
 readme = "PYTHON_README.md"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.10,<3.16"
 authors = [{ name = "Ingolfur Edvardsson", email = "ingo.edvardsson@gresearch.co.uk" }]
 classifiers = [
@@ -20,11 +21,9 @@ classifiers = [
   "Programming Language :: Python :: 3.15",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Rust",
-  "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
 ]
 
-# Runtime dependencies
 dependencies = [
   "numpy>=1.26.4,<3; python_version < '3.13'",
   "numpy>=2.3.4,<3; python_version >= '3.13' and python_version < '3.15'",
@@ -38,7 +37,6 @@ polars = ["polars>=1.0.0"]
 Repository = "https://github.com/G-Research/tdigest-rs"
 Changelog = "https://github.com/G-Research/tdigest-rs/releases"
 
-# Dev groups (PEP 735). uv understands these and can install with --group/--all-groups.
 [dependency-groups]
 dev = [
   "polars==1.44.2",
@@ -57,9 +55,6 @@ dev = [
   "mypy>=1.18.2",
 ]
 
-# ------------------------------------------------------------
-# Maturin build settings
-# ------------------------------------------------------------
 [tool.maturin]
 manifest-path = "../../Cargo.toml"
 features = ["python"]
@@ -70,17 +65,11 @@ python-packages = ["tdigest_rs"]
 exclude = ["**/__pycache__/**", "**/*.pyc", "**/*.pyo"]
 strip = true
 
-# ------------------------------------------------------------
-# Ruff
-# ------------------------------------------------------------
 [tool.ruff]
 line-length = 120
 target-version = "py310"
 extend-exclude = ["target","dist","build",".venv",".maturin",".pytest_cache",".ruff_cache"]
 
-# ------------------------------------------------------------
-# Mypy
-# ------------------------------------------------------------
 [tool.mypy]
 python_version = "3.10"
 exclude = "(^target/|^build/|^dist/|^\\.venv/|^out/)"

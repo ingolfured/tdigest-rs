@@ -36,7 +36,7 @@ class TDigest(ABC):
         return self.__class__(digest)
 
     @cached_property
-    def means(self) -> npt.NDArray[np.float32]:
+    def means(self) -> NpFloatArr:
         return self._digest.means
 
     @cached_property
@@ -128,7 +128,7 @@ class TDigest(ABC):
                 raise TypeError(f"TDigest is not implemented for arr with type {arr.dtype}")
 
     def update(
-        self, buffer: npt.NDArray[np.float32], delta: float = DEFAULT_DELTA, merge_delta: float = DEFAULT_DELTA
+        self, buffer: NpFloatArr, delta: float = DEFAULT_DELTA, merge_delta: float = DEFAULT_DELTA
     ) -> "TDigest":
         buffer_digest = TDigest.from_array(buffer, delta)
         return self.merge(buffer_digest, merge_delta)

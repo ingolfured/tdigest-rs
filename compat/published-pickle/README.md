@@ -1,10 +1,10 @@
-# Published-package pickle migration
+# Published package pickle migration
 
 These 32 fixtures come from the actual PyPI `tdigest-rs` **0.1.0** Linux wheel,
 installed with Python 3.12.12 and NumPy 1.26.4. They cover f32/f64, weighted data,
 large uint32 weights, distinct construction/merge deltas, and pickle protocols 4/5.
 The generator verifies the wheel SHA256 and checks that the installed wrapper and
-native extension are byte-identical to its members. Inputs are synthetic.
+native extension are identical to its members. Inputs are synthetic.
 
 The source revision used for the upstream test suite identifies itself as 0.2.0.
 The pickle fixtures come from the published 0.1.0 wheel. [PROVENANCE.json](PROVENANCE.json)
@@ -41,9 +41,7 @@ uv pip install --python /tmp/tdigest-pickle-original/bin/python \
   --output bindings/python/tests/data/published_0_1_0_pickle_golden.json
 ```
 
-`make test` collects the 32 migration cases. `make legacy-wheel-test` copies their
-test and data outside the checkout and runs them alongside the existing 176
-compatibility cases, for 208 total. The normal gate needs no network access to the
-original package because its checked-in pickles and expected observations are
-already recorded. This selected Linux/Python/NumPy matrix does not establish
-compatibility with every historical/private build or arbitrary saved object.
+The 32 migration cases run in `make test`. The `make legacy-wheel-test`
+target also runs them outside the checkout against the installed release wheel,
+alongside the 91 original tests and additional compatibility checks. The fixtures
+contain the original pickles, so those tests can run without the original wheel.

@@ -38,7 +38,7 @@ access; applications launching the JAR on Java 25 should use
 
 ## Internal downloads and Artifactory
 
-The optional bootstrap needs Python3.10+ and its standard library. Configure
+The optional bootstrap needs Python 3.10 or later and its standard library. Configure
 JDK/Gradle archive URLs, local paths or `file:` URLs and their expected SHA256:
 
 ```sh
@@ -67,16 +67,16 @@ vendor download; choose the archive for your OS and architecture.
 | `GRADLE_USER_HOME` | Gradle dependency cache, independent of the toolchain cache. |
 | `CARGO_HOME`, `CARGO_TARGET_DIR` | Rust source cache and native output directory. |
 
-Archives are checksum-verified before extraction. Paths and links are checked,
+The bootstrap verifies the archive checksum before extraction. Tar archives that contain links need a Python version with the tarfile data filter. Paths and links are checked,
 and complete installations enter the cache by atomic rename. Partial downloads
 never become a completed installation. Bootstrap errors do not print configured
 URLs or passwords. POSIX and Windows wrappers use the same environment controls;
-the POSIX fake-launcher test is distinct from the portable archive tests.
+the POSIX fake launcher test is distinct from the portable archive tests.
 
 ## Building with no network
 
 Prepare the tools and dependency caches through internal sources first, or
-pre-stage archives and dependencies. Then use:
+prepare archives and dependencies. Then use:
 
 ```sh
 TDIGEST_OFFLINE=1 make build-java java-test
@@ -98,16 +98,16 @@ destination.
 Fast bootstrap checks need no external network, installed JDK or Gradle:
 `make java-bootstrap-test`.
 
-Direct Java subprocesses in the cross-language tests use the same selected JDK as Gradle. Setting the archive environment variables is sufficient for `make build test`, including on a host with no usable `java`/`javac` on `PATH`; `JAVA_HOME` is also honored when explicitly supplied.
+Direct Java subprocesses in the interoperability tests use the same selected JDK as Gradle. Setting the archive environment variables is sufficient for `make build test`, including on a host with no usable `java`/`javac` on `PATH`; `JAVA_HOME` is also honored when explicitly supplied.
 
 ## Downloaded JAR and runtime loading
 
-The shared public class is `com.gresearch.tdigest.TDigest`; the Maven coordinates remain `com.gresearch.tdigest:tdigest-rs`. The JAR bundles the platform-native library and records its SHA-256 in the manifest. Set `TDIGEST_SOURCE_SHA` to the source commit when building to record its identity; otherwise the source field is `unrecorded`. It runs outside the checkout without Rust or Python.
+The shared public class is `com.gresearch.tdigest.TDigest`; the Maven coordinates remain `com.gresearch.tdigest:tdigest-rs`. The JAR bundles the platform native library and records its SHA-256 in the manifest. Set `TDIGEST_SOURCE_SHA` to the source commit when building to record its identity; otherwise the source field is `unrecorded`. It runs outside the checkout without Rust or Python.
 
-Use `-Dcom.gresearch.tdigest.native=path/to/library.so` for a controlled native override. Relative paths resolve from the process working directory, including distributed-file paths. Use `-Dcom.gresearch.tdigest.extractDir=/writable/location` when the default extraction directory is restricted. Keep the extracted directory executable. Loader errors list attempted paths and causes.
+Use `-Dcom.gresearch.tdigest.native=path/to/library.so` for a controlled native override. Relative paths resolve from the process working directory, including distributed file paths. Use `-Dcom.gresearch.tdigest.extractDir=/writable/location` when the default extraction directory is restricted. Keep the extracted directory executable. Loader errors list attempted paths and causes.
 
 `add`, weighted additions and `merge` update only the receiver and return it. Array `mergeAll` returns independent state. Java object serialization and TDIG byte restoration own fresh native handles; close each object after use. Independent objects may be used concurrently; shared mutable objects require caller coordination.
 
-Java 11 is the minimum runtime, with Java 11/17/21/25 checks. The ordinary host build targets that host's native ABI. Producing a Linux glibc 2.17 JNI artifact requires a corresponding cross-build or minimum-platform build and actual minimum-platform execution; Java bytecode checks alone do not establish the native ABI floor. Python's manylinux_2_28 artifact is a separate build.
+Java 11 is the minimum runtime, with Java 11/17/21/25 checks. The ordinary host build targets that host's native ABI. Producing a Linux glibc 2.17 JNI artifact requires a corresponding cross compilation or minimum platform build and actual minimum platform execution; Java bytecode checks alone do not establish the native ABI floor. Python's manylinux_2_28 artifact is a separate build.
 
-See [Scala and Kotlin examples](examples/README.md) for authenticated dependency resolution and prepared-cache offline use. Actual Spark driver/executor serialization, shuffles and checkpoint recovery require the consumer's cluster checks.
+See [Scala and Kotlin examples](examples/README.md) for authenticated dependency resolution and running offline with cached dependencies. Actual Spark driver/executor serialization, shuffles and checkpoint recovery require the consumer's cluster checks.

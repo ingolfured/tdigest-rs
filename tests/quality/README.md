@@ -1,12 +1,12 @@
 # Accuracy tests
 
-`make test` includes the fast accuracy profiles, independent-reference controls,
+`make test` includes the fast accuracy profiles, independent reference controls,
 and weighted tests. `make quality-fast` runs just these tests and retains a
 measurement report. `make quality-extended` adds the slow matrix across storage
 budgets, input orders and merge paths, and retains its report. `make quality-regression`
 is the CI entry point for the extended tests.
 
-The measurements compare the shared core with independently sorted input. The existing frozen modern baselines, tolerances and statistical limits remain in force. Historical two-engine comparisons are archived in `ACCURACY.md`.
+The measurements compare the shared core with independently sorted input. The existing frozen modern baselines, tolerances and statistical limits remain in force. Historical dual engine comparisons are archived in `ACCURACY.md`.
 
 Ten extended profiles exceed the absolute accuracy envelope. They appear as
 pytest expected failures only after invariants and baseline regression assertions
@@ -36,7 +36,7 @@ with a new output directory:
 ```
 
 This writes candidate `baseline-fast.json.gz` and `baseline-extended.json.gz`
-without replacing the checked-in files or bypassing assertions. Review the
+without replacing the committed files or bypassing assertions. Review the
 measurement changes and provenance before replacing a baseline. The recorded
 input fixtures and their hashes are unchanged; tests never download data.
 
@@ -45,15 +45,12 @@ input fixtures and their hashes are unchanged; tests never download data.
 
 Rank error measures how far an answer falls from the requested position in the
 sorted data, allowing for repeated values. Value error measures distance from a
-sample percentile. CDF error compares the reported fraction below a value with
-an exact count at selected points.
+sample percentile. CDF error uses the fraction below a probe plus half the fraction equal to it.
 
-Both engines receive the same values and precision. Comparisons use a similar
-amount of storage for centroid fields; this does not measure total memory use.
-These datasets provide regression coverage, not a guarantee for every input.
+The historical comparison matched storage for the centroid fields. The current tests compare one Rust core with an exact reference.
 
 The Rust tests in `tests/numerical_foundation.rs` cover small capacities, lost
-weight, cancellation and fractional-weight medians as part of `make test`.
+weight, cancellation and fractional weight medians as part of `make test`.
 An isolated exact point retains its mean even when its weighted sum rounds
 to zero. See the [underflow tests](../exact_point_underflow.rs).
 
@@ -65,7 +62,7 @@ Quality runs verify that the source and installed native binary remain unchanged
 ## Wider capacity and scale diagnostics
 
 `make quality-budgets` measures 4,140 profiles across precisions, capacities,
-scale functions, input order and 40-way merges. The historical study reported
+scale functions, input order and merges of 40 digests. The historical study reported
 114 profiles outside its accuracy limits. This optional diagnostic exits
 nonzero on those findings. The frozen regression gate independently checks
 756 profiles and records ten known limits.
