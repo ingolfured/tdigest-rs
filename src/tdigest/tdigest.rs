@@ -642,7 +642,7 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
         // The private weighted stream deliberately contains equal-mean runs;
         // normalize it before requiring the external strict-state invariant.
         let recover_point_moment = point_product_underflow || self.has_subnormal_point_moment();
-        let mut merged = TDigest::merge_digests_unchecked(vec![self.clone(), weighted])?;
+        let mut merged = TDigest::merge_digests_unchecked([self, &weighted].into_iter())?;
         if recover_point_moment && merged.is_exact_point() {
             merged.sum = merged.centroids[0].mean_f64() * merged.count;
         }
@@ -652,7 +652,9 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
 
     /// Merge multiple digests by k-way merging their centroid runs and sending the result through
     /// the same pipeline used for raw values.
-    fn merge_digests_unchecked(digests: Vec<TDigest<F>>) -> TdResult<TDigest<F>> {
+    fn merge_digests_unchecked<'a>(
+        digests: impl ExactSizeIterator<Item = &'a Self>,
+    ) -> TdResult<Self> {
         // Decide defaults by first non-empty digest to keep semantics stable.
         let mut chosen: Option<(usize, ScaleFamily, SingletonPolicy, Option<f64>)> = None;
         let mut runs: Vec<&[Centroid<F>]> = Vec::with_capacity(digests.len());
@@ -661,7 +663,7 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
         let mut min = OrderedFloat::from(F::from_f64(f64::INFINITY));
         let mut max = OrderedFloat::from(F::from_f64(f64::NEG_INFINITY));
 
-        for d in &digests {
+        for d in digests {
             let n = d.count();
             if n > 0.0 && !d.centroids.is_empty() {
                 if chosen.is_none() {
@@ -738,7 +740,14 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
         if !digests.is_empty() && count == 0.0 {
             return Ok(digests[0].clone());
         }
-        let recover_point_moment = digests.iter().any(Self::has_subnormal_point_moment);
+        Self::merge_validated(digests.iter())
+    }
+
+    // The caller has checked every input, the common configuration and aggregate bounds.
+    pub(super) fn merge_validated<'a>(
+        digests: impl ExactSizeIterator<Item = &'a Self> + Clone,
+    ) -> TdResult<Self> {
+        let recover_point_moment = digests.clone().any(Self::has_subnormal_point_moment);
         let mut result = Self::merge_digests_unchecked(digests)?;
         if recover_point_moment && result.is_exact_point() {
             result.sum = result.centroids[0].mean_f64() * result.count;
@@ -977,7 +986,7 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
         if seeded.centroids.len() <= max_size {
             return Ok(seeded);
         }
-        let result = Self::merge_digests_unchecked(vec![seeded])?;
+        let result = Self::merge_digests_unchecked(std::iter::once(&seeded))?;
         result.validate_state()?;
         Ok(result)
     }

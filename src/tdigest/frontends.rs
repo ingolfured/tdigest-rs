@@ -3,6 +3,9 @@
 
 use std::fmt::{Display, Formatter};
 
+use crate::tdigest::precision::FloatLike;
+use ordered_float::FloatCore;
+
 use crate::tdigest::wire::{
     decode_digest, encode_digest, encode_digest_with_version, wire_precision, WireDecodedDigest,
     WirePrecision, WireResult, WireVersion,
@@ -172,6 +175,34 @@ pub struct DigestConfig {
     pub delta: Option<f64>,
 }
 
+impl DigestConfig {
+    fn empty<F: FloatLike + FloatCore>(self) -> TdResult<TDigest<F>> {
+        let mut builder = TDigest::<F>::builder()
+            .max_size(self.max_size)
+            .scale(self.scale)
+            .singleton_policy(self.policy);
+        if let Some(delta) = self.delta {
+            builder = builder.delta(delta);
+        }
+        builder.build()
+    }
+
+    #[cfg(feature = "python")]
+    pub(crate) fn rebuild_pair<F: FloatLike + FloatCore>(
+        self,
+        a: &TDigest<F>,
+        b: &TDigest<F>,
+    ) -> TdResult<TDigest<F>> {
+        let (means, weights): (Vec<_>, Vec<_>) = a
+            .centroids()
+            .iter()
+            .chain(b.centroids())
+            .map(|c| (c.mean(), c.weight_f64()))
+            .unzip();
+        self.empty()?.merge_weighted_unsorted(&means, &weights)
+    }
+}
+
 fn validate_delta_config(config: DigestConfig) -> Result<(), FrontendError> {
     let Some(delta) = config.delta else {
         return Ok(());
@@ -287,33 +318,9 @@ impl FrontendDigest {
                     .into_iter()
                     .map(<f32 as crate::tdigest::precision::FloatLike>::try_from_f64)
                     .collect::<TdResult<_>>()?;
-                let mut builder = TDigest::<f32>::builder()
-                    .max_size(config.max_size)
-                    .scale(config.scale)
-                    .singleton_policy(config.policy);
-                if let Some(delta) = config.delta {
-                    builder = builder.delta(delta);
-                }
-                let td = builder
-                    .build()?
-                    .merge_unsorted(xs)
-                    .map_err(FrontendError::from)?;
-                Ok(FrontendDigest::F32(td))
+                Ok(Self::F32(config.empty()?.merge_unsorted(xs)?))
             }
-            DigestPrecision::F64 => {
-                let mut builder = TDigest::<f64>::builder()
-                    .max_size(config.max_size)
-                    .scale(config.scale)
-                    .singleton_policy(config.policy);
-                if let Some(delta) = config.delta {
-                    builder = builder.delta(delta);
-                }
-                let td = builder
-                    .build()?
-                    .merge_unsorted(values)
-                    .map_err(FrontendError::from)?;
-                Ok(FrontendDigest::F64(td))
-            }
+            DigestPrecision::F64 => Ok(Self::F64(config.empty()?.merge_unsorted(values)?)),
         }
     }
 
@@ -410,30 +417,18 @@ impl FrontendDigest {
 
     pub fn scale_weights(&mut self, factor: f64) -> Result<(), FrontendError> {
         match self {
-            FrontendDigest::F32(td) => {
-                td.scale_weights(factor)
-                    .map_err(|e| FrontendError::InvalidScale(e.to_string()))?;
-            }
-            FrontendDigest::F64(td) => {
-                td.scale_weights(factor)
-                    .map_err(|e| FrontendError::InvalidScale(e.to_string()))?;
-            }
+            Self::F32(td) => td.scale_weights(factor).map(|_| ()),
+            Self::F64(td) => td.scale_weights(factor).map(|_| ()),
         }
-        Ok(())
+        .map_err(|e| FrontendError::InvalidScale(e.to_string()))
     }
 
     pub fn scale_values(&mut self, factor: f64) -> Result<(), FrontendError> {
         match self {
-            FrontendDigest::F32(td) => {
-                td.scale_values(factor)
-                    .map_err(|e| FrontendError::InvalidScale(e.to_string()))?;
-            }
-            FrontendDigest::F64(td) => {
-                td.scale_values(factor)
-                    .map_err(|e| FrontendError::InvalidScale(e.to_string()))?;
-            }
+            Self::F32(td) => td.scale_values(factor).map(|_| ()),
+            Self::F64(td) => td.scale_values(factor).map(|_| ()),
         }
-        Ok(())
+        .map_err(|e| FrontendError::InvalidScale(e.to_string()))
     }
 
     pub fn merge_in_place(&mut self, other: &Self) -> Result<(), FrontendError> {
@@ -479,14 +474,12 @@ Rebuild or cast to a shared configuration before merge.",
         }
 
         let candidate = match (&*self, other) {
-            (FrontendDigest::F32(a), FrontendDigest::F32(b)) => FrontendDigest::F32(
-                TDigest::<f32>::merge_digests(vec![a.clone(), b.clone()])
-                    .map_err(FrontendError::from)?,
-            ),
-            (FrontendDigest::F64(a), FrontendDigest::F64(b)) => FrontendDigest::F64(
-                TDigest::<f64>::merge_digests(vec![a.clone(), b.clone()])
-                    .map_err(FrontendError::from)?,
-            ),
+            (FrontendDigest::F32(a), FrontendDigest::F32(b)) => {
+                FrontendDigest::F32(TDigest::<f32>::merge_validated([a, b].into_iter())?)
+            }
+            (FrontendDigest::F64(a), FrontendDigest::F64(b)) => {
+                FrontendDigest::F64(TDigest::<f64>::merge_validated([a, b].into_iter())?)
+            }
             _ => unreachable!("precision mismatch checked above"),
         };
         *self = candidate;

@@ -183,10 +183,6 @@ setattr(_NativeTDigest, "from_means_weights", classmethod(_from_means_weights_cl
 
 TDigest = _NativeTDigest
 _native_merge = _NativeTDigest.merge
-_native_add = _NativeTDigest.add
-_native_add_weighted = _NativeTDigest.add_weighted
-_native_scale_weights = _NativeTDigest.scale_weights
-_native_scale_values = _NativeTDigest.scale_values
 
 
 def _merge_patched(self: _NativeTDigest, other: Any, delta: Any = _UNSET, **kwargs: Any) -> _NativeTDigest:
@@ -236,55 +232,13 @@ def _from_dict_cls(cls: type[_NativeTDigest], d: Dict[str, Any]) -> _NativeTDige
     if "means" not in d or "weights" not in d:
         raise ValueError("from_dict expects either 'wire_b64_v3' or both 'means' and 'weights'.")
 
-    kwargs: Dict[str, Any] = {}
-    if "precision" in d:
-        kwargs["precision"] = d["precision"]
-    if "max_size" in d:
-        kwargs["max_size"] = d["max_size"]
-    if "scale" in d:
-        kwargs["scale"] = d["scale"]
-    if "singleton_policy" in d:
-        kwargs["singleton_policy"] = d["singleton_policy"]
-    if "pin_per_side" in d:
-        kwargs["pin_per_side"] = d["pin_per_side"]
-
+    options = ("precision", "max_size", "scale", "singleton_policy", "pin_per_side")
+    kwargs = {key: d[key] for key in options if key in d}
     return cls.from_means_weights(d["means"], d["weights"], **kwargs)
 
 
 setattr(TDigest, "to_dict", _to_dict_patched)
 setattr(TDigest, "from_dict", classmethod(_from_dict_cls))
-
-
-def _add_patched(self: _NativeTDigest, values: Any) -> _NativeTDigest:
-    _native_add(self, values)
-    return self
-
-
-setattr(TDigest, "add", _add_patched)
-
-
-def _add_weighted_patched(self: _NativeTDigest, values: Any, weights: Any) -> _NativeTDigest:
-    _native_add_weighted(self, values, weights)
-    return self
-
-
-setattr(TDigest, "add_weighted", _add_weighted_patched)
-
-
-def _scale_weights_patched(self: _NativeTDigest, factor: float) -> _NativeTDigest:
-    _native_scale_weights(self, float(factor))
-    return self
-
-
-setattr(TDigest, "scale_weights", _scale_weights_patched)
-
-
-def _scale_values_patched(self: _NativeTDigest, factor: float) -> _NativeTDigest:
-    _native_scale_values(self, float(factor))
-    return self
-
-
-setattr(TDigest, "scale_values", _scale_values_patched)
 
 
 __all__ = [

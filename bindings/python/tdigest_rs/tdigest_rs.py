@@ -9,6 +9,7 @@ from numpy.typing import NDArray
 import numpy as np
 
 from ._modern import TDigest as _ModernDigest
+from ._shared import _resolve_size_mode, _UNSET
 
 
 _D = TypeVar("_D", bound="_DeltaDigest")
@@ -86,9 +87,8 @@ class _DeltaDigest:
         if self._finite.delta == other._finite.delta == delta:
             finite = _ModernDigest.merge_all([self._finite, other._finite])
         else:
-            means = np.concatenate((self._finite.means, other._finite.means))
-            weights = np.concatenate((self._finite.weights, other._finite.weights))
-            finite = _ModernDigest.from_means_weights(means, weights, delta=delta, precision=self.precision)
+            _, new_delta = _resolve_size_mode(_UNSET, delta)
+            finite = self._finite._rebuild_pair(other._finite, new_delta)
         return type(self)(finite, self._negative + other._negative, self._positive + other._positive)
 
     def quantile(self, q: float) -> float:

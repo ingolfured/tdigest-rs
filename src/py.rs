@@ -407,36 +407,78 @@ impl PyTDigest {
         output_for_values(py, kind, out)
     }
 
-    /// Add finite scalar or one-dimensional observations in place. Failure leaves state unchanged.
-    pub fn add(&mut self, py: Python<'_>, values: Py<PyAny>) -> PyResult<()> {
-        let (_ndim, values_f64) = training_array_values(py, values)?;
-        self.inner
-            .add_values_f64(values_f64)
-            .map_err(map_frontend_err)
+    /// Add finite observations and return the updated digest.
+    pub fn add(mut slf: PyRefMut<'_, Self>, values: Py<PyAny>) -> PyResult<PyRefMut<'_, Self>> {
+        let (_, values) = training_array_values(slf.py(), values)?;
+        slf.inner.add_values_f64(values).map_err(map_frontend_err)?;
+        Ok(slf)
     }
 
-    /// Add matching scalar/vector values and strictly positive finite Float64 weights. Failure leaves state unchanged.
+    /// Add finite observations with positive weights and return the updated digest.
     pub fn add_weighted(
-        &mut self,
-        py: Python<'_>,
+        mut slf: PyRefMut<'_, Self>,
         values: Py<PyAny>,
         weights: Py<PyAny>,
-    ) -> PyResult<()> {
-        let (_ndim_v, values_f64) = training_array_values(py, values)?;
-        let (_ndim_w, weights_f64) = training_array_values(py, weights)?;
-        self.inner
-            .add_weighted_f64(values_f64, weights_f64)
-            .map_err(map_frontend_err)
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        let (_, values) = training_array_values(slf.py(), values)?;
+        let (_, weights) = training_array_values(slf.py(), weights)?;
+        slf.inner
+            .add_weighted_f64(values, weights)
+            .map_err(map_frontend_err)?;
+        Ok(slf)
     }
 
-    /// Multiply weights, total mass and weighted sum by a positive finite factor. Means/extrema stay fixed. Reject unrepresentable products without mutation.
-    pub fn scale_weights(&mut self, factor: f64) -> PyResult<()> {
-        self.inner.scale_weights(factor).map_err(map_frontend_err)
+    /// Multiply the mass and weighted sum by a positive finite factor.
+    pub fn scale_weights<'py>(
+        slf: &Bound<'py, Self>,
+        factor: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, Self>> {
+        let factor = slf.py().get_type::<PyFloat>().call1((factor,))?.extract()?;
+        slf.try_borrow_mut()?
+            .inner
+            .scale_weights(factor)
+            .map_err(map_frontend_err)?;
+        Ok(slf.clone())
     }
 
-    /// Multiply the value axis and sum by a positive finite factor; keep mass fixed. Reject overflow, underflow and collapsed invalid state without mutation.
-    pub fn scale_values(&mut self, factor: f64) -> PyResult<()> {
-        self.inner.scale_values(factor).map_err(map_frontend_err)
+    /// Multiply the value axis and sum by a positive finite factor.
+    pub fn scale_values<'py>(
+        slf: &Bound<'py, Self>,
+        factor: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, Self>> {
+        let factor = slf.py().get_type::<PyFloat>().call1((factor,))?.extract()?;
+        slf.try_borrow_mut()?
+            .inner
+            .scale_values(factor)
+            .map_err(map_frontend_err)?;
+        Ok(slf.clone())
+    }
+
+    // The original Python merge treats compressed means as fresh weighted observations
+    // when the caller changes delta. Preserve that rounding and the extrema it implies.
+    #[pyo3(signature = (other, delta))]
+    fn _rebuild_pair(&self, py: Python<'_>, other: &Self, delta: Option<f64>) -> PyResult<Self> {
+        let (scale, policy) = resolve_delta_mode_defaults(None, None, None, delta)?;
+        let config = DigestConfig {
+            max_size: 1000,
+            scale,
+            policy,
+            delta,
+        };
+        let inner = py
+            .detach(|| match (&self.inner, &other.inner) {
+                (FrontendDigest::F32(a), FrontendDigest::F32(b)) => {
+                    Ok(FrontendDigest::F32(config.rebuild_pair(a, b)?))
+                }
+                (FrontendDigest::F64(a), FrontendDigest::F64(b)) => {
+                    Ok(FrontendDigest::F64(config.rebuild_pair(a, b)?))
+                }
+                _ => Err(FrontendError::IncompatibleMerge(
+                    "cannot merge digests with different mean precision".into(),
+                )),
+            })
+            .map_err(map_frontend_err)?;
+        Ok(Self { inner })
     }
 
     /// Midpoint CDF: mass below plus half tied mass, divided by total mass. NaN probes return NaN; infinities give 0/1 for nonempty state. Containers follow quantile; integer probes produce floating probabilities.

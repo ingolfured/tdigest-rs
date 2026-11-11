@@ -41,44 +41,39 @@ fn is_compact_digest_dtype(dt: &DataType) -> bool {
     false
 }
 
-// The planner receives input fields. Encode precision in their dtypes.
+fn digest_field(compact: bool) -> Field {
+    let dtype = if compact {
+        TDigest::<f32>::polars_dtype()
+    } else {
+        TDigest::<f64>::polars_dtype()
+    };
+    Field::new("tdigest".into(), dtype)
+}
+
+// Construction takes precision from the values, casting from the hint column.
 fn tdigest_output_dtype(inputs: &[Field]) -> PolarsResult<Field> {
-    let in_dt = inputs
-        .first()
-        .map(|f| f.dtype())
-        .cloned()
-        .unwrap_or(DataType::Null);
-    let dt = if matches!(in_dt, DataType::Float32) {
-        TDigest::<f32>::polars_dtype()
-    } else {
-        TDigest::<f64>::polars_dtype()
-    };
-    Ok(Field::new("tdigest".into(), dt))
+    Ok(digest_field(
+        inputs
+            .first()
+            .is_some_and(|f| f.dtype() == &DataType::Float32),
+    ))
 }
 
-// Mutations keep precision, but upgrade old structs to the current schema.
-fn merge_output_dtype(inputs: &[Field]) -> PolarsResult<Field> {
-    let input = inputs.first().map(|f| f.dtype()).unwrap_or(&DataType::Null);
-    let dt = if is_compact_digest_dtype(input) {
-        TDigest::<f32>::polars_dtype()
-    } else {
-        TDigest::<f64>::polars_dtype()
-    };
-    Ok(Field::new("tdigest".into(), dt))
-}
-
-// cast_precision output uses explicit hint: Float32 -> compact, otherwise Float64
 fn cast_precision_output_dtype(inputs: &[Field]) -> PolarsResult<Field> {
-    let hint_dt = inputs
-        .get(1)
-        .map(|f| f.dtype())
-        .unwrap_or(&DataType::Float64);
-    let dt = if matches!(hint_dt, DataType::Float32) {
-        TDigest::<f32>::polars_dtype()
-    } else {
-        TDigest::<f64>::polars_dtype()
-    };
-    Ok(Field::new("tdigest".into(), dt))
+    Ok(digest_field(
+        inputs
+            .get(1)
+            .is_some_and(|f| f.dtype() == &DataType::Float32),
+    ))
+}
+
+// Mutations retain the mean precision but return the current struct schema.
+fn merge_output_dtype(inputs: &[Field]) -> PolarsResult<Field> {
+    Ok(digest_field(
+        inputs
+            .first()
+            .is_some_and(|f| is_compact_digest_dtype(f.dtype())),
+    ))
 }
 
 // quantile returns f32 if input digest column is compact; else f64
@@ -621,7 +616,7 @@ where
                     polars_bail!(ComputeError:
                         "tdigest.add_values: values list contains nulls; nulls are not allowed");
                 }
-                let vals_f64 = subseries_to_f64_vec(&sub)?;
+                let vals_f64 = series_values_f64(&sub)?;
                 if vals_f64.iter().any(|v| !v.is_finite()) {
                     polars_bail!(ComputeError:
                         "tdigest.add_values: values contain non-finite values (NaN or ±inf)");
@@ -635,17 +630,7 @@ where
                 polars_bail!(ComputeError:
                     "tdigest.add_values: values contain nulls; nulls are not allowed");
             }
-            let vals_f64: Vec<f64> = if values.dtype() == &DataType::Float64 {
-                values.f64()?.no_null_iter().collect()
-            } else if values.dtype() == &DataType::Float32 {
-                values.f32()?.no_null_iter().map(|x| x as f64).collect()
-            } else {
-                values
-                    .cast(&DataType::Float64)?
-                    .f64()?
-                    .no_null_iter()
-                    .collect()
-            };
+            let vals_f64 = series_values_f64(values)?;
             if vals_f64.iter().any(|v| !v.is_finite()) {
                 polars_bail!(ComputeError:
                     "tdigest.add_values: values contain non-finite values (NaN or ±inf)");
@@ -694,8 +679,8 @@ where
                         "tdigest.add_weighted_values: values/weights lists contain nulls; nulls are not allowed");
                 }
 
-                let vals_f64 = subseries_to_f64_vec(&sub_v)?;
-                let weights_f64 = subseries_to_f64_vec(&sub_w)?;
+                let vals_f64 = series_values_f64(&sub_v)?;
+                let weights_f64 = series_values_f64(&sub_w)?;
                 if vals_f64.len() != weights_f64.len() {
                     polars_bail!(ComputeError:
                         "tdigest.add_weighted_values: each values list must match its weights list length");
@@ -721,29 +706,9 @@ where
                     "tdigest.add_weighted_values: values/weights contain nulls; nulls are not allowed");
             }
 
-            let vals_f64: Vec<f64> = if values.dtype() == &DataType::Float64 {
-                values.f64()?.no_null_iter().collect()
-            } else if values.dtype() == &DataType::Float32 {
-                values.f32()?.no_null_iter().map(|x| x as f64).collect()
-            } else {
-                values
-                    .cast(&DataType::Float64)?
-                    .f64()?
-                    .no_null_iter()
-                    .collect()
-            };
+            let vals_f64 = series_values_f64(values)?;
 
-            let weights_f64: Vec<f64> = if weights.dtype() == &DataType::Float64 {
-                weights.f64()?.no_null_iter().collect()
-            } else if weights.dtype() == &DataType::Float32 {
-                weights.f32()?.no_null_iter().map(|x| x as f64).collect()
-            } else {
-                weights
-                    .cast(&DataType::Float64)?
-                    .f64()?
-                    .no_null_iter()
-                    .collect()
-            };
+            let weights_f64 = series_values_f64(weights)?;
 
             if vals_f64.len() != weights_f64.len() {
                 polars_bail!(ComputeError:
@@ -811,12 +776,15 @@ where
 }
 
 #[inline]
-fn subseries_to_f64_vec(sub: &Series) -> PolarsResult<Vec<f64>> {
-    if sub.dtype() == &DataType::Float64 {
-        Ok(sub.f64()?.no_null_iter().collect())
-    } else {
-        let cast_sub = sub.cast(&DataType::Float64)?;
-        Ok(cast_sub.f64()?.no_null_iter().collect())
+fn series_values_f64(values: &Series) -> PolarsResult<Vec<f64>> {
+    match values.dtype() {
+        DataType::Float32 => Ok(values.f32()?.no_null_iter().map(f64::from).collect()),
+        DataType::Float64 => Ok(values.f64()?.no_null_iter().collect()),
+        _ => Ok(values
+            .cast(&DataType::Float64)?
+            .f64()?
+            .no_null_iter()
+            .collect()),
     }
 }
 
@@ -831,17 +799,7 @@ where
         polars_bail!(ComputeError: "tdigest.cdf: probe column contains nulls; nulls are not allowed");
     }
 
-    let vals_f64: Vec<f64> = if values_s.dtype() == &DataType::Float64 {
-        values_s.f64()?.no_null_iter().collect()
-    } else if values_s.dtype() == &DataType::Float32 {
-        values_s.f32()?.no_null_iter().map(|x| x as f64).collect()
-    } else {
-        values_s
-            .cast(&DataType::Float64)?
-            .f64()?
-            .no_null_iter()
-            .collect()
-    };
+    let vals_f64 = series_values_f64(values_s)?;
 
     let out = if let [digest] = digests {
         digest
@@ -885,7 +843,7 @@ where
             polars_bail!(ComputeError: "tdigest.cdf: probe list contains nulls; nulls are not allowed");
         }
 
-        let vals = subseries_to_f64_vec(&sub)?;
+        let vals = series_values_f64(&sub)?;
         let out_native: Vec<<Out as PolarsNumericType>::Native> = td
             .cdf_or_nan(&vals)
             .into_iter()
