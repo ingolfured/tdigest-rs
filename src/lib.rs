@@ -1,5 +1,3 @@
-#![allow(non_snake_case)]
-
 //! TDigest for Rust with optional Python and Java bindings.
 //!
 //! The `python` feature builds the `tdigest_rs._native` CPython extension.

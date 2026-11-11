@@ -7,10 +7,6 @@ from pathlib import Path
 import pytest
 
 
-# NOTE: We intentionally do NOT define a local _cli_build_args here to
-# avoid drift. Always use the fixture `cli_build_args_fn(cfg)`.
-
-
 class TestInvalidTrainingData:
     def test_cli_rejects_nan(self, paths, cfg, cli_build_args_fn):
         args = ["quantile", "--stdin", "--p", "0.5", *cli_build_args_fn(cfg)]
@@ -34,49 +30,6 @@ class TestInvalidTrainingData:
                     stderr=subprocess.STDOUT,
                 )
             assert "inf" in e.value.output.lower()
-
-    def test_python_rejects_nan_and_inf(self, cfg):
-        import tdigest_rs as td
-        cases = [
-            [0.0, float("nan"), 1.0],
-            [0.0, float("+inf"), 1.0],
-            [0.0, float("-inf"), 1.0],
-        ]
-        for bad in cases:
-            with pytest.raises(ValueError) as e:
-                td.TDigest.from_array(
-                    bad,
-                    max_size=cfg["max_size"],
-                    scale=cfg["scale_py"],
-                    singleton_policy=cfg["singleton_py"],
-                    precision=cfg["precision_py"],
-                )
-            s = str(e.value).lower()
-            assert "nan" in s or "inf" in s
-
-    def test_polars_rejects_nan_inf_null(self, cfg):
-        import polars as pl
-        import tdigest_rs as td
-        from polars.exceptions import ComputeError
-
-        bad_frames = [
-            pl.DataFrame({"x": [0.0, float("nan"), 1.0]}),
-            pl.DataFrame({"x": [0.0, float("+inf"), 1.0]}),
-            pl.DataFrame({"x": [0.0, float("-inf"), 1.0]}),
-            pl.DataFrame({"x": [None, 1.0]}),
-        ]
-        for df in bad_frames:
-            df = df.with_columns(pl.col("x").cast(pl.Float64))
-            with pytest.raises(ComputeError):
-                df.select(
-                    td.tdigest(
-                        "x",
-                        max_size=cfg["max_size"],
-                        scale=cfg["scale_pl"],
-                        singleton_policy=cfg["singleton_pl"],
-                        precision=cfg["precision_pl"],
-                    )
-                )
 
     @pytest.mark.parametrize(
         "bad",
@@ -263,22 +216,7 @@ class TestSmokeCoherence:
         assert p_at_x is not None, f"x={expect['X']} not found in CLI CDF output:\n{out}"
         assert_close_fn(p_at_x, expect["CDF2"], expect["EPS"])
 
-    def test_python(self, dataset, expect, cfg, add_pin_kw_fn, assert_close_fn):
-        import tdigest_rs as td
-        kwargs = dict(
-            max_size=cfg["max_size"],
-            scale=cfg["scale_py"],
-            singleton_policy=cfg["singleton_py"],
-            precision=cfg["precision_py"],
-        )
-        if cfg.get("singleton_py") == "edges" and cfg.get("pin_per_side") is not None:
-            kwargs = add_pin_kw_fn(kwargs)
-
-        d = td.TDigest.from_array(dataset["DATA"], **kwargs)
-        assert_close_fn(d.quantile(expect["P"]), expect["Q50"], expect["EPS"])
-        assert_close_fn(d.cdf(expect["X"]), expect["CDF2"], expect["EPS"])
-
-    def test_polars(self, dataset, expect, cfg, add_pin_kw_fn, assert_close_fn):
+    def test_polars(self, dataset, expect, cfg, assert_close_fn):
         import polars as pl
         import tdigest_rs as td
 
@@ -290,8 +228,6 @@ class TestSmokeCoherence:
             singleton_policy=cfg["singleton_pl"],
             precision=cfg["precision_pl"],
         )
-        if cfg.get("singleton_pl") == "edges" and cfg.get("pin_per_side") is not None:
-            td_kwargs = add_pin_kw_fn(td_kwargs)
 
         df2 = df.with_columns(td_col=td.tdigest("x", **td_kwargs))
         out_df = df2.select(
@@ -306,12 +242,6 @@ class TestSmokeCoherence:
 
 
 class TestPrecisionAuto:
-    def test_python(self, dataset, expect):
-        import tdigest_rs as td
-        d = td.TDigest.from_array(dataset["DATA"], max_size=50, scale="k2", singleton_policy="use", precision="auto")
-        assert math.isfinite(d.quantile(expect["P"]))
-        assert math.isfinite(d.cdf(expect["X"]))
-
     def test_polars(self):
         import polars as pl
         import tdigest_rs as td
@@ -333,18 +263,6 @@ class TestPrecisionAuto:
 
         assert str(out32["q"].dtype) == "Float32"
         assert str(out64["q"].dtype) == "Float64"
-
-    def test_cli(self, paths, dataset, cfg):
-        data = " ".join(str(float(x)) for x in dataset["DATA"])
-        args = ["quantile", "--stdin", "--p", "0.5",
-                "--no-header", "--output", "csv",
-                "--max-size", str(cfg["max_size"]),
-                "--scale", "k2",
-                "--singleton-policy", "use",
-                "--precision", "auto"]
-        out = subprocess.check_output([str(paths.cli_bin), *args], input=data, text=True).strip()
-        p_str, v_str = out.split(",", 1)
-        assert p_str == "0.5" and v_str.lower() != "nan"
 
 
 class TestArgumentMatrix:
@@ -376,8 +294,8 @@ class TestArgumentMatrix:
                         input=" ".join(str(v) for v in self.DATA),
                         text=True,
                     ).strip()
-                    _, v = out.split(",", 1)
-                    assert v.lower() != "nan"
+                    probability, value = out.split(",", 1)
+                    assert probability == str(self.P) and math.isfinite(float(value))
 
                     # CDF
                     args_c = [

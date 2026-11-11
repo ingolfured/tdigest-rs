@@ -489,7 +489,6 @@ Rebuild or cast to a shared configuration before merge.",
             ),
             _ => unreachable!("precision mismatch checked above"),
         };
-        candidate.validate_state()?;
         *self = candidate;
         Ok(())
     }
@@ -517,15 +516,13 @@ Rebuild or cast to a shared configuration before merge.",
     }
 
     pub fn merge_all(digests: Vec<Self>) -> Result<Self, FrontendError> {
-        if digests.is_empty() {
+        let mut digests = digests.into_iter();
+        let Some(mut acc) = digests.next() else {
             return Ok(Self::canonical_empty());
-        }
-
-        let first = digests[0].clone();
-        first.validate_state()?;
-        let mut acc = first.clone();
-        for d in digests.iter().skip(1) {
-            acc.merge_in_place(d)?;
+        };
+        acc.validate_state()?;
+        for d in digests {
+            acc.merge_in_place(&d)?;
         }
         Ok(acc)
     }

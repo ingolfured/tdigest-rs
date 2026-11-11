@@ -10,6 +10,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, cast
 
+import numpy as np
+
 from ._shared import (
     ScaleFamily,
     SingletonPolicy,
@@ -56,7 +58,6 @@ if not TYPE_CHECKING:
 
 
 def _register_plugin_function(**kwargs: Any) -> pl.Expr:
-    _require_polars()
     from polars.plugins import register_plugin_function
 
     return register_plugin_function(**kwargs)
@@ -68,13 +69,11 @@ def _into_expr(x: "IntoExpr | Any") -> pl.Expr:
         return x
     if isinstance(x, str):
         return pl.col(x)
-    try:
-        import numpy as _np
-
-        if isinstance(x, _np.ndarray):
+    if isinstance(x, np.ndarray):
+        try:
             x = x.tolist()
-    except Exception:
-        pass
+        except Exception:
+            pass
     return pl.lit(x)
 
 
@@ -103,20 +102,13 @@ def infer_column_precision(
     bin_s = s.cast(pl.Binary)
 
     idxs = [i for i, v in enumerate(bin_s) if v is not None]
-    if not idxs:
-        return "f64"
 
     if len(idxs) > sample:
         import random
 
         idxs = random.sample(idxs, sample)
 
-    kinds: set[str] = set()
-    for i in idxs:
-        b = bin_s[i]
-        if b is None:
-            continue
-        kinds.add(wire_precision(b))
+    kinds = {wire_precision(bin_s[i]) for i in idxs}
 
     if not kinds:
         return "f64"
@@ -128,7 +120,7 @@ def infer_column_precision(
         # non-strict fallback: choose the \"heavier\" format
         return "f64"
 
-    return cast(Literal["f32", "f64"], kinds.pop())
+    return kinds.pop()
 
 
 def tdigest(
@@ -181,8 +173,6 @@ def cdf(digest: "IntoExpr", values: "IntoExpr") -> pl.Expr:
     pl = _require_polars()
     # Python sequences/Series are a probe vector. A List-valued expression is
     # instead a column of per-row lists and keeps List output even for one row.
-    import numpy as np
-
     if isinstance(values, np.ndarray) and values.ndim > 1:
         raise ValueError("Polars CDF probe arrays must be scalar or one-dimensional")
     if isinstance(values, (list, tuple, pl.Series)) or isinstance(values, np.ndarray) and values.ndim == 1:

@@ -7,10 +7,6 @@ from pathlib import Path
 import pytest
 
 
-# NOTE: We intentionally do NOT define a local _cli_build_args here to
-# avoid drift. Always use the fixture `cli_build_args_fn(cfg)`.
-
-
 class TestProbeValidation:
     def test_python(self, cfg):
         import tdigest_rs as td

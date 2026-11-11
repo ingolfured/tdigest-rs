@@ -118,7 +118,7 @@ class TestPythonApiSmoke:
 class TestPythonApiValidation:
     @pytest.mark.parametrize("bad", [float("nan"), float("+inf"), float("-inf")])
     def test_rejects_non_finite_training_and_add(self, bad):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="(?i)nan|inf"):
             TDigest.from_array([0.0, bad, 1.0], max_size=64, scale="k2")
 
         d = TDigest.from_array([0.0, 1.0], max_size=64, scale="k2")

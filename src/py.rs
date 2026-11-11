@@ -4,7 +4,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyBytes, PyFloat, PyInt, PyIterator, PyList, PyTuple, PyType};
 
 use crate::tdigest::frontends::{
-    parse_precision_hint, parse_scale_str, parse_singleton_policy_str, DigestConfig,
+    parse_precision_hint, parse_scale_str, parse_singleton_policy_str, scale_to_str, DigestConfig,
     DigestPrecision, FrontendDigest, FrontendError, PrecisionHint,
 };
 use crate::tdigest::singleton_policy::SingletonPolicy;
@@ -181,14 +181,6 @@ pub struct PyTDigest {
     inner: FrontendDigest,
 }
 
-impl PyTDigest {
-    fn merge_inner(&mut self, other: &PyTDigest) -> PyResult<()> {
-        self.inner
-            .merge_in_place(&other.inner)
-            .map_err(map_frontend_err)
-    }
-}
-
 #[pymethods]
 impl PyTDigest {
     #[staticmethod]
@@ -285,7 +277,30 @@ impl PyTDigest {
     #[classmethod]
     /// Return independent merged state. Inputs are unchanged; missing/non-digest entries are rejected. An empty iterable returns Float64/1000/K2/Use state.
     pub fn merge_all(_cls: &Bound<'_, PyType>, digests: Bound<'_, PyAny>) -> PyResult<Self> {
-        merge_all_impl(digests)
+        if let Ok(single) = digests.extract::<PyRef<PyTDigest>>() {
+            single.inner.validate_state().map_err(map_frontend_err)?;
+            return Ok(PyTDigest {
+                inner: single.inner.clone(),
+            });
+        }
+
+        let iter = PyIterator::from_object(&digests).map_err(|_| {
+            PyTypeError::new_err("tdigest merge_all: expected a TDigest or an iterable of TDigest")
+        })?;
+
+        let mut ds: Vec<FrontendDigest> = Vec::new();
+        for item_res in iter {
+            let item = item_res?;
+            let d: PyRef<PyTDigest> = item.extract().map_err(|_| {
+                PyTypeError::new_err(
+                    "tdigest merge_all: iterable must contain only TDigest objects",
+                )
+            })?;
+            ds.push(d.inner.clone());
+        }
+
+        let merged = FrontendDigest::merge_all(ds).map_err(map_frontend_err)?;
+        Ok(PyTDigest { inner: merged })
     }
 
     /// Weighted 0.5 quantile; NaN for empty state. Does not mutate this digest.
@@ -358,8 +373,8 @@ impl PyTDigest {
 
     /// Selected modern scale family, in lowercase.
     #[getter]
-    pub fn scale(&self) -> String {
-        format!("{:?}", self.inner.config().scale).to_lowercase()
+    pub fn scale(&self) -> &'static str {
+        scale_to_str(self.inner.config().scale)
     }
 
     /// Modern delta setting, or None in max-size mode.
@@ -487,8 +502,10 @@ impl PyTDigest {
     /// Merge one digest or an iterable in place. All inputs must match precision/configuration, including empties. A failure leaves this digest unchanged; other inputs are never modified.
     pub fn merge(&mut self, other: Bound<'_, PyAny>) -> PyResult<()> {
         if let Ok(one) = other.extract::<PyRef<PyTDigest>>() {
-            self.merge_inner(&one)?;
-            return Ok(());
+            return self
+                .inner
+                .merge_in_place(&one.inner)
+                .map_err(map_frontend_err);
         }
 
         let iter = PyIterator::from_object(&other).map_err(|_| {
@@ -512,31 +529,6 @@ impl PyTDigest {
     }
 }
 
-fn merge_all_impl(digests: Bound<'_, PyAny>) -> PyResult<PyTDigest> {
-    if let Ok(single) = digests.extract::<PyRef<PyTDigest>>() {
-        single.inner.validate_state().map_err(map_frontend_err)?;
-        return Ok(PyTDigest {
-            inner: single.inner.clone(),
-        });
-    }
-
-    let iter = PyIterator::from_object(&digests).map_err(|_| {
-        PyTypeError::new_err("tdigest merge_all: expected a TDigest or an iterable of TDigest")
-    })?;
-
-    let mut ds: Vec<FrontendDigest> = Vec::new();
-    for item_res in iter {
-        let item = item_res?;
-        let d: PyRef<PyTDigest> = item.extract().map_err(|_| {
-            PyTypeError::new_err("tdigest merge_all: iterable must contain only TDigest objects")
-        })?;
-        ds.push(d.inner.clone());
-    }
-
-    let merged = FrontendDigest::merge_all(ds).map_err(map_frontend_err)?;
-    Ok(PyTDigest { inner: merged })
-}
-
 #[pyfunction]
 fn wire_precision_py(b: &Bound<PyAny>) -> PyResult<String> {
     let py_bytes: &Bound<PyBytes> = b.cast()?;
@@ -549,14 +541,8 @@ fn wire_precision_py(b: &Bound<PyAny>) -> PyResult<String> {
     }
 }
 
-#[pyfunction]
-fn merge_all(digests: Bound<'_, PyAny>) -> PyResult<PyTDigest> {
-    merge_all_impl(digests)
-}
-
 pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyTDigest>()?;
     m.add_function(wrap_pyfunction!(wire_precision_py, m)?)?;
-    m.add_function(wrap_pyfunction!(merge_all, m)?)?;
     Ok(())
 }
