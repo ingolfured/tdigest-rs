@@ -11,22 +11,18 @@ def java_builder_chain(
     cfg: dict[str, object],
     *,
     precision: str | None = None,
-    max_size: int | None = None,
 ) -> str:
     """
     Return Java TDigest builder chain lines for the test configuration.
     """
     prec = str(precision or cfg["precision_java"])
-    ms = int(max_size if max_size is not None else cfg["max_size"])
 
     lines = [
-        f".maxSize({ms})",
+        f".maxSize({cfg['max_size']})",
         f".scale(Scale.{cfg['scale_java']})",
         f".singletonPolicy(SingletonPolicy.{cfg['singleton_java']})",
         f".precision(Precision.{prec})",
     ]
-    if str(cfg.get("singleton_java")) == "USE_WITH_PROTECTED_EDGES" and cfg.get("pin_per_side") is not None:
-        lines.append(f".edgesPerSide({int(cfg['pin_per_side'])})")
     return "\n                        ".join(lines)
 
 

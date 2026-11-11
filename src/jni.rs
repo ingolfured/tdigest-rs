@@ -20,15 +20,13 @@ use crate::tdigest::ScaleFamily;
 pub extern "system" fn JNI_OnLoad(_vm: JavaVM, _reserved: *mut c_void) -> jint {
     JNI_VERSION_1_8
 }
-#[no_mangle]
-pub extern "system" fn JNI_OnUnload(_vm: JavaVM, _reserved: *mut c_void) {}
 
 fn map_scale(s: &str) -> Result<ScaleFamily, String> {
     parse_scale_str(Some(s)).map_err(|error| error.to_string())
 }
 
 fn map_policy(code: jint, edges: jint) -> Result<SingletonPolicy, String> {
-    policy_from_code_edges(code as i32, edges as i32).map_err(|e| e.to_string())
+    policy_from_code_edges(code, edges).map_err(|e| e.to_string())
 }
 
 fn map_wire_version(version: jint) -> Result<WireVersion, String> {
@@ -675,7 +673,7 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_quantile(
             return f64::NAN;
         }
         let d = unsafe { from_handle_const::<NativeDigest>(handle) };
-        match d.quantile(q as f64) {
+        match d.quantile(q) {
             Ok(v) => v,
             Err(msg) => {
                 throw_illegal_arg(env, msg.to_string());

@@ -22,7 +22,7 @@ def run_cli(cli_bin: Path, args: list[str], data: Iterable[float]) -> str:
 
 def cli_build_args(cfg: dict) -> list[str]:
     """Common CLI args (add command + stdin/probe flags in tests)."""
-    args = [
+    return [
         "--no-header",
         "--output",
         "csv",
@@ -35,6 +35,3 @@ def cli_build_args(cfg: dict) -> list[str]:
         "--precision",
         cfg["precision_cli"],
     ]
-    if str(cfg.get("singleton_cli", "")).lower() == "edges" and cfg.get("pin_per_side") is not None:
-        args += ["--pin-per-side", str(int(cfg["pin_per_side"]))]
-    return args

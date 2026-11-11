@@ -138,7 +138,7 @@ class TestPolarsPluginSmoke:
 
 
 class TestPolarsPluginValidation:
-    def test_tdigest_rejects_nan_inf_null_training(self):
+    def test_tdigest_rejects_invalid_training_input(self):
         for df in [
             pl.DataFrame({"x": [0.0, float("nan"), 1.0]}),
             pl.DataFrame({"x": [0.0, float("+inf"), 1.0]}),
@@ -148,6 +148,10 @@ class TestPolarsPluginValidation:
             df = df.with_columns(pl.col("x").cast(pl.Float64))
             with pytest.raises(pl.exceptions.ComputeError):
                 df.select(tdigest("x"))
+
+        arrays = pl.DataFrame({"x": pl.Series([[1.0, 2.0]], dtype=pl.Array(pl.Float64, 2))})
+        with pytest.raises(pl.exceptions.ComputeError, match="tdigest: unsupported dtype"):
+            arrays.select(tdigest("x"))
 
     def test_groupby_empty_digest_behavior(self):
         df = pl.DataFrame({"id": [0, 0, 1, 1, 1], "data": [-3.0, -2.0, 15.0, 25.0, 35.0]})

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+* Trim unused build dependencies and private binding code. The interoperability tests now check both directions of a Python and Polars transfer in the same round trip at each precision.
+
 * Build and query digests in Polars expressions, including a digest per group in a lazy query. CDF evaluates a column of probes against one digest in a single batch.
 * Share compression, quantiles, CDF and TDIG serialization across Rust, Python and Java. Capacity mode supports weighted observations and a choice of scale functions. K2 capacity searches reuse rank boundaries for integral weights.
 * Keep the `tdigest_rs` import and the existing Python calling convention with `delta=` or its default of 300. All 91 original Python tests run unchanged. The shared core changes some numerical estimates, including queries on reconstructed pickles. The [upgrade guide](ROLLOUT.md) gives examples and documents the seven cases that differ in capacity mode.

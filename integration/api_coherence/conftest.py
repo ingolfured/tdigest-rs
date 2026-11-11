@@ -139,22 +139,3 @@ def compile_run_java_fn(paths: Paths):
 @pytest.fixture(scope="session")
 def java_builder_chain_fn():
     return java_builder_chain
-
-
-@pytest.fixture
-def add_pin_kw_fn(cfg):
-    """
-    Returns a function that takes a kwargs dict (for Python/Polars TDigest)
-    and, iff the configured singleton policy is 'edges', adds 'pin_per_side'
-    (defaulting to cfg['pin_per_side']).
-    """
-    policy_py = str(cfg.get("singleton_py", "use")).lower()
-    default_pin = int(cfg.get("pin_per_side", 2))
-
-    def _add(kwargs: dict | None = None) -> dict:
-        out = dict(kwargs or {})
-        if policy_py == "edges":
-            out.setdefault("pin_per_side", default_pin)
-        return out
-
-    return _add

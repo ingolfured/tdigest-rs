@@ -54,7 +54,6 @@ public final class TDigest implements AutoCloseable, Serializable {
   }
 
   private static String norm(String s) {
-    if (s == null) throw new NullPointerException();
     return s.trim().toLowerCase(Locale.ROOT);
   }
 

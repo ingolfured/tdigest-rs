@@ -237,11 +237,6 @@ fn cast_precision(inputs: &[Series]) -> PolarsResult<Series> {
     }
 }
 
-#[polars_expr(output_type_func = tdigest_output_dtype)]
-fn tdigest(inputs: &[Series], kwargs: TDigestKwargs) -> PolarsResult<Series> {
-    tdigest_from_array_helper(inputs, &kwargs)
-}
-
 #[polars_expr(output_type = Binary)]
 fn to_bytes(inputs: &[Series]) -> PolarsResult<Series> {
     polars_ensure!(
@@ -366,45 +361,18 @@ fn from_bytes(inputs: &[Series]) -> PolarsResult<Series> {
     }
 }
 
-#[polars_expr(output_type = String)]
-fn tdigest_summary(inputs: &[Series]) -> PolarsResult<Series> {
-    // Always summarize in f64 for stable formatting (upcast if needed)
-    let td = if is_compact_digest_dtype(inputs[0].dtype()) {
-        parse_and_merge::<f32>(inputs)?
-            .cast_precision::<f64>()
-            .map_err(|e| PolarsError::ComputeError(e.to_string().into()))?
-    } else {
-        parse_and_merge::<f64>(inputs)?
-    };
-
-    let s = if td.is_empty() {
-        None
-    } else {
-        Some(format!(
-            "TDigest(n={:.0}, k={}, min={:.6}, p50={:.6}, max={:.6}, centroids={})",
-            td.count(),
-            td.max_size(),
-            td.min(),
-            td.quantile(0.5),
-            td.max(),
-            td.centroids().len(),
-        ))
-    };
-    Ok(Series::new("".into(), [s]))
-}
-
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Deserialize)]
 struct QuantileKwargs {
     /// Scalar probability in [0,1]
     q: f64,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Deserialize)]
 struct ScaleKwargs {
     factor: f64,
 }
 
-#[derive(Debug, Deserialize, Clone, Default)]
+#[derive(Deserialize)]
 struct ToBytesKwargs {
     #[serde(default)]
     version: Option<u8>,
@@ -427,7 +395,7 @@ fn default_precision() -> String {
     "auto".to_string()
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Deserialize)]
 struct TDigestKwargs {
     #[serde(default = "default_max_size")]
     max_size: usize,
@@ -447,7 +415,8 @@ struct TDigestKwargs {
     precision: String, // "auto" | "f32" | "f64"
 }
 
-fn tdigest_from_array_helper(inputs: &[Series], kwargs: &TDigestKwargs) -> PolarsResult<Series> {
+#[polars_expr(output_type_func = tdigest_output_dtype)]
+fn tdigest(inputs: &[Series], kwargs: TDigestKwargs) -> PolarsResult<Series> {
     let policy = parse_singleton_policy_str(Some(&kwargs.singleton_mode), kwargs.pin_per_side)
         .map_err(|e| PolarsError::ComputeError(e.to_string().into()))?;
 

@@ -69,7 +69,7 @@ class TestJavaToPythonSerde:
     @pytest.mark.parametrize(
         ("precision_override", "expected_kind", "class_name"),
         [
-            (None, None, "TDJavaToPythonSerde"),
+            (None, "f64", "TDJavaToPythonSerde"),
             ("F32", "f32", "TDJavaToPythonSerdeF32"),
         ],
         ids=["cfg_precision", "f32"],
@@ -101,8 +101,7 @@ class TestJavaToPythonSerde:
         )
 
         d_py = td.TDigest.from_bytes(blob)
-        if expected_kind is not None:
-            assert d_py.inner_kind() == expected_kind
+        assert d_py.inner_kind() == expected_kind
 
         q_py = d_py.quantile(expect["P"])
         c_py = d_py.cdf(expect["X"])
@@ -114,8 +113,7 @@ class TestJavaToPythonSerde:
 
         blob2 = d_py.to_bytes()
         d_py2 = td.TDigest.from_bytes(blob2)
-        if expected_kind is not None:
-            assert d_py2.inner_kind() == expected_kind
+        assert d_py2.inner_kind() == expected_kind
 
         q_py2 = d_py2.quantile(expect["P"])
         c_py2 = d_py2.cdf(expect["X"])
@@ -224,54 +222,6 @@ class TestJavaToPolarsSerde:
 
         assert_close_fn(q_pl_rt, q_pl, expect["EPS"])
         assert_close_fn(c_pl_rt, c_pl, expect["EPS"])
-
-    def test_java_to_polars_f32(
-        self,
-        dataset,
-        expect,
-        cfg,
-        tmp_path: Path,
-        assert_close_fn,
-        compile_run_java_fn,
-        java_builder_chain_fn,
-    ):
-        import polars as pl
-        import tdigest_rs as td
-
-        p50_java, cdf_java, blob = _run_java_emit_blob(
-            class_name="TDJavaToPolarsSerdeF32",
-            compile_run_java_fn=compile_run_java_fn,
-            java_builder_chain_fn=java_builder_chain_fn,
-            tmp_path=tmp_path,
-            cfg=cfg,
-            dataset=dataset,
-            expect=expect,
-            precision_override="F32",
-        )
-
-        df = pl.DataFrame({"blob": [blob]})
-        df_td = df.with_columns(td_col=td.from_bytes("blob", precision="f32"))
-
-        td_dtype = df_td.schema["td_col"]
-        fields = getattr(td_dtype, "fields", None)
-        assert fields is not None
-        min_field = next(f for f in fields if f.name == "min")
-        max_field = next(f for f in fields if f.name == "max")
-        assert min_field.dtype == pl.Float32
-        assert max_field.dtype == pl.Float32
-
-        out_pl = df_td.select(
-            q=td.quantile("td_col", float(expect["P"])),
-            c=td.cdf("td_col", pl.lit(float(expect["X"]), dtype=pl.Float64)),
-        )
-
-        q_pl = float(out_pl["q"][0])
-        c_pl = float(out_pl["c"][0])
-
-        assert_close_fn(q_pl, p50_java, expect["EPS"])
-        assert_close_fn(c_pl, cdf_java, expect["EPS"])
-        assert_close_fn(q_pl, expect["Q50"], expect["EPS"])
-        assert_close_fn(c_pl, expect["CDF2"], expect["EPS"])
 
     def test_java_f32_polars_strict_vs_precision_f32(
         self,

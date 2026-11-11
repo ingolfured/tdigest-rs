@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any, Callable, Dict, Optional, cast
+from typing import Any, Dict, Optional
 
 try:
     from ._native import TDigest as _NativeTDigest, __version__ as __native_version__
@@ -54,10 +54,7 @@ ScaleFamily.__module__ = __package__
 SingletonPolicy.__module__ = __package__
 
 
-_native_from_array_raw: Any = getattr(_NativeTDigest, "from_array", None)
-if _native_from_array_raw is None:  # pragma: no cover
-    raise AttributeError("Native TDigest is missing 'from_array'")
-_native_from_array = cast(Callable[..., Any], _native_from_array_raw)
+_native_from_array = _NativeTDigest.from_array
 
 
 def _constructor_options(
@@ -149,10 +146,7 @@ def _from_array_cls(
 
 setattr(_NativeTDigest, "from_array", classmethod(_from_array_cls))
 
-_native_from_means_weights_raw: Any = getattr(_NativeTDigest, "from_means_weights", None)
-if _native_from_means_weights_raw is None:  # pragma: no cover
-    raise AttributeError("Native TDigest is missing 'from_means_weights'")
-_native_from_means_weights = cast(Callable[..., Any], _native_from_means_weights_raw)
+_native_from_means_weights = _NativeTDigest.from_means_weights
 
 
 def _from_means_weights_cls(
@@ -188,26 +182,11 @@ setattr(_NativeTDigest, "from_means_weights", classmethod(_from_means_weights_cl
 
 
 TDigest = _NativeTDigest
-_native_merge_raw: Any = getattr(_NativeTDigest, "merge", None)
-if _native_merge_raw is None:  # pragma: no cover
-    raise AttributeError("Native TDigest is missing 'merge'")
-_native_merge = cast(Callable[..., Any], _native_merge_raw)
-_native_add_raw: Any = getattr(_NativeTDigest, "add", None)
-if _native_add_raw is None:  # pragma: no cover
-    raise AttributeError("Native TDigest is missing 'add'")
-_native_add = cast(Callable[..., Any], _native_add_raw)
-_native_add_weighted_raw: Any = getattr(_NativeTDigest, "add_weighted", None)
-if _native_add_weighted_raw is None:  # pragma: no cover
-    raise AttributeError("Native TDigest is missing 'add_weighted'")
-_native_add_weighted = cast(Callable[..., Any], _native_add_weighted_raw)
-_native_scale_weights_raw: Any = getattr(_NativeTDigest, "scale_weights", None)
-if _native_scale_weights_raw is None:  # pragma: no cover
-    raise AttributeError("Native TDigest is missing 'scale_weights'")
-_native_scale_weights = cast(Callable[..., Any], _native_scale_weights_raw)
-_native_scale_values_raw: Any = getattr(_NativeTDigest, "scale_values", None)
-if _native_scale_values_raw is None:  # pragma: no cover
-    raise AttributeError("Native TDigest is missing 'scale_values'")
-_native_scale_values = cast(Callable[..., Any], _native_scale_values_raw)
+_native_merge = _NativeTDigest.merge
+_native_add = _NativeTDigest.add
+_native_add_weighted = _NativeTDigest.add_weighted
+_native_scale_weights = _NativeTDigest.scale_weights
+_native_scale_values = _NativeTDigest.scale_values
 
 
 def _merge_patched(self: _NativeTDigest, other: Any, delta: Any = _UNSET, **kwargs: Any) -> _NativeTDigest:

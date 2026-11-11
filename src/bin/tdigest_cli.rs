@@ -1,4 +1,3 @@
-use std::fmt;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
@@ -7,14 +6,14 @@ use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
 use serde_json::Value;
 
 use tdigest_rs::tdigest::frontends::{
-    ensure_finite_training_values, parse_scale_str, parse_singleton_policy_str,
-    validate_quantile_probe, DigestConfig, DigestPrecision, FrontendDigest,
+    ensure_finite_training_values, parse_singleton_policy_str, validate_quantile_probe,
+    DigestConfig, DigestPrecision, FrontendDigest,
 };
 use tdigest_rs::tdigest::singleton_policy::SingletonPolicy;
 use tdigest_rs::tdigest::wire::WireVersion;
 use tdigest_rs::tdigest::ScaleFamily;
 
-#[derive(Debug, Clone, ValueEnum)]
+#[derive(Debug, Clone, Copy, ValueEnum)]
 enum ScaleOpt {
     Quad,
     K1,
@@ -23,16 +22,15 @@ enum ScaleOpt {
     K3,
 }
 
-impl fmt::Display for ScaleOpt {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            ScaleOpt::Quad => "quad",
-            ScaleOpt::K1 => "k1",
-            ScaleOpt::K2 => "k2",
-            ScaleOpt::K2norm => "k2norm",
-            ScaleOpt::K3 => "k3",
-        };
-        f.write_str(s)
+impl From<ScaleOpt> for ScaleFamily {
+    fn from(scale: ScaleOpt) -> Self {
+        match scale {
+            ScaleOpt::Quad => Self::Quad,
+            ScaleOpt::K1 => Self::K1,
+            ScaleOpt::K2 => Self::K2,
+            ScaleOpt::K2norm => Self::K2Norm,
+            ScaleOpt::K3 => Self::K3,
+        }
     }
 }
 
@@ -277,10 +275,6 @@ fn policy_from_opts(
         PolicyOpt::Edges => "edges",
     };
     parse_singleton_policy_str(Some(as_str), edges).map_err(|e| e.to_string())
-}
-
-fn scale_from_opt(scale: ScaleOpt) -> Result<ScaleFamily, String> {
-    parse_scale_str(Some(&scale.to_string())).map_err(|e| e.to_string())
 }
 
 fn detect_format(path: &Path) -> DataFormatOpt {
@@ -663,11 +657,7 @@ fn choose_precision(flag: PrecisionOpt, values: &[f64]) -> DigestPrecision {
         PrecisionOpt::F32 => DigestPrecision::F32,
         PrecisionOpt::F64 => DigestPrecision::F64,
         PrecisionOpt::Auto => {
-            if !values.is_empty()
-                && values
-                    .iter()
-                    .all(|v| v.is_finite() && is_representable_in_f32(*v))
-            {
+            if !values.is_empty() && values.iter().all(|v| is_representable_in_f32(*v)) {
                 DigestPrecision::F32
             } else {
                 DigestPrecision::F64
@@ -713,7 +703,7 @@ fn read_training_values(source: &SourceArgs) -> Result<(Vec<f64>, bool), String>
     Ok((Vec::new(), false))
 }
 
-fn read_cdf_probes(probes: &ProbeArgs, training_values: &[f64]) -> Result<Vec<f64>, String> {
+fn read_cdf_probes(probes: &ProbeArgs, training_values: Vec<f64>) -> Result<Vec<f64>, String> {
     if !probes.x.is_empty() {
         return parse_float_tokens(&probes.x, "x");
     }
@@ -727,7 +717,7 @@ fn read_cdf_probes(probes: &ProbeArgs, training_values: &[f64]) -> Result<Vec<f6
     if let Some(path) = probes.probes_input.as_deref() {
         return parse_values_from_path(path, probes.probes_format, probes.probes_column.as_deref());
     }
-    Ok(training_values.to_vec())
+    Ok(training_values)
 }
 
 fn build_digest(
@@ -736,11 +726,10 @@ fn build_digest(
     training_values: &[f64],
     training_source_provided: bool,
 ) -> Result<FrontendDigest, String> {
-    let scale = scale_from_opt(digest_args.scale.clone())?;
     let policy = policy_from_opts(digest_args.singleton_policy, digest_args.pin_per_side)?;
     let cfg = DigestConfig {
         max_size: digest_args.max_size,
-        scale,
+        scale: digest_args.scale.into(),
         policy,
         delta: None,
     };
@@ -836,7 +825,7 @@ fn run_cdf(cmd: CdfCmd) -> Result<(), String> {
     )?;
     maybe_save_digest(&cmd.query.persist, &digest)?;
 
-    let probes = read_cdf_probes(&cmd.probes, &training_values)?;
+    let probes = read_cdf_probes(&cmd.probes, training_values)?;
     let ps = digest.cdf(&probes);
 
     print_header(&cmd.output, "x,p");
