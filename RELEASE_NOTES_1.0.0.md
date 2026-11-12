@@ -17,13 +17,13 @@ All 91 original Python tests passed unchanged before and after we installed 1.0 
 
 ## What you gain over 0.1.0
 
-* **Percentile ranks in Polars.** The original Python API could tell you the latency at the 99th percentile. The new cumulative distribution function (CDF) answers the reverse question for a whole column in a lazy Polars query. Timing the rank lookup alone, Polars ranked 65,536 values against one digest in 1.699 ms on one CPU and 0.363 ms on eight. NumPy took 2.686 ms on one CPU. These are medians across six runs.
+* **Percentile ranks in Polars.** The original Python API could tell you the latency at the 99th percentile. The new cumulative distribution function (CDF) answers the reverse question for a whole column in a lazy Polars query. We built one Float64 digest from 40,000 normal observations at `max_size=200`. It held 200 centroids. For 65,536 new observations, Polars took 1.70 ms on one logical CPU and 0.36 ms on eight. On one logical CPU the Python NumPy call took 2.67 ms. Both queried the same saved digest and returned identical ranks. Times exclude construction. [Query setup and measurements](#reproduce-the-comparisons)
 * **A fixed centroid budget per group.** Set `max_size=200` and the default policy keeps at most 200 centroids per digest after builds and merges. For 1,000 service groups, that gives you a ceiling of 200,000 centroids regardless of the number of requests. You can also choose among five scale functions to control where the digest keeps more detail.
 * **Exact answers for repeated values that stay together.** A centroid records whether all its observations had the same value. If the requested rank falls inside the weight at that value, 1.0 returns it exactly. This matters for counts, rounded timings and other data with ties.
 * **Updates to an existing summary.** With `max_size=`, you can add batches of values and counts, give older data less weight before merging it with a new batch, or convert stored latencies from milliseconds to seconds. These operations work on the digest itself. [Python API](README.md#python)
 * **The same digest in Python, Rust and on the JVM.** Write a digest from Polars and open its bytes in Java, Kotlin or Scala. A Spark job can pass it between executors. The Rust CLI can build a digest from a CSV and query that same file format from the shell. [CLI example](README.md#rust-and-the-cli) and [JVM examples](bindings/java/README.md)
 
-There are gains with the original settings too. At `delta=300`, average rank error fell in 102 of 108 comparisons on recorded data. The build from one million shuffled values took 30.27 ms in 1.0 and 107.75 ms in 0.1.0, with identical centroids. [Accuracy results](#accuracy-with-the-existing-settings) and [query timings](#median-and-percentile-query-speed)
+On recorded data, **1.0 had lower average rank error in 102 of 108 comparisons where both releases kept exactly the same number of centroids.** For a build from one million shuffled Float64 integers, both used `delta=300` and produced the same 146 centroid means and weights. On one logical CPU, the build took 107.82 ms in 0.1.0 and 30.21 ms in 1.0. [Accuracy at equal centroid counts](#accuracy-at-equal-centroid-counts) and [build setup](#reproduce-the-comparisons)
 
 ## One digest for Polars, Python and Java
 
@@ -134,24 +134,24 @@ Old pickles store the means and weights of the centroids. Version 1.0 reads thos
 
 For Rust callers, the upgrade includes an API change. Move from the original `tdigest_core` crate to the root `tdigest-rs` crate and handle errors from checked operations.
 
-## Accuracy with the existing settings
+## Accuracy at equal centroid counts
 
-We asked both releases for quantiles on nine columns of bike rental and energy data, using `delta=300` throughout. We checked each answer against the sorted observations. If we ask for the 99th percentile and the answer lands at the 98th, the rank error is one percentage point. Value error measures the difference in the column's own units, such as degrees or bike rentals.
+We gave 1.0 a limit of `max_size=128`, with its default K2 scale and singleton policy. Depending on the data, it kept **8 to 128 centroids**. For each case we chose the 0.1.0 `delta` using only the final centroid count. The selected values ranged from 5.859375 to 276.5625. We checked that the counts matched before comparing any estimates. All 108 pairs matched exactly. Each release chose its own centroid means and weights.
 
-| Measure | Lower error in 1.0 | Same error | Higher error in 1.0 |
+We used every row from four bike rental columns (17,379 rows each) and five energy columns (19,735 rows each). Each column was tested in Float32 and Float64, in forward and reverse order, with three ways to build the digest. We either built it in one pass, merged 40 parts in sequence, or merged 40 parts in pairs. We queried 135 probabilities against the sorted input. Rank error measures how far the answer falls from the requested percentile, allowing for ties. Value error measures the distance from the exact interpolated quantile in the column's own units.
+
+| Measure across 108 pairs of equal size | Lower error in 1.0 | Same error | Higher error in 1.0 |
 | --- | ---: | ---: | ---: |
 | Average rank error | 102 | 0 | 6 |
-| Worst rank error among the tested percentiles at or below 1% and at or above 99% | 104 | 4 | 0 |
-| Average value error | 100 | 0 | 8 |
+| Worst rank error among queries at or below 1% and at or above 99% | 104 | 3 | 1 |
+| Average value error | 104 | 0 | 4 |
 
-**When we built each digest in one pass, all 36 comparisons improved on all three measures.** The other 72 comparisons split each column into 40 parts and merged them in sequence or in pairs. We tested both Float32 and Float64 and read each column forwards and backwards.
-
-All six increases in average rank error came from merging the outdoor temperature column. The largest increase in average rank error was **0.00335 percentage points**. In that run 1.0 kept 253 centroids and 0.1.0 kept 268. Applying the old query calculation to the new centroids still gave a higher error, so the way the observations were grouped accounts for at least part of the difference. Across the eight increases in average value error, the largest increases were less than 0.002 degrees for temperature and less than 0.05 of a rental for bike counts. [Centroid counts, errors and results with the old query calculation](docs/upstream-1.0.0/recorded-accuracy.csv)
+All six increases in average rank error occurred on outdoor temperature. The largest was **0.011 percentage points** after merging 40 Float32 parts in pairs. Both digests held 128 centroids. Equal counts still leave each release free to group the observations differently and interpolate between the resulting means. The data records both settings, both counts and every error. [Results for each column and build](docs/upstream-1.0.0/recorded-accuracy.csv)
 
 <details>
-<summary>Results at other digest sizes</summary>
+<summary>What happens if I keep delta at 300?</summary>
 
-With `max_size=1000`, 1.0 had lower average rank error than 0.1.0 at `delta=300` in all 108 comparisons. That setting allows a larger digest. The wider accuracy suite covers 756 cases. Ten synthetic cases at `max_size=32` exceed the rank and CDF targets after repeated merges. An earlier study that matched storage found larger peak value errors on the energy data and several synthetic distributions where the original algorithm did better. [Ten cases outside the targets](tests/quality/known-limits.json) and [equal storage study](https://github.com/ingolfured/tdigest-rs/blob/1292b6110578bb9561a168f0898254a62aaf1fcd/compat/quality-20261020/RESULTS.md)
+We also ran those 108 cases with `delta=300` on both wheels to measure the effect of upgrading existing code. Version 0.1.0 kept 138 to 272 centroids and 1.0 kept 8 to 254. Average rank error fell in 102 cases. The largest increase was 0.00335 percentage points. Those figures apply to keeping the same Python argument. The table above uses equal final counts. For a comparison by storage in bytes, the earlier study includes cases where 0.1.0 had smaller peak value errors. [Recorded results](docs/upstream-1.0.0/recorded-accuracy.csv) and [study with matched storage](https://github.com/ingolfured/tdigest-rs/blob/1292b6110578bb9561a168f0898254a62aaf1fcd/compat/quality-20261020/RESULTS.md)
 
 </details>
 
@@ -170,20 +170,26 @@ We also checked the middle rank of each of the 100 observations in the weighted 
 
 ## Median and percentile query speed
 
-With 1.0, Polars computed the median and 99th percentile for **256 prebuilt group digests in 2.18 ms** using eight CPU cores. The same query took 14.48 ms on one core. Polars schedules the groups itself. Version 0.1.0 had no native Polars expressions.
+We built each Float64 digest from the same million shuffled integers, then timed one public Python call on one logical CPU. **Every digest held 146 centroids.** The two `delta=300` digests also had identical means and weights. With `max_size=146`, 1.0 chose its own centroids. All three returned 499,999.5 for the median and 989,999.5 for the 99th percentile.
 
-For existing Python callers, we timed the same calls on prebuilt Float64 digests with identical centroids at `delta=300`. Times below are per call, with 0.1.0 first.
+| Python call on a prebuilt digest | 0.1.0, `delta=300` | 1.0, `delta=300` | 1.0, `max_size=146` |
+| --- | ---: | ---: | ---: |
+| Median | 119 ns | 125 ns | 56 ns |
+| 99th percentile | 157 ns | 124 ns | 75 ns |
 
-* **Queries.** Median was effectively tied (121 ns versus 123 ns). The 99th percentile took 20% less time in 1.0 (154 ns versus 123 ns).
-* **Merging two digests.** The merge took 3.27 µs versus 9.27 µs, or **2.83 times as long** in 1.0. Both releases merged the same two sets of 146 centroids into the same 174. [Recorded measurements](docs/upstream-1.0.0/query-timings.jsonl)
+We also timed a merge through the original Python API. Both wheels used `delta=300` and merged two digests with 146 centroids apiece. The left input, the right input and all 174 output centroids matched across releases, down to the last bit of every mean and weight. This merge took **3.26 µs in 0.1.0 and 9.25 µs in 1.0**. It includes the cost of copying and checking digests in the 1.0 Python binding. [Timing samples and centroid checksums](docs/upstream-1.0.0/query-timings.jsonl)
+
+In Polars, one lazy query returned both statistics for 256 groups in **2.12 ms on eight logical CPUs** and 14.47 ms on one. Each group held 4,096 Float64 observations and its prebuilt digest contained exactly 200 centroids at `max_size=200`. This measures collecting the group results in 1.0. Version 0.1.0 had no native Polars query.
 
 ### The original Python benchmark
 
-We ran the 0.1.0 benchmark unchanged on both wheels. It builds a digest from each of 5,000 arrays of 16,000 values at `delta=10000`, then merges each digest with itself at the default `delta=300`. The script repeats this ten times using 32 joblib threads. We report the median elapsed time for the builds and merges together across three matching seeds on the same machine. [Original benchmark in 0.1.0](https://github.com/G-Research/tdigest-rs/blob/v0.1.0/bindings/python/benchmarks/run.py)
+We ran the 0.1.0 benchmark unchanged on both wheels. It builds a digest from each of 5,000 arrays of 16,000 values at `delta=10000`, then merges each digest with itself at the default `delta=300`. The script repeats this ten times using 32 joblib threads. The 15,000 distinct Float64 arrays across our three seeds all produced 4,135 centroids before merging. The merged size was 160 in 0.1.0 and 158 in 1.0. This run measures the same Python calls with those two different output sizes. Array generation happens before the timer. [Original benchmark in 0.1.0](https://github.com/G-Research/tdigest-rs/blob/v0.1.0/bindings/python/benchmarks/run.py)
 
 | Workload | 0.1.0 | 1.0 | Change |
 | --- | ---: | ---: | --- |
-| Original Python benchmark | 2.521 s | 2.896 s | 1.0 took 14.9% longer |
+| Original Python benchmark | 2.539 s | 2.907 s | 1.0 took 14.5% longer |
+
+For an exact comparison, we also built 2,500 pairs from the same shuffled integer ranges on 32 joblib threads. Each digest held 4,135 centroids at `delta=10000`. Each pair merged to 160 at `delta=300`. Both wheels produced identical means and weights at both stages. Building and merging all pairs took **0.216 s in 0.1.0 and 0.231 s in 1.0**. We used a median of three passes per seed, then the median across the three seeds. [Times and centroid counts](docs/upstream-1.0.0/matched-timings.csv)
 
 ## Seven cases when choosing `max_size=`
 
@@ -206,13 +212,13 @@ If you explicitly chose different precisions with `max_size=`, convert before me
 <details>
 <summary>Time median, percentile and merge calls</summary>
 
-The Python test queried one digest built from a million shuffled Float64 values. It returned 499,999.5 for the median and 989,999.5 for the 99th percentile on both wheels. For the merge we built a second digest from the next million values. We checked the centroid means and weights byte for byte for both inputs and the result. Construction, validation of the benchmark results and file access took place outside the timed calls.
+All timings used Linux on an AMD Ryzen 9 9950X3D and CPython 3.12.15. The comparisons between wheels used NumPy 1.26.4. The Polars runs used Polars 1.44.2 and NumPy 2.3.4. The Python test queried one digest built from a million shuffled Float64 values. It returned 499,999.5 for the median and 989,999.5 for the 99th percentile on both wheels. For the merge we built a second digest from the next million values. We checked the centroid means and weights byte for byte for both inputs and the result. Construction, validation of the benchmark results and file access took place outside the timed calls.
 
 The older implementation totals the weights for each query. Version 1.0 already holds the total. Its Python merge at unchanged `delta` copies both native digests and checks their state before combining them. Version 0.1.0 merges the two sorted sets of means and weights directly. The measurements cover the complete public calls, including the Python bindings. [0.1.0 calculations](https://github.com/G-Research/tdigest-rs/blob/8d9cf1fe82c5c9254e5dc9593f01717e317f4333/src/core.rs), [1.0 merge binding](src/py.rs) and [timing script](docs/upstream-1.0.0/query_timings.py)
 
-The Polars test used 256 groups of 4,096 observations with `max_size=200`. One lazy query computed both statistics per group. The timing includes collecting the result, and each group's answers were checked against the Python API. Polars 1.44.2 ran on the release wheel. For both experiments we report the median of seven timing rounds for each seed, then the median across seeds 42, 43 and 44.
+The Polars test used 256 groups of 4,096 observations with `max_size=200`. One lazy query computed both statistics per group. The timing includes collecting the result, and each group's answers were checked against the Python API. Polars 1.44.2 ran on the release wheel. All query timings report the median of seven rounds per seed, then the median across seeds 42, 43 and 44. Each round made 200,000 Python quantile or median calls, 3,000 Python merges, 25 grouped Polars queries or 18 CDF calls. For the CDF test each seed generated the training values and probes from independent draws of a standard normal distribution. Each API queried the same centroid data and probes.
 
-Set `OLD_PY` and `PR_PY` to the Python executables for the two wheels. Install the Polars extra in the 1.0 environment. The Python comparison used CPython 3.12.15 and NumPy 1.26.4. Run these commands from the repository root, choosing CPU IDs available on your host.
+Set `OLD_PY` and `PR_PY` to the Python executables for the two wheels. Set `POLARS_PY` to the 1.0 environment with the Polars extra and NumPy 2.3.4. The Python comparison used CPython 3.12.15 and NumPy 1.26.4. Run these commands from the repository root, choosing CPU IDs available on your host.
 
 ```bash
 queries=docs/upstream-1.0.0/query_timings.py
@@ -222,8 +228,11 @@ for seed in 42 43 44; do
   for py in "${interpreters[@]}"; do
     taskset -c 8 "$py" -I "$queries" python --seed "$seed"
   done
-  POLARS_MAX_THREADS=1 taskset -c 8 "$PR_PY" -I "$queries" polars --seed "$seed"
-  POLARS_MAX_THREADS=8 taskset -c 8-15 "$PR_PY" -I "$queries" polars --seed "$seed"
+  taskset -c 8 "$PR_PY" -I "$queries" capacity --seed "$seed"
+  for api in polars cdf; do
+    POLARS_MAX_THREADS=1 taskset -c 8 "$POLARS_PY" -I "$queries" "$api" --seed "$seed"
+    POLARS_MAX_THREADS=8 taskset -c 8-15 "$POLARS_PY" -I "$queries" "$api" --seed "$seed"
+  done
 done
 ```
 
@@ -232,7 +241,7 @@ done
 <details>
 <summary>Run the published benchmark, compare accuracy and time the same centroids</summary>
 
-For seeds 42, 43 and 44, the original benchmark reported 2.576, 2.521, 2.506 seconds on 0.1.0 and 2.895, 2.997, 2.896 seconds on 1.0, in that order.
+For seeds 42, 43 and 44, the original benchmark reported 2.487, 2.553, 2.539 seconds on 0.1.0 and 2.912, 2.907, 2.907 seconds on 1.0, in that order.
 
 Run from the repository root in Bash. Set `OLD_PY` and `PR_PY` to the Python executables for two separate environments with 0.1.0 and 1.0 installed. Set `OLD_WHEEL` and `PR_WHEEL` to the corresponding wheel files. Use the same versions of NumPy and joblib in both. The recorded comparison used an AMD Ryzen 9 9950X3D on Linux with Python 3.12.15, NumPy 1.26.4 and joblib 1.5.2.
 
@@ -259,11 +268,15 @@ compare=docs/upstream-1.0.0/compare_recorded.py
 "$PR_PY" -I "$compare" delta --save-centroids build/accuracy-centroids > build/accuracy/pr-delta.csv
 "$OLD_PY" -I "$compare" delta --query-centroids build/accuracy-centroids > build/accuracy/published-query-on-pr-centroids.csv
 "$PR_PY" -I "$compare" capacity > build/accuracy/pr-capacity.csv
+"$OLD_PY" -I "$compare" delta --match-counts build/accuracy/pr-capacity.csv > build/accuracy/matched-published.csv
 ```
 
 ```bash
 matched=docs/upstream-1.0.0/matched_centroids.py
 for seed in 42 43 44; do
+  for py in "$OLD_PY" "$PR_PY"; do
+    "$py" -I "$matched" original-counts --seed "$seed"
+  done
   fixtures="build/matched-centroids/$seed"
   "$OLD_PY" -I "$matched" prepare "$fixtures" --seed "$seed"
   interpreters=("$OLD_PY" "$PR_PY")
@@ -279,7 +292,7 @@ for seed in 42 43 44; do
 done
 ```
 
-The `prepare` step uses the published 0.1.0 wheel to record the reference centroids. The final loop pins the million value build to CPU 8. Choose an available CPU if you run it on a different machine.
+The `prepare` step uses the published 0.1.0 wheel to record the reference centroids. The million value test times seven builds per seed on CPU 8 and verifies all centroid means and weights outside the timer. We take the median per seed and then the median of those three results. Choose an available CPU if you run it on a different machine.
 
 </details>
 

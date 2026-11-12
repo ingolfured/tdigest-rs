@@ -21,6 +21,20 @@ def state(digest):
     return digest.means.tobytes(), digest.weights.tobytes()
 
 
+def original_counts(seed, count):
+    rng = np.random.RandomState(seed)
+    sizes = set()
+    checksum = hashlib.sha256()
+    for _ in range(count):
+        digest = build(rng.standard_normal(16_000))
+        merged = digest.merge(digest)
+        sizes.add((len(digest), len(merged)))
+        for item in (digest, merged):
+            for part in state(item):
+                checksum.update(part)
+    print(json.dumps({"seed": seed, "arrays": count, "counts": sorted(sizes), "sha256": checksum.hexdigest()}))
+
+
 def prepare(directory, seed, count):
     # The published wheel supplies the input centroid means and weights to both wheels.
     if version("tdigest-rs") != "0.1.0":
@@ -144,14 +158,19 @@ def run(directory, seed, count, workers):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("prepare", "time", "million"))
-    parser.add_argument("directory", type=Path)
+    parser.add_argument("action", choices=("prepare", "time", "million", "original-counts"))
+    parser.add_argument("directory", type=Path, nargs="?")
     parser.add_argument("--seed", required=True, type=int)
     parser.add_argument("--arrays", type=int, default=5000)
     parser.add_argument("--workers", type=int, default=32)
     args = parser.parse_args()
     if args.arrays <= 0 or args.arrays % 2:
         parser.error("--arrays must be positive and even")
+    if args.action == "original-counts":
+        original_counts(args.seed, args.arrays)
+        raise SystemExit
+    if args.directory is None:
+        parser.error("A fixture directory is required for this action.")
     args.directory.mkdir(parents=True, exist_ok=True)
     if args.action == "prepare":
         prepare(args.directory, args.seed, args.arrays)
