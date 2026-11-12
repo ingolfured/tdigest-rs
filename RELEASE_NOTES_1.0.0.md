@@ -2,7 +2,18 @@
 
 We wanted to build one digest per service in Polars, find the percentile rank of every request, and let a Java service or a Python notebook query the same summary later. We also needed to know how much space those summaries would take as traffic grew. Polars, Python and Java now share the Rust code that builds and queries them.
 
-**Existing NumPy callers can keep their `tdigest_rs` import, their `delta=` settings and their saved digests.** All 91 original Python tests passed unchanged before and after we installed 1.0 over the published 0.1.0 wheel on Linux. The upgrade test opened 32 pickles written by 0.1.0 and checked that each retained its total weight. Version 1.0 supports CPython 3.10 through 3.15. Polars is optional. [Upgrade test](scripts/test_package_upgrade.py)
+## Choose the Python API with `delta=` or `max_size=`
+
+Both APIs use `from tdigest_rs import TDigest`. When you call `from_array` or `from_means_weights`, the sizing argument selects how the digest behaves.
+
+| If you want | Example | Behaviour |
+| --- | --- | --- |
+| **The original 0.1.0 Python API** | `TDigest.from_array(values, delta=300)` | Omitting the sizing argument also selects `delta=300`. Your existing calls and pickles work. `merge` returns a new digest. |
+| **The new 1.0 Python API** | `TDigest.from_array(values, max_size=200)` | Choose a centroid limit, query percentile ranks with `cdf` and save bytes for other languages. `merge` updates the digest in place. |
+
+Choose one sizing argument. Passing both raises `ValueError`. Both APIs use the 1.0 Rust engine, so keeping `delta=` preserves the original calling behaviour while some numerical estimates change. [Two quantiles that change](#two-quantiles-that-change)
+
+All 91 original Python tests passed unchanged before and after we installed 1.0 over the published 0.1.0 wheel on Linux. The upgrade test also opened 32 pickles written by 0.1.0 and checked that each retained its total weight. Version 1.0 supports CPython 3.10 through 3.15. Polars is optional. [Upgrade test](scripts/test_package_upgrade.py)
 
 ## What you gain over 0.1.0
 
@@ -100,7 +111,7 @@ At a given capacity, the scale function determines how the digest distributes ce
 
 ## The same Python code runs on both releases
 
-Omitting the sizing argument still selects `delta=300`. Float32 and Float64 arrays keep their precision. Merging returns a new digest and leaves the originals available to query. We ran this example on both releases.
+With `delta=`, Float32 and Float64 arrays keep their precision. We ran this example on both releases. It merges two digests, queries the result and restores it from a dictionary.
 
 ```python
 import numpy as np
@@ -166,6 +177,14 @@ For existing Python callers, we timed the same calls on prebuilt Float64 digests
 * **Queries.** Median was effectively tied (121 ns versus 123 ns). The 99th percentile took 20% less time in 1.0 (154 ns versus 123 ns).
 * **Merging two digests.** The merge took 3.27 µs versus 9.27 µs, or **2.83 times as long** in 1.0. Both releases merged the same two sets of 146 centroids into the same 174. [Recorded measurements](docs/upstream-1.0.0/query-timings.jsonl)
 
+### The original Python benchmark
+
+We ran the 0.1.0 benchmark unchanged on both wheels. It builds a digest from each of 5,000 arrays of 16,000 values at `delta=10000`, then merges each digest with itself at the default `delta=300`. The script repeats this ten times using 32 joblib threads. We report the median elapsed time for the builds and merges together across three matching seeds on the same machine. [Original benchmark in 0.1.0](https://github.com/G-Research/tdigest-rs/blob/v0.1.0/bindings/python/benchmarks/run.py)
+
+| Workload | 0.1.0 | 1.0 | Change |
+| --- | ---: | ---: | --- |
+| Original Python benchmark | 2.521 s | 2.896 s | 1.0 took 14.9% longer |
+
 ## Seven cases when choosing `max_size=`
 
 Upgrading alone keeps the behaviour in the middle column for all seven cases. The right column applies when you explicitly choose `max_size=` in Python. That choice also makes `merge` update the receiving digest.
@@ -213,7 +232,7 @@ done
 <details>
 <summary>Run the published benchmark, compare accuracy and time the same centroids</summary>
 
-The original Python benchmark uses joblib threads to run independent builds and merges. Its 32 threads took 2.521 s on 0.1.0 and 2.954 s on 1.0. This is a setting in the benchmark harness.
+For seeds 42, 43 and 44, the original benchmark reported 2.576, 2.521, 2.506 seconds on 0.1.0 and 2.895, 2.997, 2.896 seconds on 1.0, in that order.
 
 Run from the repository root in Bash. Set `OLD_PY` and `PR_PY` to the Python executables for two separate environments with 0.1.0 and 1.0 installed. Set `OLD_WHEEL` and `PR_WHEEL` to the corresponding wheel files. Use the same versions of NumPy and joblib in both. The recorded comparison used an AMD Ryzen 9 9950X3D on Linux with Python 3.12.15, NumPy 1.26.4 and joblib 1.5.2.
 
