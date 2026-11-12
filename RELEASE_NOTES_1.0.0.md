@@ -12,7 +12,7 @@ We wanted to build one digest per service in Polars, find the percentile rank of
 * **Updates to an existing summary.** With `max_size=`, you can add batches of values and counts, give older data less weight before merging it with a new batch, or convert stored latencies from milliseconds to seconds. These operations work on the digest itself. [Python API](README.md#python)
 * **The same digest in Python, Rust and on the JVM.** Write a digest from Polars and open its bytes in Java, Kotlin or Scala. A Spark job can pass it between executors. The Rust CLI can build a digest from a CSV and query that same file format from the shell. [CLI example](README.md#rust-and-the-cli) and [JVM examples](bindings/java/README.md)
 
-There are gains with the original settings too. At `delta=300`, average rank error fell in 102 of 108 comparisons on recorded data. The build from one million shuffled values took 30.27 ms in 1.0 and 107.75 ms in 0.1.0, with identical centroids. Merging digests that were already built took longer. [Accuracy results](#accuracy-with-the-existing-settings) and [timings by workload](#where-10-is-faster-and-where-it-is-slower)
+There are gains with the original settings too. At `delta=300`, average rank error fell in 102 of 108 comparisons on recorded data. The build from one million shuffled values took 30.27 ms in 1.0 and 107.75 ms in 0.1.0, with identical centroids. [Accuracy results](#accuracy-with-the-existing-settings) and [query timings](#median-and-percentile-query-speed)
 
 ## One digest for Polars, Python and Java
 
@@ -157,22 +157,14 @@ In the first example, 0.1.0 returned a value below the smallest observation. In 
 
 We also checked the middle rank of each of the 100 observations in the weighted example, from 0.5% through 99.5%. Given the two means and their counts, **1.0 returned the observed value at all 100 ranks. The published 0.1.0 returned it at five.** Both releases got every rank right when we supplied all 100 observations individually.
 
-## Where 1.0 is faster and where it is slower
+## Median and percentile query speed
 
-On one worker, building and merging 2,500 pairs took 2.656 s, down from 4.696 s. If the digests were already built, merging those same pairs took 0.396 s, up from 0.140 s. The difference matters most for a job that spends much of its time combining existing summaries.
+With 1.0, Polars computed the median and 99th percentile for **256 prebuilt group digests in 2.18 ms** using eight CPU cores. The same query took 14.48 ms on one core. Polars schedules the groups itself. Version 0.1.0 had no native Polars expressions.
 
-| Workload | Workers | 0.1.0 | 1.0 |
-| --- | ---: | ---: | ---: |
-| Build from one million shuffled values | 1 | 107.75 ms | 30.27 ms |
-| Build and merge 2,500 pairs | 1 | 4.696 s | 2.656 s |
-| Build and merge 2,500 pairs | 32 | 0.221 s | 0.232 s |
-| Merge the same 2,500 pairs of existing digests | 1 | 0.140 s | 0.396 s |
-| Merge the same 2,500 pairs of existing digests | 32 | 0.045 s | 0.066 s |
-| Run the original Python benchmark | 32 | 2.521 s | 2.954 s |
+For existing Python callers, we timed the same calls on prebuilt Float64 digests with identical centroids at `delta=300`. Times below are per call, with 0.1.0 first.
 
-We ran both releases on the same machine and took the median across three seeds. Both releases produced exactly the same 146 centroids for the million value build. For the paired workloads, each input digest had 4,135 centroids and each merge produced 160. We checked every mean and weight against 0.1.0. In the original Python benchmark, 32 workers build digests at `delta=10000` and merge each with itself at `delta=300`. Version 1.0 took 17% longer in that run. Equal settings in this benchmark can produce different centroid counts.
-
-Version 0.1.0 merges two lists that are already sorted. The 1.0 Python `delta=` merge used here collects the weighted values and sorts them in Rust. With `max_size=`, the Rust core can merge several sorted digests directly. The timings include the whole merge, so we cannot assign a share of the difference to sorting. For small arrays there is also a cost to checking the NumPy type, handling NaNs and choosing the constructor settings before calling Rust. [Timings for individual operations](docs/upstream-1.0.0/operation-timings.csv) and [earlier comparisons with matching centroids](docs/upstream-1.0.0/matched-timings.csv)
+* **Queries.** Median was effectively tied (121 ns versus 123 ns). The 99th percentile took 20% less time in 1.0 (154 ns versus 123 ns).
+* **Merging two digests.** The merge took 3.27 µs versus 9.27 µs, or **2.83 times as long** in 1.0. Both releases merged the same two sets of 146 centroids into the same 174. [Recorded measurements](docs/upstream-1.0.0/query-timings.jsonl)
 
 ## Seven cases when choosing `max_size=`
 
@@ -193,7 +185,35 @@ If you explicitly chose different precisions with `max_size=`, convert before me
 ## Reproduce the comparisons
 
 <details>
+<summary>Time median, percentile and merge calls</summary>
+
+The Python test queried one digest built from a million shuffled Float64 values. It returned 499,999.5 for the median and 989,999.5 for the 99th percentile on both wheels. For the merge we built a second digest from the next million values. We checked the centroid means and weights byte for byte for both inputs and the result. Construction, validation of the benchmark results and file access took place outside the timed calls.
+
+The older implementation totals the weights for each query. Version 1.0 already holds the total. Its Python merge at unchanged `delta` copies both native digests and checks their state before combining them. Version 0.1.0 merges the two sorted sets of means and weights directly. The measurements cover the complete public calls, including the Python bindings. [0.1.0 calculations](https://github.com/G-Research/tdigest-rs/blob/8d9cf1fe82c5c9254e5dc9593f01717e317f4333/src/core.rs), [1.0 merge binding](src/py.rs) and [timing script](docs/upstream-1.0.0/query_timings.py)
+
+The Polars test used 256 groups of 4,096 observations with `max_size=200`. One lazy query computed both statistics per group. The timing includes collecting the result, and each group's answers were checked against the Python API. Polars 1.44.2 ran on the release wheel. For both experiments we report the median of seven timing rounds for each seed, then the median across seeds 42, 43 and 44.
+
+Set `OLD_PY` and `PR_PY` to the Python executables for the two wheels. Install the Polars extra in the 1.0 environment. The Python comparison used CPython 3.12.15 and NumPy 1.26.4. Run these commands from the repository root, choosing CPU IDs available on your host.
+
+```bash
+queries=docs/upstream-1.0.0/query_timings.py
+for seed in 42 43 44; do
+  interpreters=("$OLD_PY" "$PR_PY")
+  if [[ "$seed" == 43 ]]; then interpreters=("$PR_PY" "$OLD_PY"); fi
+  for py in "${interpreters[@]}"; do
+    taskset -c 8 "$py" -I "$queries" python --seed "$seed"
+  done
+  POLARS_MAX_THREADS=1 taskset -c 8 "$PR_PY" -I "$queries" polars --seed "$seed"
+  POLARS_MAX_THREADS=8 taskset -c 8-15 "$PR_PY" -I "$queries" polars --seed "$seed"
+done
+```
+
+</details>
+
+<details>
 <summary>Run the published benchmark, compare accuracy and time the same centroids</summary>
+
+The original Python benchmark uses joblib threads to run independent builds and merges. Its 32 threads took 2.521 s on 0.1.0 and 2.954 s on 1.0. This is a setting in the benchmark harness.
 
 Run from the repository root in Bash. Set `OLD_PY` and `PR_PY` to the Python executables for two separate environments with 0.1.0 and 1.0 installed. Set `OLD_WHEEL` and `PR_WHEEL` to the corresponding wheel files. Use the same versions of NumPy and joblib in both. The recorded comparison used an AMD Ryzen 9 9950X3D on Linux with Python 3.12.15, NumPy 1.26.4 and joblib 1.5.2.
 
