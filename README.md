@@ -1,15 +1,36 @@
-# tdigest-rs
+# 🌀 tdigest-rs
 
-Estimate quantiles and percentile ranks without keeping every observation. Build a digest for each group in Polars, update one in Python, or send its bytes to a Java or Rust process. All four interfaces use the same compression and query code.
+A t-digest is a small, mergeable summary of a distribution. It can answer both “What was the 99th-percentile latency?” and “Where does this 48 ms request rank among requests to the same service?” Build one digest per service or per day, then merge them to estimate quantiles across the whole week.
+
+## ✨ Features
+
+- 🦀 **One Rust core** for Python, Polars, Java, and the Rust CLI. Build a digest in Polars and query the same summary in Python or Java.
+- ⚡ **Quantiles, median, and CDF.** Look up a value at a percentile, or pass an array of values to get their percentile ranks in one call.
+- 🚀 **Streaming updates and merges.** Add observations as they arrive or combine summaries built on separate partitions. The Rust core can merge several digests by reading their sorted centroid runs together.
+- ⚖️ **Weighted observations.** Give a value a fractional weight or use its frequency when your data already contains counts.
+- 🧊 **Precision and compression.** Store centroid means as Float32 or Float64. In capacity mode the weights stay Float64. Choose a scale (Quad, K1, K2, normalized K2, or K3) and a singleton policy to control how observations are grouped near the tails.
+- 📦 **Portable digests.** TDIG v3 bytes carry the weights, observed extrema, precision, and compression settings. The reader also accepts v1 and v2.
 
 ## Install
 
 ```sh
-pip install tdigest-rs
-pip install 'tdigest-rs[polars]'
+pip install tdigest-rs           # Python and NumPy
+pip install 'tdigest-rs[polars]' # Include the Polars expressions
 ```
 
-Use the second command for Polars expressions. The NumPy API works without Polars. The Python package supports CPython 3.10 through 3.15.
+The Python package supports CPython 3.10 through 3.15.
+
+## ⚡ Quick start
+
+```python
+from tdigest_rs import TDigest
+
+d = TDigest.from_array([0, 1, 2, 3], max_size=100, scale="k2")
+print(d.quantile(0.5))           # 1.5
+print(d.cdf([0.0, 1.5, 3.0]))   # [0.125, 0.5, 0.875]
+```
+
+The middle probe falls between 1 and 2, so half the observations lie below it. At an observed value, the CDF counts half of the tied weight.
 
 ## Polars
 
@@ -23,15 +44,17 @@ requests = pl.LazyFrame({
     "service": ["search", "search", "checkout", "checkout"],
     "latency_ms": [12.0, 48.0, 35.0, 90.0],
 })
-groups = requests.group_by("service").agg(
-    td.tdigest("latency_ms", max_size=200).alias("digest")
+by_service = requests.group_by("service").agg(
+    td.quantile(td.tdigest("latency_ms", max_size=200), 0.99).alias("p99")
 )
-print(groups.select("service", td.quantile("digest", 0.99).alias("p99")).collect())
+print(by_service.sort("service").collect())  # checkout: 90 ms, search: 48 ms
 ```
 
 Use `td.cdf("digest", pl.col("latency_ms"))` to rank observations. The [1.0 release notes](RELEASE_NOTES_1.0.0.md) show the join and explain how ties count. Float32 columns produce digests with Float32 means. A list column of probes returns a list per row. A sequence passed directly supplies a vector of probes. For stored TDIG bytes, pass the expected precision to `td.from_bytes` so Polars can plan the output schema.
 
 ## Python
+
+Both calling conventions use `from tdigest_rs import TDigest`. Choose `delta=` for code written against 0.1.0 or `max_size=` to set a centroid budget. Version 1.0 uses the same Rust core for both. Some quantiles and weighted medians change when upgrading. The [release notes](RELEASE_NOTES_1.0.0.md) give worked examples.
 
 | | Original calling convention | Fixed capacity |
 | --- | --- | --- |
@@ -79,12 +102,32 @@ public class Example {
   public static void main(String[] args) {
     try (TDigest digest = TDigest.builder().maxSize(200).build(new double[]{10, 20, 30})) {
       System.out.println(digest.median());
+      System.out.println(java.util.Arrays.toString(digest.cdf(new double[]{10, 20, 30})));
     }
   }
 }
 ```
 
 The Java classes target Java 11. CI exercises JDK 11, 17, 21 and 25. Java 25 uses Gradle 9.1.0 and may need `--enable-native-access=ALL-UNNAMED` at runtime. The [JVM build instructions](bindings/java/README.md) cover offline builds, native loading, Scala, Kotlin and Spark.
+
+## Accuracy on recorded data
+
+What changes if you upgrade and keep `delta=300`? On nine columns of bike-rental and household-energy data, 1.0 had lower average rank error than 0.1.0 in **102 of 108 cases**. All six increases came from outdoor temperature after merging. Eight cases had higher average error in the original units.
+
+The study varied precision, input order, and how the digests were merged. With the same `delta`, 0.1.0 kept 138–272 centroids and 1.0 kept 8–254. The [recorded measurements](docs/upstream-1.0.0/recorded-accuracy.csv) give the counts and errors for each case. The [release notes](RELEASE_NOTES_1.0.0.md) cover the benchmark setup and timings.
+
+Construction and merge costs also differ. On one worker, building from a million shuffled observations took **108 ms in 0.1.0 and 30 ms in 1.0**, producing the same 146 centroids. Merging 2,500 prebuilt pairs on one worker took **140 ms in 0.1.0 and 396 ms in 1.0**. Both timings are medians across three seeds on the same host.
+
+## 🗂️ Project layout
+
+```text
+src/                       Rust core and tdigest CLI
+bindings/python/           Python package, NumPy API, and Polars expressions
+bindings/java/             Java API, JNI bridge, and JVM examples
+integration/api_coherence/ Tests that compare answers across language bindings
+tests/quality/             Accuracy checks on recorded and synthetic data
+benches/                   Rust benchmarks
+```
 
 ## Development and release
 
