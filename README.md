@@ -1,20 +1,20 @@
 # tdigest-rs
 
-Estimate percentiles from a stream of numbers and keep only a small summary. Ask “What latency do 99% of requests finish under?” or “Where does this 48 ms request rank?” Build a digest per service, hour, or worker, then merge the summaries when you want the overall p99.
+tdigest-rs is a Rust library for estimating quantiles and percentile ranks from compact, mergeable summaries of streaming data.
 
 ## Features
 
-- ⚡ **Parallel percentile ranks (CDF).** Rank a whole array in one call. The Rust core computes cumulative weights once per batch and splits large batches across CPU cores.
-- 🎯 **Quantiles and trimmed means.** Get the median, ask for p50, p95, and p99 together, or average the middle 90% of the distribution.
-- 🐻‍❄️ **Native Polars expressions.** Build a digest per group, merge groups, or rank a column of values inside a lazy query.
-- 🔀 **Streaming and partitioned data.** Add batches in place or combine many digests with a streaming k-way merge.
-- ⚖️ **Weighted samples.** Ingest frequency counts or fractional weights. Rescale weights to change a batch’s influence, or rescale values to convert units.
-- 🧊 **Float16, Float32, and Float64 NumPy input.** Store centroid means in Float32 or Float64. Weights accumulate in Float64 with either choice.
-- 🎚️ **Tunable tail accuracy.** Set a centroid budget with `max_size`, choose a scale (Quad, K1, K2, normalized K2, or K3), and protect individual values at both tails.
-- 🗜️ **Optimized K2 compression.** The capacity search counts clusters without building trial digests and can reuse logarithms across trials for whole-number weights.
-- 🧵 **Concurrent Python builds.** Rust releases the GIL during digest construction so independent batches can build on separate Python threads.
-- 📦 **Portable summaries.** Write a digest in Python, Polars, Rust, or Java and open the same bytes in another language, with its precision and compression settings intact.
-- 🖥️ **Command-line queries.** Build from text, CSV, JSON, or NDJSON and query a saved digest from the shell.
+- ⚡ **Parallel CDF queries** rank large batches across CPU cores.
+- 🎯 **Quantiles and trimmed means** report p99 or average the middle 90%.
+- 🐻‍❄️ **Native Polars expressions** build, merge, and query digests by group.
+- 🔀 **Add batches in place** or combine partitioned digests with a k-way merge.
+- ⚖️ **Weighted samples** support fractional weights, counts, and rescaling.
+- 🧊 **NumPy input** accepts Float16, Float32, and Float64 arrays.
+- 🎚️ **Tune tail accuracy** with five scales, a size budget, and edge protection.
+- 🗜️ **K2 compression** can reuse logarithms across integer-weight trials.
+- 🧵 **Parallel Python builds** release the GIL during Rust construction.
+- 📦 **Portable digests** move between Python, Polars, Rust, and Java.
+- 🖥️ **CLI queries** run on saved digests built from text, CSV, JSON, or NDJSON.
 
 ## Install
 
