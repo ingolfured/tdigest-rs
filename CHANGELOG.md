@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+* Preserve the original test package as an exact rename in the release diff.
+
 * Add grouped Polars digests and CDF queries with shared Rust, Python and Java implementations.
 * Preserve the original Python calling convention and support portable TDIG state in capacity mode.
 * Rebuild changed delta merges in Rust and return the updated Python digest directly from native mutation methods.
