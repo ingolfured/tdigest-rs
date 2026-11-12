@@ -1,11 +1,11 @@
 # tdigest-rs
 
-tdigest-rs is a Rust library for estimating quantiles and percentile ranks from compact, mergeable summaries of streaming data.
+tdigest-rs is a Rust library for quantile and CDF queries on compact, mergeable summaries of streaming data.
 
 ## Features
 
 - ⚡ **Parallel CDF queries** rank large batches across CPU cores.
-- 🎯 **Quantiles and trimmed means** report p99 or average the middle 90%.
+- 🎯 **Quantiles** report the median or P99.
 - 🐻‍❄️ **Native Polars expressions** build, merge, and query digests by group.
 - 🔀 **Add batches in place** or combine partitioned digests with a k-way merge.
 - ⚖️ **Weighted samples** support fractional weights, counts, and rescaling.
@@ -13,22 +13,26 @@ tdigest-rs is a Rust library for estimating quantiles and percentile ranks from 
 - 🎚️ **Tune tail accuracy** with five scales, a size budget, and edge protection.
 - 🗜️ **K2 compression** can reuse logarithms across integer-weight trials.
 - 🧵 **Parallel Python builds** release the GIL during Rust construction.
-- 📦 **Portable digests** move between Python, Polars, Rust, and Java.
+- 📦 **TDIG serialization** lets you save a digest in Java and load it in Python.
 - 🖥️ **CLI queries** run on saved digests built from text, CSV, JSON, or NDJSON.
 
 ## Install
 
-To try 1.0 from a source checkout, run this from the repository root with Rust 1.95 and CPython 3.10–3.15:
+Once the 1.x wheels are available on PyPI, install with:
+
+```sh
+python -m pip install 'tdigest-rs[polars]>=1.0,<2'
+```
+
+Omit `[polars]` for Python and NumPy alone. To try 1.0 now, run this from the root of a source checkout with Rust 1.95 and CPython 3.10–3.15:
 
 ```sh
 python -m pip install './bindings/python[polars]'
 ```
 
-For a published 1.x wheel, use `python -m pip install 'tdigest-rs[polars]>=1.0,<2'`. Omit `[polars]` for Python and NumPy alone.
-
 ## Python
 
-These four requests took 10, 20, 30, and 80 ms. Ask for two percentiles, then turn a latency back into a rank:
+These four requests took 10, 20, 30, and 80 ms. Query the median and P99, then evaluate the CDF at three latencies.
 
 ```python
 import numpy as np
