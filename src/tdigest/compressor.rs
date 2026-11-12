@@ -116,47 +116,29 @@ where
     result.set_min(result.min().min(norm.min));
     result.set_max(result.max().max(norm.max));
 
+    let family = result.scale();
+    if let Some(delta) = result.delta() {
+        debug_assert_eq!(family, ScaleFamily::K2Norm);
+        debug_assert_eq!(result.singleton_policy(), SingletonPolicy::Off);
+        let core = klimit_merge(&norm.out, delta, family, 0.0);
+        validate_compression_stream(&core)?;
+        return Ok(core);
+    }
+
     let policy = policy_from(result.singleton_policy(), max_size);
-    let delta = result.delta();
-    if delta.is_none() {
-        if let Some(v) = policy.fast_path(&norm.out) {
-            validate_compression_stream(&v)?;
-            debug_assert!(crate::tdigest::centroids::is_sorted_strict_by_mean(&v));
-            return Ok(v);
-        }
+    if let Some(v) = policy.fast_path(&norm.out) {
+        validate_compression_stream(&v)?;
+        debug_assert!(crate::tdigest::centroids::is_sorted_strict_by_mean(&v));
+        return Ok(v);
     }
     let slices = policy.slice(&norm.out);
-
-    let family: ScaleFamily = result.scale();
-    let d: f64 = result.max_size() as f64;
-    let core = if let Some(delta) = delta {
-        // delta-mode is contract-validated upstream (scale = K2Norm, policy = Off);
-        // Use the strict delta-mode k-limit; this is not a byte-identity guarantee.
-        debug_assert_eq!(family, ScaleFamily::K2Norm);
-        klimit_merge::<F>(slices.interior, delta, family, 0.0)
-    } else {
-        klimit_merge::<F>(slices.interior, d, family, KLIMIT_TOL)
-    };
-
+    let d = result.max_size() as f64;
+    let core = klimit_merge(slices.interior, d, family, KLIMIT_TOL);
     validate_compression_stream(&core)?;
-
-    // Second k-limit cap pass if the interior exceeds its budget.
-    // Fallback to equal-weight bucketization remains as a safety net in cap_core.
-    let core_capped = if delta.is_some() {
-        core
-    } else {
-        cap_core::<F>(core, slices.core_cap, d, family)
-    };
-
-    let assembled = assemble_with_edges::<F>(slices.left, core_capped, slices.right);
-
+    let core = cap_core(core, slices.core_cap, d, family);
+    let assembled = assemble_with_edges(slices.left, core, slices.right);
     validate_compression_stream(&assembled)?;
-
-    let compressed = if delta.is_some() {
-        assembled
-    } else {
-        policy.post(assembled)
-    };
+    let compressed = policy.post(assembled);
 
     validate_compression_stream(&compressed)?;
     debug_assert!(crate::tdigest::centroids::is_sorted_strict_by_mean(

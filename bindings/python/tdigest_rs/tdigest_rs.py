@@ -12,6 +12,7 @@ from ._modern import TDigest as _ModernDigest
 from ._shared import _resolve_size_mode, _UNSET
 
 
+_MAX_WEIGHT = int(np.iinfo(np.uint32).max)
 _D = TypeVar("_D", bound="_DeltaDigest")
 
 
@@ -23,7 +24,7 @@ class _DeltaDigest:
         self._finite = finite
         self._negative = negative
         self._positive = positive
-        if finite.count + negative + positive > np.iinfo(np.uint32).max:
+        if finite.count + negative + positive > _MAX_WEIGHT:
             raise ValueError("tdigest: uint32 total weight overflow")
 
     @classmethod
@@ -44,6 +45,11 @@ class _DeltaDigest:
             raise TypeError(f"expected a one-dimensional {cls.dtype.__name__} array")
         if not arr.size:
             raise ValueError("Array must be non-empty!")
+        # Array subclasses can override how NumPy masks missing values.
+        if weights is None and type(arr) is np.ndarray:
+            _, resolved_delta = _resolve_size_mode(_UNSET, delta)
+            digest, negative, positive = _ModernDigest._from_delta_array(arr, resolved_delta, cls.dtype is np.float32)
+            return cls(digest, negative, positive)
         finite = np.isfinite(arr)
         negative = positive = 0
         if not finite.all():

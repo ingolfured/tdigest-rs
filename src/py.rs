@@ -65,6 +65,16 @@ fn resolve_delta_mode_defaults(
     Ok((sc, policy))
 }
 
+fn delta_config(delta: Option<f64>) -> PyResult<DigestConfig> {
+    let (scale, policy) = resolve_delta_mode_defaults(None, None, None, delta)?;
+    Ok(DigestConfig {
+        max_size: 1000,
+        scale,
+        policy,
+        delta,
+    })
+}
+
 fn map_frontend_err(err: FrontendError) -> PyErr {
     match err {
         FrontendError::InvalidTrainingData(msg)
@@ -222,6 +232,38 @@ impl PyTDigest {
             .detach(|| FrontendDigest::from_values(values_f64, config, precision))
             .map_err(map_frontend_err)?;
         Ok(Self { inner })
+    }
+
+    #[staticmethod]
+    #[pyo3(signature = (values, delta, f32_mode))]
+    fn _from_delta_array(
+        py: Python<'_>,
+        values: Py<PyAny>,
+        delta: Option<f64>,
+        f32_mode: bool,
+    ) -> PyResult<(Self, usize, usize)> {
+        let config = delta_config(delta)?;
+        let precision = if f32_mode {
+            DigestPrecision::F32
+        } else {
+            DigestPrecision::F64
+        };
+        let (_, mut values) = training_array_values(py, values)?;
+        py.detach(|| {
+            let mut negative = 0;
+            let mut positive = 0;
+            values.retain(|&x| {
+                if x == f64::NEG_INFINITY {
+                    negative += 1;
+                } else if x == f64::INFINITY {
+                    positive += 1;
+                }
+                x.is_finite()
+            });
+            let inner = FrontendDigest::from_values(values, config, precision)?;
+            Ok((Self { inner }, negative, positive))
+        })
+        .map_err(map_frontend_err)
     }
 
     #[staticmethod]
@@ -458,13 +500,7 @@ impl PyTDigest {
     // when the caller changes delta. Preserve that rounding and the extrema it implies.
     #[pyo3(signature = (other, delta))]
     fn _rebuild_pair(&self, py: Python<'_>, other: &Self, delta: Option<f64>) -> PyResult<Self> {
-        let (scale, policy) = resolve_delta_mode_defaults(None, None, None, delta)?;
-        let config = DigestConfig {
-            max_size: 1000,
-            scale,
-            policy,
-            delta,
-        };
+        let config = delta_config(delta)?;
         let inner = py
             .detach(|| match (&self.inner, &other.inner) {
                 (FrontendDigest::F32(a), FrontendDigest::F32(b)) => {

@@ -193,13 +193,18 @@ impl DigestConfig {
         a: &TDigest<F>,
         b: &TDigest<F>,
     ) -> TdResult<TDigest<F>> {
-        let (means, weights): (Vec<_>, Vec<_>) = a
-            .centroids()
-            .iter()
-            .chain(b.centroids())
-            .map(|c| (c.mean(), c.weight_f64()))
-            .unzip();
-        self.empty()?.merge_weighted_unsorted(&means, &weights)
+        let mut left = a.centroids().iter().peekable();
+        let mut right = b.centroids().iter().peekable();
+        let len = left.len() + right.len();
+        let pairs = std::iter::from_fn(|| {
+            let centroid = match (left.peek(), right.peek()) {
+                (Some(l), Some(r)) if l.mean().total_cmp(r.mean()).is_le() => left.next(),
+                (_, Some(_)) => right.next(),
+                _ => left.next(),
+            }?;
+            Some((centroid.mean(), centroid.weight_f64()))
+        });
+        self.empty()?.merge_weighted_sorted(pairs, len)
     }
 }
 

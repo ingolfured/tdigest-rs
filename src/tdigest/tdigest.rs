@@ -571,43 +571,56 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
             .collect();
         pairs.sort_by(|a, b| a.0.total_cmp(b.0));
 
-        // An exact point retains its full distribution even when its rounded
-        // Float64 weighted moment is zero. Mixed observations cannot use that
-        // recovery rule: their individual underflows remain explicit errors.
-        let same_point = pairs
-            .first()
-            .map(|p| p.0)
-            .filter(|first| pairs.iter().all(|p| p.0 == *first));
-        let combined_point = same_point.is_some_and(|mean| {
-            self.centroids.is_empty()
-                || (self.is_exact_point()
-                    && self.centroids[0].mean_f64() == <F as FloatLike>::to_f64(mean))
-        });
+        let len = pairs.len();
+        self.merge_weighted_sorted(pairs.into_iter(), len)
+    }
+
+    // Both callers supply finite means in total order and validated positive weights.
+    pub(super) fn merge_weighted_sorted(
+        &self,
+        pairs: impl Iterator<Item = (F, f64)>,
+        len: usize,
+    ) -> TdResult<TDigest<F>> {
+        let mut pairs = pairs.peekable();
+        let Some(&(first, _)) = pairs.peek() else {
+            return Ok(self.clone());
+        };
+        let mut last = first;
         let mut point_product_underflow = false;
-        let mut cents: Vec<Centroid<F>> = Vec::with_capacity(pairs.len());
+        let mut cents: Vec<Centroid<F>> = Vec::with_capacity(len);
         let mut moment = crate::tdigest::summation::Sum::default();
         let mut mass = crate::tdigest::summation::Sum::default();
-        for (v, w) in &pairs {
-            let mean = <F as FloatLike>::to_f64(*v);
-            if *w == 1.0 {
+        for (v, w) in pairs {
+            last = v;
+            let mean = <F as FloatLike>::to_f64(v);
+            if w == 1.0 {
                 cents.push(Centroid::<F>::new_atomic_unit_f64(mean));
             } else {
-                cents.push(Centroid::<F>::new_atomic_f64(mean, *w));
+                cents.push(Centroid::<F>::new_atomic_f64(mean, w));
             }
-            let product = mean * *w;
+            let product = mean * w;
             point_product_underflow |= mean != 0.0 && product == 0.0;
-            if !product.is_finite() || (point_product_underflow && !combined_point) {
+            if !product.is_finite() {
                 return Err(TdError::NonFiniteInput {
                     context: "weighted value product overflow or underflow",
                 });
             }
             moment.add(product);
-            mass.add(*w);
+            mass.add(w);
         }
 
         let total_weight = mass.total();
         let data_sum = if point_product_underflow {
-            <F as FloatLike>::to_f64(same_point.unwrap()) * total_weight
+            // Only a single exact point can recover a rounded zero product.
+            let matches_existing = self.centroids.is_empty()
+                || (self.is_exact_point()
+                    && self.centroids[0].mean_f64() == <F as FloatLike>::to_f64(first));
+            if first != last || !matches_existing {
+                return Err(TdError::NonFiniteInput {
+                    context: "weighted value product overflow or underflow",
+                });
+            }
+            <F as FloatLike>::to_f64(first) * total_weight
         } else {
             moment.total()
         };
@@ -625,8 +638,8 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
         let stats = DigestStats {
             data_sum,
             total_weight,
-            data_min: <F as FloatLike>::to_f64(pairs[0].0),
-            data_max: <F as FloatLike>::to_f64(pairs[pairs.len() - 1].0),
+            data_min: <F as FloatLike>::to_f64(first),
+            data_max: <F as FloatLike>::to_f64(last),
         };
         let mut weighted_builder = TDigest::<F>::builder()
             .max_size(self.max_size)
@@ -694,11 +707,15 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
             delta: chosen_delta,
         };
 
-        let merged_stream = KWayCentroidMerge::from_runs(&runs);
-
-        let compressed: Vec<Centroid<F>> =
-            compress_into(&mut result, chosen_max_size, merged_stream)?;
-        result.centroids = compressed;
+        result.centroids = if let [run] = runs.as_slice() {
+            compress_into(&mut result, chosen_max_size, run.iter().copied())?
+        } else {
+            compress_into(
+                &mut result,
+                chosen_max_size,
+                KWayCentroidMerge::from_runs(&runs),
+            )?
+        };
         // Full incoming aggregate statistics remain authoritative. Centroid
         // means have already been rounded/compressed and cannot restore them.
         result.sum = moment.total();

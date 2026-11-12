@@ -17,13 +17,13 @@ All 91 original Python tests passed unchanged before and after we installed 1.0 
 
 ## What you gain over 0.1.0
 
-* **Percentile ranks in Polars.** The original Python API could tell you the latency at the 99th percentile. The new cumulative distribution function (CDF) answers the reverse question for a whole column in a lazy Polars query. We built one Float64 digest from 40,000 normal observations at `max_size=200`. It held 200 centroids. For 65,536 new observations, Polars took 1.70 ms on one logical CPU and 0.36 ms on eight. On one logical CPU the Python NumPy call took 2.67 ms. Both queried the same saved digest and returned identical ranks. Times exclude construction. [Query setup and measurements](#reproduce-the-comparisons)
+* **Percentile ranks in Polars.** The original Python API could tell you the latency at the 99th percentile. The new cumulative distribution function (CDF) answers the reverse question for a whole column in a lazy Polars query. We built one Float64 digest from 40,000 normal observations at `max_size=200`. It held 200 centroids. For 65,536 new observations, Polars took 1.69 ms on one logical CPU and 0.36 ms on eight. On one logical CPU the Python NumPy call took 2.65 ms. Both queried the same saved digest and returned identical ranks. Times exclude construction. [Query setup and measurements](#reproduce-the-comparisons)
 * **A fixed centroid budget per group.** Set `max_size=200` and the default policy keeps at most 200 centroids per digest after builds and merges. For 1,000 service groups, that gives you a ceiling of 200,000 centroids regardless of the number of requests. You can also choose among five scale functions to control where the digest keeps more detail.
 * **Exact answers for repeated values that stay together.** A centroid records whether all its observations had the same value. If the requested rank falls inside the weight at that value, 1.0 returns it exactly. This matters for counts, rounded timings and other data with ties.
 * **Updates to an existing summary.** With `max_size=`, you can add batches of values and counts, give older data less weight before merging it with a new batch, or convert stored latencies from milliseconds to seconds. These operations work on the digest itself. [Python API](README.md#python)
 * **The same digest in Python, Rust and on the JVM.** Write a digest from Polars and open its bytes in Java, Kotlin or Scala. A Spark job can pass it between executors. The Rust CLI can build a digest from a CSV and query that same file format from the shell. [CLI example](README.md#rust-and-the-cli) and [JVM examples](bindings/java/README.md)
 
-On recorded data, **1.0 had lower average rank error in 102 of 108 comparisons where both releases kept exactly the same number of centroids.** For a build from one million shuffled Float64 integers, both used `delta=300` and produced the same 146 centroid means and weights. On one logical CPU, the build took 107.82 ms in 0.1.0 and 30.21 ms in 1.0. [Accuracy at equal centroid counts](#accuracy-at-equal-centroid-counts) and [build setup](#reproduce-the-comparisons)
+On recorded data, **1.0 had lower average rank error in 102 of 108 comparisons where both releases kept exactly the same number of centroids.** For a build from one million shuffled Float64 integers, both used `delta=300` and produced the same 146 centroid means and weights. On one logical CPU, the build took 107.82 ms in 0.1.0 and 30.22 ms in 1.0. [Accuracy at equal centroid counts](#accuracy-at-equal-centroid-counts) and [build setup](#reproduce-the-comparisons)
 
 ## One digest for Polars, Python and Java
 
@@ -174,12 +174,12 @@ We built each Float64 digest from the same million shuffled integers, then timed
 
 | Python call on a prebuilt digest | 0.1.0, `delta=300` | 1.0, `delta=300` | 1.0, `max_size=146` |
 | --- | ---: | ---: | ---: |
-| Median | 119 ns | 125 ns | 56 ns |
-| 99th percentile | 157 ns | 124 ns | 75 ns |
+| Median | 119 ns | 123 ns | 56 ns |
+| 99th percentile | 157 ns | 122 ns | 76 ns |
 
-We also timed a merge through the original Python API. Both wheels used `delta=300` and merged two digests with 146 centroids apiece. The left input, the right input and all 174 output centroids matched across releases, down to the last bit of every mean and weight. This merge took **3.26 µs in 0.1.0 and 9.25 µs in 1.0**. It includes the cost of copying and checking digests in the 1.0 Python binding. [Timing samples and centroid checksums](docs/upstream-1.0.0/query-timings.jsonl)
+We also timed a merge through the original Python API. Both wheels used `delta=300` and merged two digests with 146 centroids apiece. The left input, the right input and all 174 output centroids matched across releases, down to the last bit of every mean and weight. This merge took **3.26 µs in 0.1.0 and 8.77 µs in 1.0**. It includes the cost of copying and checking digests in the 1.0 Python binding. [Timing samples and centroid checksums](docs/upstream-1.0.0/query-timings.jsonl)
 
-In Polars, one lazy query returned both statistics for 256 groups in **2.12 ms on eight logical CPUs** and 14.47 ms on one. Each group held 4,096 Float64 observations and its prebuilt digest contained exactly 200 centroids at `max_size=200`. This measures collecting the group results in 1.0. Version 0.1.0 had no native Polars query.
+In Polars, one lazy query returned both statistics for 256 groups in **2.16 ms on eight logical CPUs** and 14.38 ms on one. Each group held 4,096 Float64 observations and its prebuilt digest contained exactly 200 centroids at `max_size=200`. This measures collecting the group results in 1.0. Version 0.1.0 had no native Polars query.
 
 ### The original Python benchmark
 
@@ -187,9 +187,11 @@ We ran the 0.1.0 benchmark unchanged on both wheels. It builds a digest from eac
 
 | Workload | 0.1.0 | 1.0 | Change |
 | --- | ---: | ---: | --- |
-| Original Python benchmark | 2.539 s | 2.907 s | 1.0 took 14.5% longer |
+| Original Python benchmark | 2.539 s | 2.249 s | 1.0 took 11.4% less time |
 
-For an exact comparison, we also built 2,500 pairs from the same shuffled integer ranges on 32 joblib threads. Each digest held 4,135 centroids at `delta=10000`. Each pair merged to 160 at `delta=300`. Both wheels produced identical means and weights at both stages. Building and merging all pairs took **0.216 s in 0.1.0 and 0.231 s in 1.0**. We used a median of three passes per seed, then the median across the three seeds. [Times and centroid counts](docs/upstream-1.0.0/matched-timings.csv)
+The 1.0 build counts infinities and skips NaNs while Rust owns the input array copy. This removes two NumPy calls from each plain array build. When the merge changes delta, Rust walks the two sorted sets of centroids directly. On all 15,000 input arrays the optimized 1.0 build and merge produced the same centroid means and weights as the previous 1.0 build.
+
+For an exact comparison, we also built 2,500 pairs from the same shuffled integer ranges on 32 joblib threads. Each digest held 4,135 centroids at `delta=10000`. Each pair merged to 160 at `delta=300`. Both wheels produced identical means and weights at both stages. Building and merging all pairs took **0.216 s in 0.1.0 and 0.190 s in 1.0**. We used a median of three passes per seed, then the median across the three seeds. [Times and centroid counts](docs/upstream-1.0.0/matched-timings.csv)
 
 ## Seven cases when choosing `max_size=`
 
@@ -241,7 +243,7 @@ done
 <details>
 <summary>Run the published benchmark, compare accuracy and time the same centroids</summary>
 
-For seeds 42, 43 and 44, the original benchmark reported 2.487, 2.553, 2.539 seconds on 0.1.0 and 2.912, 2.907, 2.907 seconds on 1.0, in that order.
+For seeds 42, 43 and 44, the original benchmark reported 2.487, 2.553, 2.539 seconds on 0.1.0 and 2.249, 2.268, 2.248 seconds on 1.0, in that order.
 
 Run from the repository root in Bash. Set `OLD_PY` and `PR_PY` to the Python executables for two separate environments with 0.1.0 and 1.0 installed. Set `OLD_WHEEL` and `PR_WHEEL` to the corresponding wheel files. Use the same versions of NumPy and joblib in both. The recorded comparison used an AMD Ryzen 9 9950X3D on Linux with Python 3.12.15, NumPy 1.26.4 and joblib 1.5.2.
 

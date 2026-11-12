@@ -33,6 +33,19 @@ def test_legacy_merge_and_update_return_new_digests_and_honor_delta(dtype):
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_delta_merge_interleaves_ties_and_signed_zeros_like_weighted_input(dtype):
+    left = TDigest.from_array(np.array([-3, 0.0, 1, 3, np.inf], dtype=dtype), delta=20)
+    right = TDigest.from_array(np.array([-4, -0.0, 2, 3, -np.inf, np.nan], dtype=dtype), delta=40)
+    merged = left.merge(right, delta=100)
+    reference = TDigest.from_means_weights(
+        np.concatenate((left.means, right.means)), np.concatenate((left.weights, right.weights)), delta=100
+    )
+    assert merged.means.tobytes() == reference.means.tobytes()
+    assert merged.weights.tobytes() == reference.weights.tobytes()
+    assert merged._digest._finite.to_bytes() == reference._digest._finite.to_bytes()
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("restore", [copy.copy, copy.deepcopy, lambda d: pickle.loads(pickle.dumps(d))])
 def test_original_copy_preserves_dtype_and_reconstructs_with_default_delta(dtype, restore):
     values = np.array([-np.inf, -np.inf, 0, 0, 10, np.inf, np.nan], dtype=dtype)
