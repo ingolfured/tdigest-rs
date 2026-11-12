@@ -18,16 +18,14 @@ tdigest-rs is a Rust library for quantile and CDF queries on compact, mergeable 
 
 ## Install
 
-Once the 1.x wheels are available on PyPI, install with:
-
-```sh
-python -m pip install 'tdigest-rs[polars]>=1.0,<2'
-```
+Once the 1.x wheels are available on PyPI, install with `python -m pip install 'tdigest-rs[polars]>=1.0,<2'`.
 
 Omit `[polars]` for Python and NumPy alone. To try 1.0 now, run this from the root of a source checkout with Rust 1.95 and CPython 3.10–3.15:
 
 ```sh
 python -m pip install './bindings/python[polars]'
+python -c "from importlib.metadata import version; print(version('tdigest-rs'))"
+# 1.0.0
 ```
 
 ## Python
@@ -75,7 +73,10 @@ hourly = requests.group_by("service", "hour").agg(
 by_service = hourly.group_by("service").agg(
     td.quantile(td.merge_tdigests("digest"), 0.99).alias("p99_ms")
 )
-print(by_service.sort("service").collect())  # checkout: 90 ms, search: 48 ms
+for service, p99 in by_service.sort("service").collect().iter_rows():
+    print(f"{service}: {p99:g} ms")
+# checkout: 90 ms
+# search: 48 ms
 ```
 
 ## Rust
@@ -103,6 +104,8 @@ cargo build --release --bin tdigest
 printf 'value\n10\n20\n30\n' > numbers.csv
 target/release/tdigest build --input numbers.csv --input-format csv --input-column value --to-digest readings.tdig
 target/release/tdigest quantile --from-digest readings.tdig --p 0.5,0.99 --no-header
+# 0.5,20
+# 0.99,30
 ```
 
 Open that same file in Java with the `com.gresearch.tdigest:tdigest-rs` JAR. The JAR bundles the native library for its target platform.

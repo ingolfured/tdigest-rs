@@ -1,32 +1,10 @@
-# Reviewing tdigest 1.0
+# Reviewing tdigest-rs 1.0
 
-We wanted to aggregate latency in Polars, ask where each observation falls in its group, and use the resulting digest from Java and Python. That called for a shared Rust implementation of compression and the cumulative distribution function (CDF). It also gave us one place to implement the scale functions used to allocate centroids near the tails. More centroids in a region let the digest resolve smaller differences in rank there.
+tdigest-rs 1.0 adds native Polars aggregation and batch CDF queries backed by the same Rust core used by Python and Java. Existing Python code can keep its `tdigest_rs` import and `delta=` calls. Quantile estimates can change on upgrade, especially near the tails or when one value carries most of the weight.
 
-## Rank each observation in Polars
+## What changes for existing Python code?
 
-```python
-import polars as pl
-import tdigest_rs as td
-
-requests = pl.LazyFrame({
-    "service": ["search", "search", "checkout", "checkout"],
-    "latency_ms": [12.0, 48.0, 35.0, 90.0],
-})
-digests = requests.group_by("service").agg(
-    td.tdigest("latency_ms", max_size=200).alias("digest")
-)
-ranked = requests.join(digests, on="service").select(
-    "service", "latency_ms",
-    td.cdf("digest", pl.col("latency_ms")).alias("percentile_rank"),
-)
-print(ranked.collect())
-```
-
-A probe at a tied value receives the mass strictly below it plus half the mass at that value, divided by total mass. The join lets one digest answer every probe for its group. Use a single CDF expression for a column of probes. Passing TDIG v3 bytes between Rust, Python, Polars and Java preserves the observed extrema, mean precision, weights and compression settings. Versions 1 and 2 remain readable.
-
-## Upgrading Python from 0.1.0
-
-Keep the existing import and constructor. The default is still `delta=300`. Both versions produce the same results for these assertions.
+All 91 original Python test cases pass on the 1.0 release wheel. Both releases return the same results for this Float32 merge. Each input keeps its original weight.
 
 ```python
 import numpy as np
@@ -35,19 +13,14 @@ from tdigest_rs import TDigest
 first = TDigest.from_array(np.array([10, 20, 30], dtype=np.float32), delta=300)
 second = TDigest.from_array(np.array([40, 50], dtype=np.float32), delta=300)
 combined = first.merge(second)
-
-assert first.weights.sum() == 3
-assert combined.weights.sum() == 5
-assert combined.median() == 30
-assert combined.quantile(0.95) == 50
-assert combined.trimmed_mean(0.1, 0.9) == 30
-restored = TDigest.from_dict(combined.to_dict())
-assert restored.weights.sum() == 5
+print(int(first.weights.sum()), int(combined.weights.sum()))
+# 3 5
+print(combined.median(), combined.quantile(0.95))
+# 30.0 50.0
 ```
 
-### Seven cases from the original tests
-
-The original calling convention passes all 91 tests unchanged. The right column shows what happens if you explicitly select capacity mode.
+<details>
+<summary>Input handling with delta and max_size</summary>
 
 | Input or operation | Existing calls (`delta=` or default) | With `max_size=` |
 | --- | --- | --- |
@@ -59,90 +32,142 @@ The original calling convention passes all 91 tests unchanged. The right column 
 | A Float16 NumPy array | Raises `TypeError`. The original API accepts Float32 and Float64 arrays. | Accepts Float16 input. Default mean storage is Float64. |
 | Merge digests built from Float32 and Float64 arrays | The arrays select different stored precisions, so a direct merge raises `TypeError`. | Both constructors default to Float64, so the merge succeeds with Float64 means. If you choose different stored precisions, cast explicitly before merging. |
 
-For a Float32 merge, use `left.cast_precision("f32").merge(right.cast_precision("f32"))` with compatible compression settings.
+</details>
 
-### Numerical changes
+Loading a 0.1.0 pickle rebuilds the digest from its stored means and weights. Subsequent queries use the 1.0 quantile rule. Migration tests cover 32 published-wheel states. Rust callers using `tdigest_core` should move to the root `tdigest-rs` crate and handle checked operations.
 
-The old 10th percentile of `[1.0, 2.0]` was approximately 0.7. The shared core returns the observed minimum, 1.0. The median of `[0.0, 10.0]` with weights `[90, 10]` changes from 1.0 to 0.0, where 90 percent of the mass lies. Original pickles store means and weights. Loading one rebuilds the digest and queries use the new interpolation. The migration tests cover 32 states from the published wheel. Rust consumers of the original `tdigest_core` crate should switch to the root `tdigest-rs` crate and handle checked operations.
+## Numerical changes
+
+| Same Python call with `delta=300` | 0.1.0 | 1.0 |
+| --- | ---: | ---: |
+| P10 of two observations, 1 and 2 | 0.7 | 1.0 |
+| Median of values 0 and 10 supplied with weights 90 and 10 | 1.0 | 0.0 |
+
+- **0.1.0** interpolates between neighboring centroid means. Near the lower tail, that line can extend below the smallest observation, as it does for P10 above.
+- **1.0** returns the observed value when a quantile lies strictly inside its point mass. That places the weighted median at zero in the second example. Between two point masses the exact boundary gives their midpoint. Inside a centroid that combines distinct values, the estimate interpolates.
+
+**What can you choose?** With `max_size=`, `singleton_policy="edges"` protects up to `pin_per_side` distinct values at each tail during compression. With `"off"`, the compressor can combine those values. The query rule is the same in both cases. For the integers 0–99, the 1.75th percentile lands in an interpolated range with protection off and inside the observed value 1 with the first three tail values protected.
+
+```python
+import numpy as np
+from tdigest_rs import TDigest
+
+values = np.arange(100, dtype=np.float64)
+pooled = TDigest.from_array(values, max_size=10, singleton_policy="off")
+pinned = TDigest.from_array(values, max_size=10, singleton_policy="edges", pin_per_side=3)
+print(f"{pooled.quantile(0.0175):.3f}", f"{pinned.quantile(0.0175):.3f}")
+# 1.125 1.000
+```
 
 ## Accuracy on recorded data
 
-We compared both wheels on nine columns of bike rental and energy data, in both precisions and input orders. Each case used one bulk build, 40 sequential merges or a balanced tree of 40 digests. Against 0.1.0 at delta 300, the 1.0 delta API had lower mean rank error in 102 of 108 cases. The six losses came from merged outdoor temperature summaries. Replaying the old query formula on the new centroids still produced higher error than the old digest. Compression changed their placement and count. The evidence does not distinguish their individual contributions. Eight cases had higher mean error in the original units. Capacity 1,000 improved all 108 cases but uses a different storage budget. [Per case counts, errors and query replay](docs/upstream-1.0.0/recorded-accuracy.csv)
+We compared the releases at **equal final centroid counts**. For each case, 1.0 used `max_size=128`. We selected the 0.1.0 `delta` using only the resulting count. Here is the actual setup for one case. Run it from the repository root in each wheel’s environment.
 
-The extended regression suite compares 756 profiles against frozen measurements. Ten synthetic profiles exceed documented accuracy targets. An earlier comparison matched storage and found larger peak value errors on the energy data and better results for the original algorithm on several synthetic distributions. [Accuracy limits](tests/quality/known-limits.json) and [original study](https://github.com/ingolfured/tdigest-rs/blob/1292b6110578bb9561a168f0898254a62aaf1fcd/compat/quality-20261020/RESULTS.md)
+```python
+import csv
+import gzip
+from importlib.metadata import version
 
-## Timing the same work
+import numpy as np
+from tdigest_rs import TDigest
 
-We ran the published 0.1.0 wheel, the starting 1.0 wheel at `1292b61` and the revised 1.0 wheel on the same host. Cells are median wall times across seeds 42, 43 and 44. The first row uses the original threaded benchmark. The other rows verify each centroid mean and weight before timing.
+with gzip.open("tests/quality/data/bike.csv.gz", "rt") as source:
+    rides = np.array([float(row["cnt"]) for row in csv.DictReader(source)], dtype=np.float32)
 
-| Workload | Published 0.1.0 | Starting 1.0 | Revised 1.0 |
+release = version("tdigest-rs")
+if release == "0.1.0":
+    digest = TDigest.from_array(rides, delta=276.5625)
+else:
+    digest = TDigest.from_array(rides, max_size=128, precision="f32",
+                                scale="k2", singleton_policy="use")
+print(f"{release}: {len(rides)} rows, {len(digest)} centroids, P99 {digest.quantile(0.99):.2f}")
+# 0.1.0: 17379 rows, 128 centroids, P99 781.84
+# 1.0.0: 17379 rows, 128 centroids, P99 782.24
+```
+
+The 108 cases cover nine bike-rental and household-energy columns, two precisions, two input orders, and three build patterns (one bulk build, 40 sequential merges, or 40 parts merged in pairs). All 108 pairs matched in size, from 8 to 128 centroids. We checked 135 quantiles per digest against the sorted observations.
+
+| Error across 108 matched pairs | Lower in 1.0 | Equal | Higher in 1.0 |
 | --- | ---: | ---: | ---: |
-| Original benchmark, 32 workers | 2.521 s | 3.988 s | 2.954 s |
-| Merge 2,500 prebuilt pairs, one worker | 0.140 s | 0.420 s | 0.396 s |
-| Merge 2,500 prebuilt pairs, 32 workers | 0.045 s | 0.120 s | 0.066 s |
-| Build and merge the same pairs, one worker | 4.696 s | 2.693 s | 2.656 s |
-| Build and merge the same pairs, 32 workers | 0.221 s | 0.285 s | 0.232 s |
-| Build a million shuffled observations, one worker | 107.75 ms | 30.26 ms | 30.27 ms |
+| Average error in percentile rank | 102 | 0 | 6 |
+| Worst rank error in the outer 1% of either tail | 104 | 3 | 1 |
+| Average error in the column’s original units | 104 | 0 | 4 |
 
-The original benchmark builds at delta 10,000 and merges at 300. The revised merge reads centroids in Rust and releases the Python interpreter lock during compression. On a single merge of a digest with 4,135 centroids, peak memory visible to Python's allocation tracer fell from 199,000 to 513 bytes. This measures Python and NumPy allocations only. Rust still allocates storage for weighted observations and sorts them. The published implementation merges its ordered centroid runs directly. The revised 1.0 benchmark still took 17 percent longer than 0.1.0, and the matched merge by itself was also slower. These timings do not isolate how much of that remaining difference comes from sorting.
+All six increases in average rank error occurred on outdoor temperature. The largest increase was **0.011 percentage points** after merging 40 Float32 parts in pairs. [Per-case settings, counts, and errors](docs/upstream-1.0.0/matched-accuracy.csv) · [Known accuracy limits](tests/quality/known-limits.json)
 
-In the matched pair workload, both builds produce 4,135 centroids and each pair merge produces 160. The million value build produces 146 identical centroids. The original threaded workload has equal settings but can produce different counts across 0.1.0 and 1.0. Earlier operation timings also show the small array cost: on 32 values, the 1.0 Python adapter checks dtype, filters nonfinite values and resolves options before calling Rust. [Historical operation timings](docs/upstream-1.0.0/operation-timings.csv) and [historical matched runs](docs/upstream-1.0.0/matched-timings.csv)
+## Initialization, quantile, and CDF timings
 
-A separate comparison of the two 1.0 wheels timed 40 sequential merges of 1,000 observations each on one CPU. The median fell from 671 to 617 microseconds. The shared core now borrows the existing centroid runs after checking their configuration and state. Across all 108 recorded profiles in each of the two calling modes, centroid counts and reported error metrics matched exactly.
+Python 3.12.15 and NumPy 1.26.4 on one logical CPU of a Ryzen 9 9950X3D. Each build received the same million shuffled Float64 integers. Every digest held **146 centroids** and returned the same median (499,999.5) and P99 (989,999.5). Query timings exclude construction. Each cell is the median of seven timed rounds.
 
-For 65,536 random probes against one digest, six runs on one CPU gave 2.671 ms before and 2.686 ms after in NumPy, and 1.686 ms before and 1.699 ms after in Polars. With eight CPUs the Polars times were 0.362 and 0.363 ms. The returned ranks matched. An intermediate build retaining the old query loop took 1.695 ms for Polars on one CPU. The measurements do not isolate a cause for differences this small.
+| Operation | 0.1.0, `delta=300` | 1.0, `delta=300` | 1.0, `max_size=146` |
+| --- | ---: | ---: | ---: |
+| Initialize from the array | 108.0 ms | 30.3 ms | 29.9 ms |
+| Query the median | 109 ns | 109 ns | 56 ns |
+| Query P99 | 145 ns | 112 ns | 77 ns |
+| Query the CDF for 65,536 values in one call | Unavailable | Unavailable | 2.56 ms |
 
-## Reproduce the comparisons
+- **Initialization** was about 3.6× faster. At `delta=300`, P99 fell from 145 to 112 ns and median latency was essentially unchanged.
+- **CDF** is available through `max_size=` in 1.0. There is no equivalent 0.1.0 operation to time.
+- **Merge time** for two prebuilt 146-centroid digests with `delta=300` rose from 3.22 to 9.28 µs. [Timing samples](docs/upstream-1.0.0/release-timings.csv)
 
-Use separate Python environments for each release wheel with the same NumPy and joblib versions. Set `OLD_PY` to the published 0.1.0 Python executable and `PR_PY` to the candidate executable. For a comparison within 1.0, use the starting 1.0 Python executable in place of `OLD_PY` for timing. Keep the published executable for the `prepare` command. The operation benchmark below uses 0.1.0 as its baseline. Run from the repository root. The historical comparison used an AMD Ryzen 9 9950X3D on Linux, Python 3.12.15, NumPy 1.26.4 and joblib 1.5.2.
+## CDF in a Polars group
+
+This 1.0 query ranks each request against its own service. The two 48 ms requests show how the same latency can be high for one service and low for another. With two observations per service, the lower value receives rank 0.25 and the higher one receives 0.75.
+
+```python
+import polars as pl
+import tdigest_rs as td
+
+requests = pl.LazyFrame({
+    "service": ["search", "search", "checkout", "checkout"],
+    "latency_ms": [12.0, 48.0, 48.0, 90.0],
+})
+digests = requests.group_by("service").agg(
+    td.tdigest("latency_ms", max_size=200).alias("digest")
+)
+ranked = requests.join(digests, on="service").select(
+    "service", "latency_ms", td.cdf("digest", pl.col("latency_ms")).alias("cdf")
+)
+for row in ranked.sort("service", "latency_ms").collect().iter_rows():
+    print(*row)
+# checkout 48.0 0.25
+# checkout 90.0 0.75
+# search 12.0 0.25
+# search 48.0 0.75
+```
+
+<details>
+<summary>Reproduce the comparisons</summary>
+
+From the repository root, set `OLD_PY` and `PR_PY` to absolute paths to Python executables in two isolated environments with NumPy 1.26.4. Install the published 0.1.0 wheel in the first and the 1.0 release wheel built from this checkout in the second. The accuracy runner uses the checked-in datasets and selects the baseline compression parameter before it scores any quantile.
 
 ```bash
-export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
-bench=tests/upstream_legacy/bindings/python/benchmarks/run.py
-for seed in 42 43 44; do
-  interpreters=("$OLD_PY" "$PR_PY")
-  if [[ "$seed" == 43 ]]; then interpreters=("$PR_PY" "$OLD_PY"); fi
-  for py in "${interpreters[@]}"; do
-    "$py" -I -c 'import numpy as np,runpy,sys; np.random.seed(int(sys.argv[1])); runpy.run_path(sys.argv[2],run_name="__main__")' "$seed" "$bench"
-  done
-done
-
-
-# Set OLD_WHEEL and PR_WHEEL to the corresponding wheel files.
-"$PR_PY" scripts/benchmark_upstream.py --rounds 7 \
-  --baseline-python "$OLD_PY" --baseline-wheel "$OLD_WHEEL" \
-  --candidate-python "$PR_PY" --candidate-wheel "$PR_WHEEL" \
-  --output-dir build/wheel-comparison
-
+mkdir -p build/review
 compare=docs/upstream-1.0.0/compare_recorded.py
-"$OLD_PY" -I "$compare" delta > published-delta.csv
-"$PR_PY" -I "$compare" delta --save-centroids build/accuracy-centroids > pr-delta.csv
-"$OLD_PY" -I "$compare" delta --query-centroids build/accuracy-centroids > published-query-on-pr-centroids.csv
-"$PR_PY" -I "$compare" capacity > pr-capacity.csv
+"$PR_PY" -I "$compare" capacity --max-size 128 > build/review/1.0.csv
+"$OLD_PY" -I "$compare" delta --match-counts build/review/1.0.csv > build/review/0.1.0.csv
+wc -l < build/review/1.0.csv
+# 109
+wc -l < build/review/0.1.0.csv
+# 109
 ```
+
+For timings, choose one available logical CPU (CPU 8 in the reported run). The driver uses seed 42, warms up each operation, and writes the per-call median and all seven samples in nanoseconds. Times vary by machine.
 
 ```bash
-matched=docs/upstream-1.0.0/matched_centroids.py
-for seed in 42 43 44; do
-  fixtures="build/matched-centroids/$seed"
-  "$OLD_PY" -I "$matched" prepare "$fixtures" --seed "$seed"
-  interpreters=("$OLD_PY" "$PR_PY")
-  if [[ "$seed" == 43 ]]; then interpreters=("$PR_PY" "$OLD_PY"); fi
-  for workers in 32 1; do
-    for py in "${interpreters[@]}"; do
-      "$py" -I "$matched" time "$fixtures" --seed "$seed" --workers "$workers"
-    done
-  done
-  for py in "${interpreters[@]}"; do
-    taskset -c 8 "$py" -I "$matched" million "$fixtures" --seed "$seed"
-  done
-done
+export OPENBLAS_NUM_THREADS=1 RAYON_NUM_THREADS=1 OMP_NUM_THREADS=1
+timing=docs/upstream-1.0.0/time_operations.py
+taskset -c 8 "$OLD_PY" -I "$timing" delta > build/review/old-timing.csv
+taskset -c 8 "$PR_PY" -I "$timing" delta > build/review/delta-timing.csv
+taskset -c 8 "$PR_PY" -I "$timing" capacity > build/review/capacity-timing.csv
+cut -d, -f3 build/review/capacity-timing.csv
+# operation
+# build
+# median
+# p99
+# cdf_65536
 ```
 
-## Source and fixture provenance
+The original suite is pinned to G-Research commit `8d9cf1fe82c5c9254e5dc9593f01717e317f4333`. The numerical and pickle fixtures record their source and generation methods separately. [Original suite manifest](tests/upstream_legacy/manifest.json) · [Numerical generator](compat/numerical-parity/generate.rs) · [Pickle provenance](compat/published-pickle/PROVENANCE.json) · [Dataset credits](tests/quality/data/README.md)
 
-The shared Rust code came from [the development repository](https://github.com/ingolfured/gr-tdigest/commit/0eaa79411d1ca46cd0cf7294b03b6aafaf1a120c). The original suite and benchmark retain their bytes from G Research commit `8d9cf1fe82c5c9254e5dc9593f01717e317f4333`. Their manifest records every original path and checksum. [Original suite manifest](tests/upstream_legacy/manifest.json)
-
-The 70 numerical fixtures came from a separate build of that revision with Rust 1.90.0 on Linux. To reproduce them, build the generator against that original `tdigest_core` and `serde_json`. The pickle fixtures have their own published wheel identity and generator. Historical Rust measurements retain the dependency lock, source manifest and recorded outputs. [Numerical generator](compat/numerical-parity/generate.rs), [pickle provenance](compat/published-pickle/PROVENANCE.json) and [Rust reference manifest](compat/numerical-review/original-rust/oracle/source-manifest.json)
-
-The quality suite reads all rows from two locally stored datasets. Their attribution, licenses and preparation steps are kept beside the data. The Spark interoperability run records its runtime and artifact identity separately. [Dataset credits](tests/quality/data/README.md) and [Spark receipt](compat/spark-20261021/receipt.json)
+</details>
