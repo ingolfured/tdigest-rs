@@ -19,6 +19,11 @@ def test_legacy_merge_and_update_return_new_digests_and_honor_delta(dtype):
     coarse = left.merge(right, delta=10)
     updated = left.update(values[1000:], delta=200, merge_delta=300)
     assert fine is not left and fine is not right
+    observations = np.concatenate((left.means, right.means))
+    mass = np.concatenate((left.weights, right.weights))
+    expected = TDigest.from_means_weights(observations, mass, delta=300)
+    np.testing.assert_array_equal(fine.means, expected.means)
+    np.testing.assert_array_equal(fine.weights, expected.weights)
     assert len(fine) > len(coarse)
     assert fine.weights.sum() == len(values)
     np.testing.assert_array_equal(left.means, before[0])

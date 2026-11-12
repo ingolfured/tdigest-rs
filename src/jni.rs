@@ -87,101 +87,20 @@ fn jni_call<T>(mut env: JNIEnv, fallback: T, operation: impl FnOnce(&mut JNIEnv)
     }
 }
 
-#[cfg(test)]
-mod boundary_tests {
-    #[test]
-    fn catches_native_panics_without_unwinding_across_jni() {
-        assert_eq!(super::catch_native(|| 42).unwrap(), 42);
-        assert!(super::catch_native(|| panic!("controlled boundary test"))
-            .unwrap_err()
-            .contains("controlled boundary test"));
-    }
+fn into_handle(digest: FrontendDigest) -> jlong {
+    Box::into_raw(Box::new(digest)) as jlong
 }
 
-#[derive(Clone)]
-struct NativeDigest {
-    inner: FrontendDigest,
+unsafe fn from_handle<'a>(handle: jlong) -> &'a mut FrontendDigest {
+    &mut *(handle as *mut FrontendDigest)
 }
 
-impl NativeDigest {
-    fn from_values(
-        values: Vec<f64>,
-        max_size: usize,
-        scale: ScaleFamily,
-        policy: SingletonPolicy,
-        f32mode: bool,
-        delta: Option<f64>,
-    ) -> Result<Self, String> {
-        let precision = if f32mode {
-            DigestPrecision::F32
-        } else {
-            DigestPrecision::F64
-        };
-        let config = DigestConfig {
-            max_size,
-            scale,
-            policy,
-            delta,
-        };
-        FrontendDigest::from_values(values, config, precision)
-            .map(|inner| Self { inner })
-            .map_err(|e| e.to_string())
-    }
-
-    fn cdf(&self, xs: &[f64]) -> Vec<f64> {
-        self.inner.cdf(xs)
-    }
-
-    fn quantile(&self, p: f64) -> Result<f64, String> {
-        self.inner.quantile_strict(p).map_err(|e| e.to_string())
-    }
-
-    fn merge_f64_values(&mut self, values: Vec<f64>) -> Result<(), String> {
-        self.inner.add_values_f64(values).map_err(|e| e.to_string())
-    }
-
-    fn merge_weighted_f64(&mut self, values: Vec<f64>, weights: Vec<f64>) -> Result<(), String> {
-        self.inner
-            .add_weighted_f64(values, weights)
-            .map_err(|e| e.to_string())
-    }
-
-    fn merge_digest(&mut self, other: &NativeDigest) -> Result<(), String> {
-        self.inner
-            .merge_in_place(&other.inner)
-            .map_err(|e| e.to_string())
-    }
-
-    fn scale_weights(&mut self, factor: f64) -> Result<(), String> {
-        self.inner.scale_weights(factor).map_err(|e| e.to_string())
-    }
-
-    fn scale_values(&mut self, factor: f64) -> Result<(), String> {
-        self.inner.scale_values(factor).map_err(|e| e.to_string())
-    }
-
-    fn cast_precision(&self, target: DigestPrecision) -> Result<Self, String> {
-        self.inner
-            .try_cast_precision(target)
-            .map(|inner| Self { inner })
-            .map_err(|e| e.to_string())
-    }
+unsafe fn from_handle_const<'a>(handle: jlong) -> &'a FrontendDigest {
+    &*(handle as *const FrontendDigest)
 }
 
-// Handle helpers
-fn into_handle<T>(b: Box<T>) -> jlong {
-    Box::into_raw(b) as jlong
-}
-unsafe fn from_handle<'a, T>(h: jlong) -> &'a mut T {
-    &mut *(h as *mut T)
-}
-unsafe fn from_handle_const<'a, T>(h: jlong) -> &'a T {
-    &*(h as *const T)
-}
-
-// Throw helper
-fn throw_illegal_arg(env: &mut JNIEnv, msg: String) {
-    let _ = env.throw_new("java/lang/IllegalArgumentException", msg);
+fn throw_illegal_arg(env: &mut JNIEnv, message: impl ToString) {
+    let _ = env.throw_new("java/lang/IllegalArgumentException", message.to_string());
 }
 
 #[no_mangle]
@@ -202,14 +121,10 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_fromBytes(
 
         let ubuf: &[u8] = unsafe { slice::from_raw_parts(buf.as_ptr() as *const u8, buf.len()) };
 
-        let nd_res: Result<NativeDigest, String> = FrontendDigest::from_bytes(ubuf)
-            .map(|inner| NativeDigest { inner })
-            .map_err(|e| format!("jni: {e}"));
-
-        match nd_res {
-            Ok(nd) => into_handle(Box::new(nd)),
-            Err(msg) => {
-                throw_illegal_arg(env, msg);
+        match FrontendDigest::from_bytes(ubuf) {
+            Ok(digest) => into_handle(digest),
+            Err(error) => {
+                throw_illegal_arg(env, format!("jni: {error}"));
                 0
             }
         }
@@ -229,8 +144,8 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_toBytes(
         let bytes: Vec<u8> = if handle == 0 {
             Vec::new()
         } else {
-            let d = unsafe { from_handle_const::<NativeDigest>(handle) };
-            d.inner.to_bytes()
+            let d = unsafe { from_handle_const(handle) };
+            d.to_bytes()
         };
 
         let arr = env
@@ -267,12 +182,12 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_toBytesVersion(
             }
         };
 
-        let d = unsafe { from_handle_const::<NativeDigest>(handle) };
-        if let Err(error) = d.inner.validate_wire_version(version) {
-            throw_illegal_arg(env, error.to_string());
+        let d = unsafe { from_handle_const(handle) };
+        if let Err(error) = d.validate_wire_version(version) {
+            throw_illegal_arg(env, error);
             return arr.into_raw();
         }
-        let bytes = d.inner.to_bytes_with_version(version);
+        let bytes = d.to_bytes_with_version(version);
 
         let out = env
             .new_byte_array(bytes.len() as jint)
@@ -357,7 +272,7 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_fromArray(
             }
             xs = out;
         } else {
-            throw_illegal_arg(env, "fromArray expects a numeric array".to_string());
+            throw_illegal_arg(env, "fromArray expects a numeric array");
             return 0;
         }
 
@@ -374,7 +289,7 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_fromArray(
             }
         };
         if max_size <= 0 {
-            throw_illegal_arg(env, "max_size must be positive".to_string());
+            throw_illegal_arg(env, "max_size must be positive");
             return 0;
         }
         let policy = match map_policy(policy_code, edges) {
@@ -384,19 +299,21 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_fromArray(
                 return 0;
             }
         };
-        let f32 = f32mode != 0;
-
-        match NativeDigest::from_values(
-            xs,
-            max_size as usize,
-            sf,
+        let config = DigestConfig {
+            max_size: max_size as usize,
+            scale: sf,
             policy,
-            f32,
-            if delta == 0.0 { None } else { Some(delta) },
-        ) {
-            Ok(nd) => into_handle(Box::new(nd)),
+            delta: (delta != 0.0).then_some(delta),
+        };
+        let precision = if f32mode != 0 {
+            DigestPrecision::F32
+        } else {
+            DigestPrecision::F64
+        };
+        match FrontendDigest::from_values(xs, config, precision) {
+            Ok(digest) => into_handle(digest),
             Err(e) => {
-                throw_illegal_arg(env, e.to_string());
+                throw_illegal_arg(env, e);
                 0
             }
         }
@@ -411,7 +328,7 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_free(
 ) {
     jni_call(env, (), |_env| {
         if handle != 0 {
-            unsafe { drop(Box::from_raw(handle as *mut NativeDigest)) };
+            unsafe { drop(Box::from_raw(handle as *mut FrontendDigest)) };
         }
     })
 }
@@ -425,7 +342,7 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_mergeArrayF64(
 ) {
     jni_call(env, (), |env| {
         if let Err(msg) = ensure_non_null_handle(handle) {
-            throw_illegal_arg(env, msg.to_string());
+            throw_illegal_arg(env, msg);
             return;
         }
         let xs = match read_jdouble_array(env, &values) {
@@ -436,9 +353,9 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_mergeArrayF64(
             }
         };
 
-        let d = unsafe { from_handle::<NativeDigest>(handle) };
-        if let Err(e) = d.merge_f64_values(xs) {
-            throw_illegal_arg(env, e.to_string());
+        let d = unsafe { from_handle(handle) };
+        if let Err(e) = d.add_values_f64(xs) {
+            throw_illegal_arg(env, e);
         }
     })
 }
@@ -452,7 +369,7 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_mergeArrayF32(
 ) {
     jni_call(env, (), |env| {
         if let Err(msg) = ensure_non_null_handle(handle) {
-            throw_illegal_arg(env, msg.to_string());
+            throw_illegal_arg(env, msg);
             return;
         }
         let xs32 = match read_jfloat_array(env, &values) {
@@ -464,9 +381,9 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_mergeArrayF32(
         };
         let xs: Vec<f64> = xs32.into_iter().map(|v| v as f64).collect();
 
-        let d = unsafe { from_handle::<NativeDigest>(handle) };
-        if let Err(e) = d.merge_f64_values(xs) {
-            throw_illegal_arg(env, e.to_string());
+        let d = unsafe { from_handle(handle) };
+        if let Err(e) = d.add_values_f64(xs) {
+            throw_illegal_arg(env, e);
         }
     })
 }
@@ -481,7 +398,7 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_mergeWeightedF64
 ) {
     jni_call(env, (), |env| {
         if let Err(msg) = ensure_non_null_handle(handle) {
-            throw_illegal_arg(env, msg.to_string());
+            throw_illegal_arg(env, msg);
             return;
         }
         let xs = match read_jdouble_array(env, &values) {
@@ -499,9 +416,9 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_mergeWeightedF64
             }
         };
 
-        let d = unsafe { from_handle::<NativeDigest>(handle) };
-        if let Err(e) = d.merge_weighted_f64(xs, ws) {
-            throw_illegal_arg(env, e.to_string());
+        let d = unsafe { from_handle(handle) };
+        if let Err(e) = d.add_weighted_f64(xs, ws) {
+            throw_illegal_arg(env, e);
         }
     })
 }
@@ -516,7 +433,7 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_mergeWeightedF32
 ) {
     jni_call(env, (), |env| {
         if let Err(msg) = ensure_non_null_handle(handle) {
-            throw_illegal_arg(env, msg.to_string());
+            throw_illegal_arg(env, msg);
             return;
         }
         let xs32 = match read_jfloat_array(env, &values) {
@@ -535,9 +452,9 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_mergeWeightedF32
         };
         let xs: Vec<f64> = xs32.into_iter().map(|v| v as f64).collect();
 
-        let d = unsafe { from_handle::<NativeDigest>(handle) };
-        if let Err(e) = d.merge_weighted_f64(xs, ws) {
-            throw_illegal_arg(env, e.to_string());
+        let d = unsafe { from_handle(handle) };
+        if let Err(e) = d.add_weighted_f64(xs, ws) {
+            throw_illegal_arg(env, e);
         }
     })
 }
@@ -551,17 +468,17 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_mergeDigest(
 ) {
     jni_call(env, (), |env| {
         if let Err(msg) = ensure_non_null_handle(handle) {
-            throw_illegal_arg(env, msg.to_string());
+            throw_illegal_arg(env, msg);
             return;
         }
         if let Err(msg) = ensure_non_null_handle(other_handle) {
-            throw_illegal_arg(env, msg.to_string());
+            throw_illegal_arg(env, msg);
             return;
         }
 
-        let other_owned = unsafe { from_handle_const::<NativeDigest>(other_handle).clone() };
-        let d = unsafe { from_handle::<NativeDigest>(handle) };
-        if let Err(e) = d.merge_digest(&other_owned) {
+        let other_owned = unsafe { from_handle_const(other_handle).clone() };
+        let d = unsafe { from_handle(handle) };
+        if let Err(e) = d.merge_in_place(&other_owned) {
             throw_illegal_arg(env, e);
         }
     })
@@ -576,10 +493,10 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_scaleWeights(
 ) {
     jni_call(env, (), |env| {
         if let Err(msg) = ensure_non_null_handle(handle) {
-            throw_illegal_arg(env, msg.to_string());
+            throw_illegal_arg(env, msg);
             return;
         }
-        let d = unsafe { from_handle::<NativeDigest>(handle) };
+        let d = unsafe { from_handle(handle) };
         if let Err(e) = d.scale_weights(factor) {
             throw_illegal_arg(env, e);
         }
@@ -595,10 +512,10 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_scaleValues(
 ) {
     jni_call(env, (), |env| {
         if let Err(msg) = ensure_non_null_handle(handle) {
-            throw_illegal_arg(env, msg.to_string());
+            throw_illegal_arg(env, msg);
             return;
         }
-        let d = unsafe { from_handle::<NativeDigest>(handle) };
+        let d = unsafe { from_handle(handle) };
         if let Err(e) = d.scale_values(factor) {
             throw_illegal_arg(env, e);
         }
@@ -614,7 +531,7 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_castPrecision(
 ) -> jlong {
     jni_call(env, 0, |env| {
         if let Err(msg) = ensure_non_null_handle(handle) {
-            throw_illegal_arg(env, msg.to_string());
+            throw_illegal_arg(env, msg);
             return 0;
         }
         let target = if f32mode != 0 {
@@ -622,9 +539,9 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_castPrecision(
         } else {
             DigestPrecision::F64
         };
-        let d = unsafe { from_handle_const::<NativeDigest>(handle) };
+        let d = unsafe { from_handle_const(handle) };
         match d.cast_precision(target) {
-            Ok(casted) => into_handle(Box::new(casted)),
+            Ok(casted) => into_handle(casted),
             Err(error) => {
                 throw_illegal_arg(env, error);
                 0
@@ -646,7 +563,7 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_cdf(
         if handle == 0 || n == 0 {
             return out.into_raw();
         }
-        let d = unsafe { from_handle::<NativeDigest>(handle) };
+        let d = unsafe { from_handle(handle) };
 
         let mut in_buf = vec![0f64; n];
         if let Err(e) = env.get_double_array_region(&values, 0, &mut in_buf) {
@@ -672,11 +589,11 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_quantile(
         if handle == 0 {
             return f64::NAN;
         }
-        let d = unsafe { from_handle_const::<NativeDigest>(handle) };
-        match d.quantile(q) {
+        let d = unsafe { from_handle_const(handle) };
+        match d.quantile_strict(q) {
             Ok(v) => v,
             Err(msg) => {
-                throw_illegal_arg(env, msg.to_string());
+                throw_illegal_arg(env, msg);
                 f64::NAN
             }
         }
@@ -693,7 +610,18 @@ pub extern "system" fn Java_com_gresearch_tdigest_TDigestNative_median(
         if handle == 0 {
             return f64::NAN;
         }
-        let d = unsafe { from_handle_const::<NativeDigest>(handle) };
-        d.quantile(0.5).unwrap_or(f64::NAN)
+        let d = unsafe { from_handle_const(handle) };
+        d.quantile_strict(0.5).unwrap_or(f64::NAN)
     })
+}
+
+#[cfg(test)]
+mod boundary_tests {
+    #[test]
+    fn catches_native_panics_without_unwinding_across_jni() {
+        assert_eq!(super::catch_native(|| 42).unwrap(), 42);
+        assert!(super::catch_native(|| panic!("controlled boundary test"))
+            .unwrap_err()
+            .contains("controlled boundary test"));
+    }
 }

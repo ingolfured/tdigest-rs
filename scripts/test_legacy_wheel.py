@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from email.parser import Parser
 from collections.abc import Callable
 import os
 from pathlib import Path, PurePosixPath
@@ -17,10 +18,15 @@ from check_upstream_tests import verify_tests
 
 
 def verify_wheel_contents(wheel: Path) -> None:
-    """Check the license, package layout, and absence of Python caches."""
+    """Check the published description, license and package contents."""
+    root = Path(__file__).resolve().parents[1]
     with ZipFile(wheel) as archive:
+        (metadata,) = (name for name in archive.namelist() if name.endswith(".dist-info/METADATA"))
+        description = Parser().parsestr(archive.read(metadata).decode("utf-8"))
+        if description.get_payload().strip() != (root / "README.md").read_text(encoding="utf-8").strip():
+            raise RuntimeError("wheel description differs from the root README")
         licenses = [name for name in archive.namelist() if name.endswith(".dist-info/licenses/LICENSE")]
-        if len(licenses) != 1 or archive.read(licenses[0]) != (Path(__file__).resolve().parents[1] / "LICENSE").read_bytes():
+        if len(licenses) != 1 or archive.read(licenses[0]) != (root / "LICENSE").read_bytes():
             raise RuntimeError("wheel must include the project license")
         required = {"tdigest_rs/_polars.py", "tdigest_rs/_shared.py"}
         if any(name.startswith("gr_tdigest/") for name in archive.namelist()):

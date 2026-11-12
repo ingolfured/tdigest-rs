@@ -1,113 +1,33 @@
-# Java 11 and later
+# Building and loading the Java binding
 
-Java code and tests compile with `--release 11`. CI builds and runs the JNI
-tests and packaged JAR on JDK 11, 17, 21 and 25, checking Java 11 class files
-on every version. The default Gradle 8.14.5 runs on JDK 11 through 24;
-JDK 25 builds use Gradle 9.1.0 through the verified distribution override.
-The full project's build also runs on JDK 21.
-
-With an installed JDK, the normal wrapper needs no Python:
+The JAR contains Java 11 classes and the native library for the build platform. The release jobs exercise JDK 11, 17, 21 and 25. With an installed JDK, use the Gradle wrapper from the repository root.
 
 ```sh
-JAVA_HOME=/opt/jdk-11 ./bindings/java/gradlew --no-daemon -p bindings/java clean test jar smoke verifyJava11Bytecode
+bindings/java/gradlew --no-daemon -p bindings/java clean test jar smoke verifyJava11Bytecode
 ```
 
-`verifyJava11Bytecode` checks compiled class files, not just Gradle settings.
-Native code is built for the host OS/architecture and packaged in the JAR.
-`CARGO_TARGET_DIR` is respected without a target symlink.
+The default wrapper uses Gradle 8.14.5. For JDK 25, use `TDIGEST_GRADLE_HOME` to select an installed Gradle 9.1.0 or set both `TDIGEST_GRADLE_URL` and `TDIGEST_GRADLE_SHA256`. The Gradle 9.1.0 binary distribution has SHA256 `a17ddd85a26b6a7f5ddb71ff8b05fc5104c0202c6e64782429790c933686c806`. On JDK 25, use `--enable-native-access=ALL-UNNAMED` when launching the application.
 
-## Building on Java 25
+## Internal repositories and offline builds
 
-Keep the default wrapper distribution for older JDKs and select Gradle 9.1.0
-when building on JDK 25 (the optional bootstrap requires Python 3.10+):
+The optional bootstrap accepts archive URLs or local archive paths and verifies their checksums. It requires Python 3.10 or later. Tar archives containing links also require the tarfile data filter. Prepare the tools and dependency caches while the configured repositories are reachable.
 
-```sh
-JAVA_HOME=/opt/jdk-25 \
-TDIGEST_GRADLE_URL=https://services.gradle.org/distributions/gradle-9.1.0-bin.zip \
-TDIGEST_GRADLE_SHA256=a17ddd85a26b6a7f5ddb71ff8b05fc5104c0202c6e64782429790c933686c806 \
-./bindings/java/gradlew --no-daemon -p bindings/java clean test jar smoke verifyJava11Bytecode
-```
-
-For an installed Gradle 9.1.0, use `TDIGEST_GRADLE_HOME=/opt/gradle-9.1.0`
-instead of the URL and checksum. Internal mirrors and local archives use the
-same settings shown below. Prepare that selected distribution before going
-offline, and keep its URL/checksum or home configured for offline builds.
-The JAR still targets Java 11. Java 25 JNI tests and smoke tasks enable native
-access; applications launching the JAR on Java 25 should use
-`java --enable-native-access=ALL-UNNAMED -jar path/to/tdigest-rs.jar`.
-
-## Internal downloads and Artifactory
-
-The optional bootstrap needs Python 3.10 or later and its standard library. Configure
-JDK/Gradle archive URLs, local paths or `file:` URLs and their expected SHA256:
-
-```sh
-export TDIGEST_JDK_URL=https://artifacts.example/jdks/jdk-11-linux-x64.tar.gz
-export TDIGEST_JDK_SHA256=EXPECTED_64_CHARACTER_SHA256
-export TDIGEST_GRADLE_URL=https://artifacts.example/gradle/gradle-8.14.5-bin.zip
-export TDIGEST_GRADLE_SHA256=EXPECTED_64_CHARACTER_SHA256
-export TDIGEST_MAVEN_REPOSITORY_URL=https://artifacts.example/artifactory/maven-virtual
-make java-prepare
-make build-java java-test
-```
-
-The Maven dependency source is exclusive when configured: it replaces
-MavenCentral, with no public fallback. `TDIGEST_MAVEN_USERNAME` and
-`TDIGEST_MAVEN_PASSWORD` supply its credentials. `TDIGEST_DOWNLOAD_USERNAME` and
-`TDIGEST_DOWNLOAD_PASSWORD` supply HTTP Basic credentials for archive downloads.
-Configured download failures have no alternate source. There is no implicit JDK
-vendor download; choose the archive for your OS and architecture.
-
-| Variable | Meaning |
+| Setting | Purpose |
 | --- | --- |
-| `JAVA_HOME` | Existing JDK; an explicit `TDIGEST_JDK_URL` selects its verified JDK instead. |
-| `TDIGEST_GRADLE_HOME` | Existing Gradle installation; skips distribution download. |
-| `TDIGEST_TOOLCHAIN_CACHE` | Bootstrap cache; default `~/.cache/tdigest-rs/toolchains`. |
-| `TDIGEST_BOOTSTRAP_PYTHON` | Python executable used by the optional bootstrap. |
-| `GRADLE_USER_HOME` | Gradle dependency cache, independent of the toolchain cache. |
-| `CARGO_HOME`, `CARGO_TARGET_DIR` | Rust source cache and native output directory. |
+| `JAVA_HOME` | Select an installed JDK. `TDIGEST_JDK_URL` with `TDIGEST_JDK_SHA256` selects a verified archive instead. |
+| `TDIGEST_DOWNLOAD_USERNAME`, `TDIGEST_DOWNLOAD_PASSWORD` | Authenticate tool downloads. |
+| `TDIGEST_MAVEN_REPOSITORY_URL` | Select the exclusive Maven dependency source. Use `TDIGEST_MAVEN_USERNAME` and `TDIGEST_MAVEN_PASSWORD` when it requires credentials. |
+| `TDIGEST_TOOLCHAIN_CACHE`, `GRADLE_USER_HOME` | Set the tool installation cache and Gradle dependency cache. |
+| `CARGO_HOME`, `CARGO_TARGET_DIR` | Set the Rust source cache and native build output. |
 
-The bootstrap verifies the archive checksum before extraction. Tar archives that contain links need a Python version with the tarfile data filter. Paths and links are checked,
-and complete installations enter the cache by atomic rename. Partial downloads
-never become a completed installation. Bootstrap errors do not print configured
-URLs or passwords. POSIX and Windows wrappers use the same environment controls;
-the POSIX fake launcher test is distinct from the portable archive tests.
+Run `make java-prepare` to stage tools. Run `make build-java java-test` once to populate dependencies, then use `TDIGEST_OFFLINE=1 make build-java java-test` with the same repository and Gradle settings. To publish to an internal Maven repository, configure the publishing destination in the Gradle build separately from the dependency source.
 
-## Building with no network
+## Running a packaged JAR
 
-Prepare the tools and dependency caches through internal sources first, or
-prepare archives and dependencies. Then use:
+The loader checks an explicit library override, then the platform resource in the JAR. If the resource is absent, it tries the Java library path and finally a checkout. Use `-Dcom.gresearch.tdigest.native=path/to/library.so` for an override or `-Dcom.gresearch.tdigest.extractDir=/writable/location` when temporary files cannot be executed. Set `TDIGEST_SOURCE_SHA` at build time to record the source revision alongside the native library hash. Use independent digests for concurrent work or coordinate access to shared mutable objects.
 
-```sh
-TDIGEST_OFFLINE=1 make build-java java-test
-```
+## Scala, Kotlin and Spark
 
-Offline mode refuses uncached network tool downloads and passes `--offline` to
-both Gradle and Cargo. Local archive files remain usable. Keep the same internal
-Maven URL when warming and reusing Gradle's cache. Missing dependencies fail
-instead of falling back to a public source.
+The [Kotlin example](examples/kotlin/src/main/kotlin/Example.kt) resolves the published Maven artifact. Run `bindings/java/gradlew -p bindings/java/examples/kotlin -PtdigestVersion=1.0.0 run` from the repository root. The [Scala example](examples/scala/src/main/scala/Example.scala) uses sbt with JDK 17 and targets Java 11. Run `sbt -Dtdigest.version=1.0.0 run` in `bindings/java/examples/scala`. For private repositories set the Maven URL and credentials above. The sbt launcher may also need its own repository, realm and boot credentials.
 
-The native build also needs the pinned Rust toolchain and Cargo sources.
-Provision Rust in advance; populate Cargo with `cargo fetch --locked` using the
-organization's Cargo mirror, or supply a vendored Cargo tree. Python development
-dependencies are needed only for the full project's Python targets and have
-their own uv/index configuration. Maven *publishing* still uses the separate
-`MAVEN_REPOSITORY_URL` settings; the dependency mirror never changes the release
-destination.
-
-Fast bootstrap checks need no external network, installed JDK or Gradle:
-`make java-bootstrap-test`.
-
-Direct Java subprocesses in the interoperability tests use the same selected JDK as Gradle. Setting the archive environment variables is sufficient for `make build test`, including on a host with no usable `java`/`javac` on `PATH`; `JAVA_HOME` is also honored when explicitly supplied.
-
-## Downloaded JAR and runtime loading
-
-The shared public class is `com.gresearch.tdigest.TDigest`; the Maven coordinates remain `com.gresearch.tdigest:tdigest-rs`. The JAR bundles the platform native library and records its SHA-256 in the manifest. Set `TDIGEST_SOURCE_SHA` to the source commit when building to record its identity; otherwise the source field is `unrecorded`. It runs outside the checkout without Rust or Python.
-
-Use `-Dcom.gresearch.tdigest.native=path/to/library.so` for a controlled native override. Relative paths resolve from the process working directory, including distributed file paths. Use `-Dcom.gresearch.tdigest.extractDir=/writable/location` when the default extraction directory is restricted. Keep the extracted directory executable. Loader errors list attempted paths and causes.
-
-`add`, weighted additions and `merge` update only the receiver and return it. Array `mergeAll` returns independent state. Java object serialization and TDIG byte restoration own fresh native handles; close each object after use. Independent objects may be used concurrently; shared mutable objects require caller coordination.
-
-Java 11 is the minimum runtime, with Java 11/17/21/25 checks. The ordinary host build targets that host's native ABI. Producing a Linux glibc 2.17 JNI artifact requires a corresponding cross compilation or minimum platform build and actual minimum platform execution; Java bytecode checks alone do not establish the native ABI floor. Python's manylinux_2_28 artifact is a separate build.
-
-See [Scala and Kotlin examples](examples/README.md) for authenticated dependency resolution and running offline with cached dependencies. Actual Spark driver/executor serialization, shuffles and checkpoint recovery require the consumer's cluster checks.
+The [Spark check](examples/spark/check.py) transfers digest state between two executor processes using a shuffle, a broadcast and a checkpoint. Run the script with `--help` for the Spark distribution, compiler classpath, JAR, serializer and output arguments. Its Kryo example registers a serializer for TDIG bytes. On a cluster, provide a shared checkpoint URI and run the check with the actual executor image. The [recorded run](../../compat/spark-20261021/receipt.json) identifies the Spark and JDK versions, artifacts and serializers tested.

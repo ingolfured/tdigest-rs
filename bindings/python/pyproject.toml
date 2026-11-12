@@ -6,7 +6,7 @@ build-backend = "maturin"
 name = "tdigest-rs"
 dynamic = ["version"]
 description = "Rust TDigest with Python, Polars and JNI"
-readme = "PYTHON_README.md"
+readme = "../../README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.10,<3.16"

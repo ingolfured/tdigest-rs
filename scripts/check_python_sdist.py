@@ -65,28 +65,15 @@ def verify_sdist_contents(sdist: Path, root: Path) -> None:
 
         for relative in (
             "README.md",
-            "bindings/python/PYTHON_README.md",
-            "bindings/python/tdigest_rs/__init__.py",
-            "bindings/python/tdigest_rs/_modern.py",
-            "bindings/python/tdigest_rs/_modern.pyi",
-            "bindings/python/tdigest_rs/_polars.py",
-            "bindings/python/tdigest_rs/_shared.py",
-            "bindings/python/tdigest_rs/lib.py",
-            "bindings/python/tdigest_rs/lib.pyi",
-            "bindings/python/tdigest_rs/tdigest_rs.py",
+            "RELEASE_NOTES_1.0.0.md",
+            "tests/quality/data/README.md",
             "src/tdigest/tdigest.rs",
             "scripts/check_build_tools.py",
             "scripts/consumer_contract_probe.py",
-            "bindings/python/OBJECT_API.md",
-            "bindings/python/POLARS_API.md",
-            "bindings/python/tdigest_rs/__init__.pyi",
-            "bindings/python/tdigest_rs/_native.pyi",
-            "bindings/python/tdigest_rs/py.typed",
             "bindings/java/gradlew",
             "bindings/java/gradlew.bat",
             "bindings/java/gradle/wrapper/gradle-wrapper.jar",
             "bindings/java/gradle/wrapper/gradle-wrapper.properties",
-            "bindings/java/examples/README.md",
             "bindings/java/examples/scala/build.sbt",
             "bindings/java/examples/scala/project/build.properties",
             "bindings/java/examples/scala/src/main/scala/Example.scala",
@@ -102,7 +89,6 @@ def verify_sdist_contents(sdist: Path, root: Path) -> None:
             "scripts/check_upstream_tests.py",
             "scripts/test_upstream_legacy.py",
             "tests/upstream_legacy/manifest.json",
-            "tests/upstream_legacy/PROVENANCE.md",
             "tests/upstream_legacy/bindings/python/tests/__init__.py",
             "tests/upstream_legacy/bindings/python/tests/conftest.py",
             "tests/upstream_legacy/bindings/python/tests/constants.py",
@@ -127,7 +113,8 @@ def verify_sdist_contents(sdist: Path, root: Path) -> None:
             require_same(relative, relative)
         require_same("LICENSE", "LICENSE")
         require_same("bindings/python/LICENSE", "LICENSE")
-        require_same("PYTHON_README.md", "bindings/python/PYTHON_README.md")
+        if manifests["pyproject.toml"]["project"]["readme"] != "README.md":
+            raise RuntimeError("sdist metadata must use the root README")
         normalized_build = manifests["pyproject.toml"].get("tool", {}).get("maturin", {})
         if normalized_build.get("manifest-path") != "Cargo.toml":
             raise RuntimeError("sdist has an unexpected active Rust manifest")
@@ -146,7 +133,9 @@ def verify_sdist_contents(sdist: Path, root: Path) -> None:
             "tdigest_rs/lib.pyi",
             "tdigest_rs/tdigest_rs.py",
         ):
-            require_same(relative, "bindings/python/" + relative)
+            source = "bindings/python/" + relative
+            require_same(relative, source)
+            require_same(source, source)
         source_manifest = tomllib.loads((root / "Cargo.toml").read_text())
         source_library = canonical_relative(source_manifest.get("lib", {}).get("path", "src/lib.rs"))
         archive_library = canonical_relative(manifests["Cargo.toml"].get("lib", {}).get("path", "src/lib.rs"))

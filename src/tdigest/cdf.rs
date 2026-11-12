@@ -1,33 +1,5 @@
-//! CDF (cumulative distribution function) evaluation for `TDigest`.
-//!
-//! Allocation-lean kernel that operates directly on the centroid slice.
-//! We keep a single `prefix` vector (running weight sums) per call and
-//! avoid snapshotting means/weights into separate arrays.
-//!
-//! # Semantics
-//! - **Outside support**: clamp to `{0, 1}` (strictly below `min` → `0`,
-//!   strictly above `max` → `1`).
-//! - **Left/right tails**: guarded linear ramps between `min↔mean[0]` and
-//!   `mean[last]↔max`, where the adjacent edge centroid contributes **half weight**.
-//! - **Exact centroid hit**: return midpoint mass, i.e. `(prefix + 0.5·w) / N`.
-//! - **Between centroids**: center-to-center interpolation that **excludes
-//!   atomic half-mass** from the interpolation span. Two atomic neighbors
-//!   produce a **step** (no smearing).
-//!
-//! # Guarantees
-//! - Output is in **[0, 1]** (except for explicit NaN propagation / empty digest).
-//! - Output is **non-decreasing** in the query value.
-//! - With sufficient capacity (no compression), the result matches the
-//!   **midpoint ECDF** over ties.
-//!
-//! # Edge cases
-//! - **Empty digest** → CDF returns a vector of **NaN** (one per input probe).
-//! - **NaN probe**    → that output element is **NaN**.
-//!
-//! # Performance
-//! - Per query is **O(log n)** due to a binary search on centroid means.
-//! - A single `prefix` array is built **once per call** (O(n)) and reused.
-//! - For very large batches, we switch to Rayon parallelism.
+//! Cumulative probabilities from ordered centroids. Each batch shares one array of
+//! cumulative weights. Each probe uses a binary search over the centroid means.
 
 use crate::tdigest::centroids::Centroid;
 use crate::tdigest::precision::FloatLike;
@@ -43,26 +15,14 @@ use rayon::prelude::*;
 const PAR_MIN: usize = 32_768;
 
 impl<F: FloatLike + FloatCore> TDigest<F> {
-    /// Estimate the CDF at each `vals[i]`, returning values in **[0, 1]**.
-    ///
-    /// ## Semantics
-    /// The rank depends on the support, centroid kind and cumulative mass.
-    /// - **Outside support**: clamps using `self.min()`/`self.max()`.
-    /// - **Tails**: linear ramps `min↔mean[0]` and `mean[last]↔max` with
-    ///   **half-weight** at the adjacent edge centroid.
-    /// - **Exact mean hit**: midpoint mass `(prefix + 0.5·w)/N`.
-    /// - **Between means**: center-to-center interpolation that **excludes**
-    ///   `w/2` from any **atomic** neighbor (units and piles).
-    ///
-    /// ## Edge cases
-    /// - Empty digest (`m = 0`) → a vector of `NaN` with `vals.len()` entries.
-    /// - Empty `vals` → returns an empty vector.
-    /// - **NaN probe** → that output element is `NaN`.
+    /// Estimate the rank of each probe. An exact centroid hit gets its midpoint rank.
+    /// Between centroids, interpolate only the mass held by mixed centroids. In the
+    /// tails, interpolate to the observed extrema. An empty digest or a NaN probe
+    /// yields NaN. Probes strictly outside the observed range give zero or one.
     pub fn cdf(&self, vals: &[f64]) -> Vec<f64> {
         let cents = self.centroids();
         let n = cents.len();
 
-        // Degenerate cases
         if n == 0 {
             return vec![f64::NAN; vals.len()];
         }
@@ -88,28 +48,17 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
         let min_v = self.min();
         let max_v = self.max();
 
-        // Main path: parallel for big batches, scalar otherwise.
-        if vals.len() >= PAR_MIN {
-            vals.par_iter()
-                .with_min_len(4096)
-                .map(|&v| {
-                    if v.is_nan() {
-                        f64::NAN
-                    } else {
-                        cdf_at_val_fast(v, cents, &prefix, count_f64, min_v, max_v)
-                    }
-                })
-                .collect()
-        } else {
-            let mut out = Vec::with_capacity(vals.len());
-            for &v in vals {
-                if v.is_nan() {
-                    out.push(f64::NAN);
-                } else {
-                    out.push(cdf_at_val_fast(v, cents, &prefix, count_f64, min_v, max_v));
-                }
+        let rank = |&value: &f64| {
+            if value.is_nan() {
+                f64::NAN
+            } else {
+                cdf_at_val_fast(value, cents, &prefix, count_f64, min_v, max_v)
             }
-            out
+        };
+        if vals.len() >= PAR_MIN {
+            vals.par_iter().with_min_len(4096).map(rank).collect()
+        } else {
+            vals.iter().map(rank).collect()
         }
     }
 }
@@ -346,8 +295,8 @@ mod tests {
         // - right: seven identical tens → atomic with w=7 at mean=10.0
         // N = 12 total
         let mut values: Vec<f64> = Vec::new();
-        values.extend(std::iter::repeat(0.0).take(5));
-        values.extend(std::iter::repeat(10.0).take(7));
+        values.extend([0.0; 5]);
+        values.extend([10.0; 7]);
         values.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
         let td = TDigestBuilder::new()
